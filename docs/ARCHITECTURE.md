@@ -205,3 +205,46 @@ Implementacja: NestJS Guards + custom decorator `@Roles()` + JWT payload z rolą
 |------------|------|
 | `development` | docker-compose.yml, hot reload, lokalny SMTP |
 | `production` | docker-compose.prod.yml, Nginx SSL, zewnętrzny SMTP |
+
+---
+
+## Znane pułapki i decyzje
+
+### Auth: refresh tokenu przy odświeżeniu strony
+
+**Problem:** Po naciśnięciu F5 użytkownik był wylogowywany mimo ważnego refresh tokenu w cookie.
+
+**Przyczyna — dwie warstwy:**
+
+1. **Zustand persist jest asynchroniczny.** `useEffect` w komponencie inicjalizującym uruchamia się zanim Zustand zdąży wczytać `user` z localStorage. W efekcie komponent widzi `user = null` i nie próbuje refreshu.
+
+2. **React StrictMode podwójnie wywołuje `useEffect`.** Gdy próbowaliśmy proaktywnie wywołać `/auth/refresh` przy starcie, StrictMode uruchamiał effect dwa razy. Oba requesty wysyłały ten sam token; pierwszy go unieważniał (token rotation), drugi dostawał 403 → `logout()` → wylogowanie.
+
+**Rozwiązanie:**
+
+- `AuthInitializer` (`src/components/AuthInitializer.tsx`) czeka **tylko** na zakończenie hydratacji Zustand przez `useAuthStore.persist.onFinishHydration()` — nic więcej.
+- Refresh tokenu obsługuje **wyłącznie interceptor Axios** (`src/lib/api.ts`): gdy pierwsze zapytanie po odświeżeniu strony dostaje 401 (brak tokenu w pamięci), interceptor wywołuje `/auth/refresh` z httpOnly cookie, dostaje nowy access token i ponawia oryginalne zapytanie.
+- Interceptor ma flagę `isRefreshing` i kolejkę `failedQueue` — jeśli kilka requestów dostanie 401 jednocześnie, tylko jeden wywołuje refresh, pozostałe czekają w kolejce i dostają nowy token po jego zakończeniu.
+
+**Zasada na przyszłość:** Nigdy nie wywołuj `/auth/refresh` proaktywnie przy starcie aplikacji — zostaw to interceptorowi. `AuthInitializer` ma wyłącznie czekać na hydratację store'a.
+
+```
+Odświeżenie strony:
+  AuthInitializer czeka na hydratację Zustand
+  └─► PrivateRoute widzi user (persisted) → renderuje stronę
+      └─► Komponent wywołuje API (brak tokenu w pamięci)
+          └─► Axios interceptor: 401 → POST /auth/refresh (cookie)
+              ├─► 200 → setAccessToken → ponów request → dane załadowane ✓
+              └─► 403 → logout() → redirect /login ✓
+```
+
+### shadcn/ui: złe ścieżki importów po `npx shadcn@latest add`
+
+**Problem:** shadcn CLI generuje komponenty z importami `from "src/lib/utils"` i `from "src/components/ui/button"` zamiast `from "@/lib/utils"`.
+
+**Rozwiązanie:** Po każdym `npx shadcn@latest add <komponent>` w `apps/web/` uruchom:
+
+```bash
+sed -i '' 's|from "src/lib/utils"|from "@/lib/utils"|g' src/components/ui/<komponent>.tsx
+sed -i '' 's|from "src/components/ui/|from "@/components/ui/|g' src/components/ui/<komponent>.tsx
+```
