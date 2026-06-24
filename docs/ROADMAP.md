@@ -1,22 +1,22 @@
 # Roadmap — Plan Rozwoju
 
-## Faza 0 — Planowanie i Setup ✅ (aktualnie)
+## Faza 0 — Planowanie i Setup ✅
 
 - [x] Dokumentacja projektu (ten folder)
-- [ ] Inicjalizacja repozytorium Git + push na GitHub
-- [ ] Konfiguracja `.gitignore` (node_modules, .env, dist, coverage)
+- [x] Inicjalizacja repozytorium Git + push na GitHub
+- [x] Konfiguracja `.gitignore` (node_modules, .env, dist, coverage)
 - [~] Ochrona brancha `main` — wymaga GitHub Pro na prywatnym repo (pomiń lub upublicznij repo)
-- [ ] Setup monorepo (npm workspaces lub Turborepo)
-- [ ] Docker Compose dla lokalnego środowiska
-- [ ] NestJS boilerplate z Prisma + PostgreSQL
-- [ ] React boilerplate z Vite + TypeScript + Tailwind + shadcn
-- [ ] Schemat bazy danych (Prisma schema)
+- [x] Setup monorepo (Turborepo + npm workspaces: apps/api, apps/web, packages/shared)
+- [x] Docker Compose dla lokalnego środowiska (PostgreSQL, Redis, MinIO)
+- [x] NestJS boilerplate z Prisma + PostgreSQL (migracja `init` wykonana)
+- [x] React boilerplate z Vite + TypeScript + TanStack Query + Zustand + Axios
+- [x] Schemat bazy danych (Prisma schema — wszystkie modele)
+- [ ] Tailwind CSS + shadcn/ui
 - [ ] CI podstawowy (lint, build, testy)
-- [ ] Konfiguracja Jest (API) + Vitest (Web)
 - [ ] Konfiguracja Playwright (E2E)
 - [ ] docker-compose.test.yml (izolowana baza testowa)
 
-**Cel:** Działające środowisko dev, można odpalić jedną komendą.
+**Cel:** Działające środowisko dev, można odpalić jedną komendą. ✅ (częściowo — bez Tailwind i CI)
 
 ---
 
