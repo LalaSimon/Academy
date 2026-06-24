@@ -4,8 +4,12 @@
 
 | Warstwa | Technologia | Uzasadnienie |
 |---------|-------------|--------------|
-| Frontend | React 18 + TypeScript | Wymaganie projektu |
-| UI Library | shadcn/ui + Tailwind CSS | Szybkie prototypowanie, spójny design |
+| Frontend | React 19 + TypeScript | Wymaganie projektu |
+| UI Library | shadcn/ui + Tailwind CSS v4 | Szybkie prototypowanie, spójny design |
+| Design System | Przyjazny i kolorowy — pastelowe kolory, zaokrąglone karty | Duolingo/Google Classroom feel |
+| Animacje | Framer Motion | Przejścia stron, micro-interactions |
+| Wykresy | Recharts | Dashboard, frekwencja, finanse |
+| Kalendarz | React Big Calendar | Widok zajęć |
 | State Management | TanStack Query + Zustand | Server state + client state oddzielnie |
 | Backend | NestJS + TypeScript | Wymaganie projektu, modularny, DI |
 | ORM | Prisma | Świetne DX, type-safety, migracje |
@@ -54,10 +58,14 @@ academy/
 │   ├── web/                    # React frontend
 │   │   ├── src/
 │   │   │   ├── components/
-│   │   │   ├── pages/
-│   │   │   ├── hooks/
-│   │   │   ├── store/
-│   │   │   └── lib/
+│   │   │   │   ├── ui/         # shadcn/ui (Button, Input, Card...)
+│   │   │   │   └── common/     # reużywalne: PageHeader, DataTable, StatCard...
+│   │   │   ├── pages/          # widoki per rola (auth/, admin/, teacher/, student/)
+│   │   │   ├── hooks/          # TanStack Query hooks (useStudents, useGroups...)
+│   │   │   ├── lib/
+│   │   │   │   └── api.ts      # axios client z interceptorem refresh
+│   │   │   ├── store/          # Zustand (auth store, UI state)
+│   │   │   └── router/         # React Router, PrivateRoute
 │   │   └── package.json
 │   └── api/                    # NestJS backend
 │       ├── src/
@@ -93,6 +101,50 @@ academy/
 ├── docker-compose.prod.yml
 └── .env.example
 ```
+
+## Architektura frontendu — zasady
+
+### Komunikacja z API
+**Zasada: żadnych bezpośrednich wywołań axios w komponentach.**
+
+Cała komunikacja z API odbywa się przez warstwę hooków:
+
+```
+Komponent → custom hook → TanStack Query → axios client → API
+```
+
+**Warstwy:**
+```
+src/lib/api.ts          ← axios instance z interceptorem auto-refresh
+src/hooks/useStudents.ts ← useQuery/useMutation owinięte w custom hook
+src/pages/Students.tsx   ← konsumuje hook, nie zna axios/fetch
+```
+
+**Przykład:**
+```typescript
+// ✅ Dobrze — komponent nie wie jak dane są pobierane
+const { data: students, isLoading } = useStudents({ groupId });
+
+// ❌ Źle — bezpośredni axios w komponencie
+const [students, setStudents] = useState([]);
+useEffect(() => { axios.get('/api/v1/students').then(...) }, []);
+```
+
+### Stan aplikacji
+- **TanStack Query** — cały server state (dane z API, cache, refetch, loading/error)
+- **Zustand** — wyłącznie client state: dane auth zalogowanego użytkownika, stan UI (sidebar, modale)
+- **useState/useReducer** — lokalny stan formularzy i komponentów
+
+### Komponenty UI
+- `src/components/ui/` — surowe komponenty shadcn (nie modyfikujemy)
+- `src/components/common/` — kompozycje wielokrotnego użytku: `PageHeader`, `DataTable`, `StatCard`, `EmptyState`, `LoadingSpinner`
+- **Zasada:** jeśli ten sam układ pojawia się 2+ razy → wyciągamy do `common/`
+
+### Design System
+- **Styl:** przyjazny i kolorowy — pastelowe tła kart, zaokrąglone rogi (`rounded-2xl`), czytelna typografia
+- **Animacje:** Framer Motion dla przejść stron (`AnimatePresence`) i wejść kart (`motion.div`)
+- **Kolory akcentów:** per rola — np. indigo dla admina, emerald dla nauczyciela, violet dla ucznia
+- **Dark mode:** obsługiwany przez shadcn/Tailwind, domyślnie light
 
 ## Moduły NestJS
 
