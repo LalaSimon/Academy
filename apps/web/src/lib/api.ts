@@ -13,7 +13,7 @@ api.interceptors.request.use((config) => {
 });
 
 let isRefreshing = false;
-let failedQueue: Array<{ resolve: (v: string) => void; reject: (e: unknown) => void }> = [];
+let failedQueue: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = [];
 
 const processQueue = (error: unknown, token: string | null) => {
   failedQueue.forEach(({ resolve, reject }) =>
@@ -27,29 +27,36 @@ api.interceptors.response.use(
   async (error: unknown) => {
     if (!axios.isAxiosError(error)) return Promise.reject(error);
 
-    const originalRequest = error.config as typeof error.config & { _retry?: boolean };
-    if (error.response?.status !== 401 || originalRequest?._retry) {
+    const config = error.config as (typeof error.config & { _retry?: boolean }) | undefined;
+
+    // Przepuszczamy błędy inne niż 401 oraz już ponowione requesty
+    if (error.response?.status !== 401 || config?._retry) {
       return Promise.reject(error);
     }
 
+    // Kolejka — gdy refresh już trwa, czekamy na jego wynik
     if (isRefreshing) {
-      return new Promise((resolve, reject) => {
+      return new Promise<string>((resolve, reject) => {
         failedQueue.push({ resolve, reject });
       }).then((token) => {
-        if (originalRequest?.headers) originalRequest.headers.Authorization = `Bearer ${token}`;
-        return api(originalRequest!);
-      });
+        if (config?.headers) config.headers.Authorization = `Bearer ${token}`;
+        return api(config!);
+      }).catch((err) => Promise.reject(err));
     }
 
-    originalRequest!._retry = true;
+    config!._retry = true;
     isRefreshing = true;
 
     try {
-      const { data } = await axios.post<{ accessToken: string }>('/api/v1/auth/refresh', {}, { withCredentials: true });
+      const { data } = await axios.post<{ accessToken: string }>(
+        '/api/v1/auth/refresh',
+        {},
+        { withCredentials: true },
+      );
       useAuthStore.getState().setAccessToken(data.accessToken);
       processQueue(null, data.accessToken);
-      if (originalRequest?.headers) originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
-      return api(originalRequest!);
+      if (config?.headers) config.headers.Authorization = `Bearer ${data.accessToken}`;
+      return api(config!);
     } catch (refreshError) {
       processQueue(refreshError, null);
       useAuthStore.getState().logout();
