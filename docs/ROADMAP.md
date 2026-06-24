@@ -22,9 +22,7 @@
 
 **Jak uruchomić środowisko dev:**
 ```bash
-docker compose up -d          # baza, redis, minio
-cd apps/api && npm run dev    # NestJS na :3000
-cd apps/web && npm run dev    # React na :5173
+docker compose up -d   # wszystko: postgres, redis, minio, api, web
 ```
 
 ---
@@ -47,6 +45,18 @@ cd apps/web && npm run dev    # React na :5173
 - [x] `useLogin` / `useLogout` hooks (TanStack Query) — `apps/web/src/hooks/useAuth.ts`
 - [x] `PrivateRoute` z role-based redirect — `apps/web/src/router/PrivateRoute.tsx`
 - [x] Strona logowania (`LoginPage`) — `apps/web/src/pages/auth/LoginPage.tsx`; Framer Motion, violet palette
+- [x] Docker dev stack — `apps/api/Dockerfile.dev` + `apps/web/Dockerfile.dev`; `docker-compose.yml` rozszerzony o serwisy `api` (:3000) i `web` (:5173)
+  - Volume mounty tylko na `src/` i `prisma/` → hot-reload bez rebuildu obrazu
+  - Networking wewnątrz Dockera: `postgres:5432`, `redis:6379`, `minio:9000`
+  - Vite proxy kieruje na `http://api:3000` przez `VITE_API_TARGET`; lokalny dev bez zmian
+
+**Jak uruchomić cały stack:**
+```bash
+docker compose up -d   # postgres + redis + minio + api + web
+# http://localhost:5173  — frontend
+# http://localhost:3000  — API
+# http://localhost:9001  — MinIO console (minioadmin / minioadmin)
+```
 
 ### 1.2 — Użytkownicy 🔜
 
