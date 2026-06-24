@@ -127,6 +127,7 @@ export function ClassesPage() {
               onSelectSlot={handleSlotSelect}
               min={new Date(0, 0, 0, 6, 0)}
               max={new Date(0, 0, 0, 22, 0)}
+              scrollToTime={new Date(0, 0, 0, 6, 0)}
               culture="pl"
               messages={{
                 next: 'Następny',
