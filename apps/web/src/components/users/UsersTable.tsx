@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Pencil, Trash2, UserPlus } from 'lucide-react';
+import { Pencil, Trash2, UserPlus, BarChart2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -134,6 +135,13 @@ export function UsersTable({ roleFilter, title }: Props) {
                 </TableCell>
                 <TableCell className="py-4 pl-3 pr-6">
                   <div className="flex items-center justify-end gap-1">
+                    {user.role === 'STUDENT' && (
+                      <Link to={`/admin/students/${user.id}/attendance`}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-violet-600 rounded-lg" title="Frekwencja">
+                          <BarChart2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </Link>
+                    )}
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-violet-600 rounded-lg" onClick={() => handleEdit(user)}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>

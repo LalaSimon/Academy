@@ -4,11 +4,12 @@ import type { ToolbarProps } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, startOfWeek as soW, endOfWeek } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { motion } from 'framer-motion';
-import { Plus, Video, Calendar as CalIcon, List, Pencil, Trash2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw } from 'lucide-react';
+import { Plus, Video, Calendar as CalIcon, List, Pencil, Trash2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useClasses, useDeleteClass, useDeleteBatch, useUpdateClassStatus, type Class, type ClassStatus } from '@/hooks/useClasses';
 import { ClassFormModal } from '@/components/classes/ClassFormModal';
 import { RecurringClassModal } from '@/components/classes/RecurringClassModal';
+import { AttendanceModal } from '@/components/attendance/AttendanceModal';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
 const MONTHS = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
@@ -104,6 +105,7 @@ export function ClassesPage() {
   const deleteBatch = useDeleteBatch();
   const updateStatus = useUpdateClassStatus();
   const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set());
+  const [attendanceClass, setAttendanceClass] = useState<Class | null>(null);
 
   const toggleBatch = (batchId: string) =>
     setExpandedBatches((prev) => {
@@ -275,6 +277,10 @@ export function ClassesPage() {
                       <Button variant="ghost" size="sm" className="h-8 text-xs text-green-600 hover:text-green-700 rounded-lg px-2"
                         onClick={() => handleStatus(cls.id, 'COMPLETED')}>Zakończ</Button>
                     )}
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-violet-600 rounded-lg" title="Obecność"
+                      onClick={() => setAttendanceClass(cls)}>
+                      <Users className="w-3.5 h-3.5" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-violet-600 rounded-lg" onClick={() => handleEdit(cls)}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
@@ -345,6 +351,14 @@ export function ClassesPage() {
 
       <ClassFormModal open={modalOpen} onClose={() => setModalOpen(false)} editClass={editClass} defaultScheduledAt={defaultScheduledAt} />
       <RecurringClassModal open={recurringOpen} onClose={() => setRecurringOpen(false)} />
+      {attendanceClass && (
+        <AttendanceModal
+          open={!!attendanceClass}
+          onClose={() => setAttendanceClass(null)}
+          classId={attendanceClass.id}
+          classTitle={attendanceClass.title}
+        />
+      )}
     </div>
   );
 }
