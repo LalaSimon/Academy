@@ -1,0 +1,232 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+  PARENT
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum ClassStatus {
+  SCHEDULED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  REFUNDED
+  CANCELLED
+}
+
+enum MaterialType {
+  PDF
+  VIDEO
+  AUDIO
+  IMAGE
+  LINK
+  OTHER
+}
+
+enum NotificationType {
+  CLASS_REMINDER
+  PAYMENT_REMINDER
+  CLASS_CANCELLED
+  ATTENDANCE_ALERT
+  GENERAL
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id           String  @id @default(cuid())
+  email        String  @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  phone        String?
+  role         Role    @default(STUDENT)
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teacherGroups     Group[]         @relation("GroupTeacher")
+  studentGroups     GroupStudent[]
+  attendances       Attendance[]
+  uploadedMaterials Material[]
+  payments          Payment[]
+  asParent          ParentStudent[] @relation("Parent")
+  asStudent         ParentStudent[] @relation("Student")
+  refreshTokens     RefreshToken[]
+  notifications     Notification[]
+}
+
+model Group {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  level       String?
+  language    String?
+  maxStudents Int     @default(10)
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  teacherId String
+  teacher   User   @relation("GroupTeacher", fields: [teacherId], references: [id])
+
+  students GroupStudent[]
+  classes  Class[]
+}
+
+model GroupStudent {
+  id        String  @id @default(cuid())
+  isActive  Boolean @default(true)
+  joinedAt  DateTime @default(now())
+
+  groupId   String
+  studentId String
+
+  group   Group @relation(fields: [groupId], references: [id])
+  student User  @relation(fields: [studentId], references: [id])
+
+  @@unique([groupId, studentId])
+}
+
+model Class {
+  id           String      @id @default(cuid())
+  title        String
+  description  String?
+  scheduledAt  DateTime
+  durationMin  Int         @default(60)
+  meetLink     String?
+  status       ClassStatus @default(SCHEDULED)
+  cancelReason String?
+
+  createdAt DateTime @default(now())
+
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id])
+
+  attendances Attendance[]
+  materials   ClassMaterial[]
+}
+
+model Attendance {
+  id       String           @id @default(cuid())
+  status   AttendanceStatus @default(ABSENT)
+  note     String?
+  markedAt DateTime         @default(now())
+
+  classId   String
+  studentId String
+
+  class   Class @relation(fields: [classId], references: [id])
+  student User  @relation(fields: [studentId], references: [id])
+
+  @@unique([classId, studentId])
+}
+
+model Material {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  type        MaterialType
+  url         String
+  fileKey     String?
+  isPublic    Boolean      @default(false)
+
+  createdAt DateTime @default(now())
+
+  uploadedBy String
+  uploader   User   @relation(fields: [uploadedBy], references: [id])
+
+  classes ClassMaterial[]
+}
+
+model ClassMaterial {
+  order Int @default(0)
+
+  classId    String
+  materialId String
+
+  class    Class    @relation(fields: [classId], references: [id])
+  material Material @relation(fields: [materialId], references: [id])
+
+  @@id([classId, materialId])
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("PLN")
+  description     String
+  status          PaymentStatus @default(PENDING)
+  dueDate         DateTime
+  paidAt          DateTime?
+  externalId      String?
+  paymentProvider String?
+  providerData    Json?
+  periodStart     DateTime?
+  periodEnd       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id])
+}
+
+model ParentStudent {
+  createdAt DateTime @default(now())
+
+  parentId  String
+  studentId String
+
+  parent  User @relation("Parent", fields: [parentId], references: [id])
+  student User @relation("Student", fields: [studentId], references: [id])
+
+  @@id([parentId, studentId])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  body      String
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
