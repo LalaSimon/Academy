@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 import * as argon2 from 'argon2';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -26,8 +26,7 @@ describe('Auth (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    app.use((require('cookie-parser') as typeof cookieParser)());
+    app.use(cookieParser());
     app.setGlobalPrefix('api/v1');
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
     await app.init();
@@ -64,7 +63,7 @@ describe('Auth (e2e)', () => {
       expect(res.body.user.role).toBe(Role.ADMIN);
       expect(res.headers['set-cookie']).toBeDefined();
       expect(
-        (res.headers['set-cookie'] as string[]).some((c) =>
+        (res.headers['set-cookie'] as unknown as string[]).some((c) =>
           c.startsWith('refresh_token='),
         ),
       ).toBe(true);
@@ -100,7 +99,7 @@ describe('Auth (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
         .send({ email: testUser.email, password: testUser.password });
-      refreshCookie = (res.headers['set-cookie'] as string[])[0];
+      refreshCookie = (res.headers['set-cookie'] as unknown as string[])[0];
     });
 
     it('should return new accessToken and rotate refresh cookie', async () => {
@@ -163,7 +162,7 @@ describe('Auth (e2e)', () => {
         .post('/api/v1/auth/login')
         .send({ email: testUser.email, password: testUser.password });
 
-      const refreshCookie = (loginRes.headers['set-cookie'] as string[])[0];
+      const refreshCookie = (loginRes.headers['set-cookie'] as unknown as string[])[0];
 
       await request(app.getHttpServer())
         .post('/api/v1/auth/logout')

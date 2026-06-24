@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { LoginPage } from '@/pages/auth/LoginPage';
+import { TeachersPage } from '@/pages/admin/TeachersPage';
+import { StudentsPage } from '@/pages/admin/StudentsPage';
 import { PrivateRoute } from '@/router/PrivateRoute';
 
 function App() {
@@ -11,7 +13,9 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
 
           <Route element={<PrivateRoute allowedRoles={['ADMIN']} />}>
-            <Route path="/admin" element={<div>Admin Dashboard — WIP</div>} />
+            <Route path="/admin" element={<Navigate to="/admin/teachers" replace />} />
+            <Route path="/admin/teachers" element={<TeachersPage />} />
+            <Route path="/admin/students" element={<StudentsPage />} />
           </Route>
 
           <Route element={<PrivateRoute allowedRoles={['ADMIN', 'TEACHER']} />}>
