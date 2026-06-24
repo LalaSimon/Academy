@@ -1,39 +1,46 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
+import { AuthInitializer } from '@/components/AuthInitializer';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { TeachersPage } from '@/pages/admin/TeachersPage';
 import { StudentsPage } from '@/pages/admin/StudentsPage';
+import { AdminLayout } from '@/layouts/AdminLayout';
 import { PrivateRoute } from '@/router/PrivateRoute';
 
 function App() {
   return (
     <BrowserRouter>
-      <AnimatePresence mode="wait">
+      <AuthInitializer>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
 
           <Route element={<PrivateRoute allowedRoles={['ADMIN']} />}>
-            <Route path="/admin" element={<Navigate to="/admin/teachers" replace />} />
-            <Route path="/admin/teachers" element={<TeachersPage />} />
-            <Route path="/admin/students" element={<StudentsPage />} />
+            <Route element={<AdminLayout />}>
+              <Route path="/admin" element={<Navigate to="/admin/teachers" replace />} />
+              <Route path="/admin/teachers" element={<TeachersPage />} />
+              <Route path="/admin/students" element={<StudentsPage />} />
+              <Route path="/admin/groups" element={<div className="p-6 text-gray-400">Grupy — wkrótce</div>} />
+              <Route path="/admin/classes" element={<div className="p-6 text-gray-400">Zajęcia — wkrótce</div>} />
+              <Route path="/admin/attendance" element={<div className="p-6 text-gray-400">Frekwencja — wkrótce</div>} />
+              <Route path="/admin/materials" element={<div className="p-6 text-gray-400">Materiały — wkrótce</div>} />
+            </Route>
           </Route>
 
           <Route element={<PrivateRoute allowedRoles={['ADMIN', 'TEACHER']} />}>
-            <Route path="/teacher" element={<div>Teacher Dashboard — WIP</div>} />
+            <Route path="/teacher" element={<div className="p-6">Teacher Dashboard — WIP</div>} />
           </Route>
 
           <Route element={<PrivateRoute allowedRoles={['STUDENT']} />}>
-            <Route path="/student" element={<div>Student Dashboard — WIP</div>} />
+            <Route path="/student" element={<div className="p-6">Student Dashboard — WIP</div>} />
           </Route>
 
           <Route element={<PrivateRoute allowedRoles={['PARENT']} />}>
-            <Route path="/parent" element={<div>Parent Dashboard — WIP</div>} />
+            <Route path="/parent" element={<div className="p-6">Parent Dashboard — WIP</div>} />
           </Route>
 
-          <Route path="/unauthorized" element={<div>Brak dostępu</div>} />
+          <Route path="/unauthorized" element={<div className="p-6">Brak dostępu</div>} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
-      </AnimatePresence>
+      </AuthInitializer>
     </BrowserRouter>
   );
 }

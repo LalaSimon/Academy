@@ -7,11 +7,11 @@ interface Props {
 }
 
 export function PrivateRoute({ allowedRoles }: Props) {
-  const { user, isAuthenticated } = useAuthStore();
+  const { user } = useAuthStore();
 
-  if (!isAuthenticated()) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/login" replace />;
 
-  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to="/unauthorized" replace />;
   }
 
