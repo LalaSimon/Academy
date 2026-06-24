@@ -7,6 +7,7 @@ import { GroupsPage } from '@/pages/admin/GroupsPage';
 import { GroupDetailPage } from '@/pages/admin/GroupDetailPage';
 import { ClassesPage } from '@/pages/admin/ClassesPage';
 import { StudentAttendancePage } from '@/pages/admin/StudentAttendancePage';
+import { StudentProfilePage } from '@/pages/admin/StudentProfilePage';
 import { AttendancePage } from '@/pages/admin/AttendancePage';
 import { AdminLayout } from '@/layouts/AdminLayout';
 import { PrivateRoute } from '@/router/PrivateRoute';
@@ -26,6 +27,7 @@ function App() {
               <Route path="/admin/groups" element={<GroupsPage />} />
               <Route path="/admin/groups/:id" element={<GroupDetailPage />} />
               <Route path="/admin/classes" element={<ClassesPage />} />
+              <Route path="/admin/students/:studentId" element={<StudentProfilePage />} />
               <Route path="/admin/students/:studentId/attendance" element={<StudentAttendancePage />} />
               <Route path="/admin/attendance" element={<AttendancePage />} />
               <Route path="/admin/materials" element={<div className="p-6 text-gray-400">Materiały — wkrótce</div>} />

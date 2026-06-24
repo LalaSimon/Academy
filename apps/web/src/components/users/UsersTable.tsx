@@ -136,8 +136,8 @@ export function UsersTable({ roleFilter, title }: Props) {
                 <TableCell className="py-4 pl-3 pr-6">
                   <div className="flex items-center justify-end gap-1">
                     {user.role === 'STUDENT' && (
-                      <Link to={`/admin/students/${user.id}/attendance`}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-violet-600 rounded-lg" title="Frekwencja">
+                      <Link to={`/admin/students/${user.id}`}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-violet-600 rounded-lg" title="Profil ucznia">
                           <BarChart2 className="w-3.5 h-3.5" />
                         </Button>
                       </Link>
