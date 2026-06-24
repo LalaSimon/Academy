@@ -46,6 +46,7 @@ export function ClassesPage() {
   const [calView, setCalView] = useState<'month' | 'week' | 'day'>(Views.MONTH);
   const [modalOpen, setModalOpen] = useState(false);
   const [editClass, setEditClass] = useState<Class | null>(null);
+  const [defaultScheduledAt, setDefaultScheduledAt] = useState<string | undefined>();
 
   const { data, isLoading } = useClasses({ limit: 200 });
   const deleteClass = useDeleteClass();
@@ -62,8 +63,20 @@ export function ClassesPage() {
     [data],
   );
 
-  const handleEdit = (cls: Class) => { setEditClass(cls); setModalOpen(true); };
-  const handleCreate = () => { setEditClass(null); setModalOpen(true); };
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const toLocalDateTimeStr = (d: Date) =>
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+  const handleEdit = (cls: Class) => { setEditClass(cls); setDefaultScheduledAt(undefined); setModalOpen(true); };
+  const handleCreate = () => { setEditClass(null); setDefaultScheduledAt(undefined); setModalOpen(true); };
+  const handleSlotSelect = ({ start, action }: { start: Date; action: string }) => {
+    // on month view clicking a day gives action='click' with midnight — round up to 09:00
+    const date = new Date(start);
+    if (action === 'click' && date.getHours() === 0) date.setHours(9, 0, 0, 0);
+    setEditClass(null);
+    setDefaultScheduledAt(toLocalDateTimeStr(date));
+    setModalOpen(true);
+  };
   const handleDelete = (id: string) => {
     if (confirm('Usunąć te zajęcia?')) deleteClass.mutate(id);
   };
@@ -109,7 +122,9 @@ export function ClassesPage() {
               view={calView}
               onNavigate={setCalDate}
               onView={(v) => setCalView(v as 'month' | 'week' | 'day')}
+              selectable
               onSelectEvent={(e) => handleEdit(e.resource as Class)}
+              onSelectSlot={handleSlotSelect}
               min={new Date(0, 0, 0, 6, 0)}
               max={new Date(0, 0, 0, 22, 0)}
               culture="pl"
@@ -208,7 +223,7 @@ export function ClassesPage() {
         </div>
       )}
 
-      <ClassFormModal open={modalOpen} onClose={() => setModalOpen(false)} editClass={editClass} />
+      <ClassFormModal open={modalOpen} onClose={() => setModalOpen(false)} editClass={editClass} defaultScheduledAt={defaultScheduledAt} />
     </div>
   );
 }

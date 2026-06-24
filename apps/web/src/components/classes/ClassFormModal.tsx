@@ -22,9 +22,10 @@ interface Props {
   onClose: () => void;
   editClass?: Class | null;
   defaultGroupId?: string;
+  defaultScheduledAt?: string;
 }
 
-export function ClassFormModal({ open, onClose, editClass, defaultGroupId }: Props) {
+export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defaultScheduledAt }: Props) {
   const isEdit = !!editClass;
   const createClass = useCreateClass();
   const updateClass = useUpdateClass();
@@ -50,9 +51,9 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId }: Pro
         groupId: editClass.group.id,
       });
     } else {
-      reset({ title: '', description: '', scheduledAt: '', durationMin: 60, meetLink: '', groupId: defaultGroupId ?? '' });
+      reset({ title: '', description: '', scheduledAt: defaultScheduledAt ?? '', durationMin: 60, meetLink: '', groupId: defaultGroupId ?? '' });
     }
-  }, [editClass, open, reset, defaultGroupId]);  // eslint-disable-line
+  }, [editClass, open, reset, defaultGroupId, defaultScheduledAt]);  // eslint-disable-line
 
   const onSubmit = async (data: FormValues) => {
     setApiError(null);
