@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -27,6 +27,7 @@ export function GroupFormModal({ open, onClose, editGroup }: Props) {
   const isEdit = !!editGroup;
   const createGroup = useCreateGroup();
   const updateGroup = useUpdateGroup();
+  const [apiError, setApiError] = useState<string | null>(null);
   const { data: teachersData } = useUsers({ role: 'TEACHER', limit: 100 });
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
@@ -34,6 +35,7 @@ export function GroupFormModal({ open, onClose, editGroup }: Props) {
   });
 
   useEffect(() => {
+    setApiError(null);
     if (editGroup) {
       reset({
         name: editGroup.name,
@@ -46,22 +48,28 @@ export function GroupFormModal({ open, onClose, editGroup }: Props) {
     } else {
       reset({ name: '', description: '', language: '', level: '', maxStudents: 10, teacherId: '' });
     }
-  }, [editGroup, reset]);
+  }, [editGroup, open, reset]);  // eslint-disable-line
 
   const onSubmit = async (data: FormValues) => {
-    const payload = {
-      ...data,
-      description: data.description || undefined,
-      language: data.language || undefined,
-      level: data.level || undefined,
-    };
-
-    if (isEdit) {
-      await updateGroup.mutateAsync({ id: editGroup!.id, ...payload });
-    } else {
-      await createGroup.mutateAsync(payload);
+    setApiError(null);
+    try {
+      const payload = {
+        ...data,
+        description: data.description || undefined,
+        language: data.language || undefined,
+        level: data.level || undefined,
+      };
+      if (isEdit) {
+        await updateGroup.mutateAsync({ id: editGroup!.id, ...payload });
+      } else {
+        await createGroup.mutateAsync(payload);
+      }
+      onClose();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
+      if (Array.isArray(msg)) setApiError(msg.join(', '));
+      else setApiError(msg ?? 'Wystąpił błąd. Spróbuj ponownie.');
     }
-    onClose();
   };
 
   const teacherId = watch('teacherId');
@@ -93,8 +101,8 @@ export function GroupFormModal({ open, onClose, editGroup }: Props) {
 
           <div className="space-y-1">
             <Label>Nauczyciel</Label>
-            <Select value={teacherId ?? ''} onValueChange={(v: string | null) => setValue('teacherId', v ?? '')}>
-              <SelectTrigger>
+            <Select value={teacherId ?? ''} onValueChange={(v: string | null) => setValue('teacherId', v ?? '', { shouldValidate: true })}>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Wybierz nauczyciela" />
               </SelectTrigger>
               <SelectContent>
@@ -118,10 +126,14 @@ export function GroupFormModal({ open, onClose, editGroup }: Props) {
             <Input id="description" {...register('description')} placeholder="Krótki opis grupy" />
           </div>
 
+          {apiError && (
+            <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-lg">{apiError}</p>
+          )}
+
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={onClose}>Anuluj</Button>
             <Button type="submit" disabled={isSubmitting} className="bg-violet-500 hover:bg-violet-600 text-white">
-              {isEdit ? 'Zapisz zmiany' : 'Utwórz grupę'}
+              {isSubmitting ? 'Zapisywanie...' : isEdit ? 'Zapisz zmiany' : 'Utwórz grupę'}
             </Button>
           </div>
         </form>

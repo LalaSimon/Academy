@@ -130,7 +130,7 @@ export function UsersTable({ roleFilter, title }: Props) {
         )}
       </div>
 
-      <UserFormModal open={modalOpen} onClose={() => setModalOpen(false)} editUser={editUser} />
+      <UserFormModal open={modalOpen} onClose={() => setModalOpen(false)} editUser={editUser} fixedRole={roleFilter} />
     </div>
   );
 }
