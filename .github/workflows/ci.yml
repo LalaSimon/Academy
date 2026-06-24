@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─── API ──────────────────────────────────────────────────────────────────
+  api:
+    name: API — lint, build, test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: academy_test
+          POSTGRES_USER: academy
+          POSTGRES_PASSWORD: academy
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://academy:academy@localhost:5432/academy_test
+      JWT_SECRET: ci-test-secret
+      JWT_REFRESH_SECRET: ci-test-refresh-secret
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint --workspace=apps/api
+
+      - name: Build
+        run: npm run build --workspace=apps/api
+
+      - name: Run migrations
+        run: npx prisma migrate deploy
+        working-directory: apps/api
+
+      - name: Unit tests
+        run: npm test --workspace=apps/api
+
+  # ─── Web ──────────────────────────────────────────────────────────────────
+  web:
+    name: Web — lint, build, test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint --workspace=apps/web
+
+      - name: Build
+        run: npm run build --workspace=apps/web
+
+      - name: Unit tests
+        run: npm test -- --run --workspace=apps/web

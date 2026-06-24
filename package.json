@@ -11,10 +11,11 @@
     "build": "turbo build",
     "lint": "turbo lint",
     "test": "turbo test",
-    "test:e2e": "turbo test:e2e",
+    "test:e2e": "playwright test",
     "format": "turbo format"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "turbo": "^2.5.4"
   },
   "engines": {

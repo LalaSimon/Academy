@@ -11,12 +11,12 @@
 - [x] NestJS boilerplate z Prisma + PostgreSQL (migracja `init` wykonana)
 - [x] React boilerplate z Vite + TypeScript + TanStack Query + Zustand + Axios
 - [x] Schemat bazy danych (Prisma schema — wszystkie modele)
-- [ ] Tailwind CSS + shadcn/ui
-- [ ] CI podstawowy (lint, build, testy)
-- [ ] Konfiguracja Playwright (E2E)
-- [ ] docker-compose.test.yml (izolowana baza testowa)
+- [x] Tailwind CSS v4 + shadcn/ui
+- [x] CI podstawowy — GitHub Actions (lint, build, testy dla api i web)
+- [x] Konfiguracja Playwright (E2E) — playwright.config.ts + katalog e2e/
+- [x] docker-compose.test.yml (izolowana baza testowa na porcie 5433, tmpfs)
 
-**Cel:** Działające środowisko dev, można odpalić jedną komendą. ✅ (częściowo — bez Tailwind i CI)
+**Cel:** Działające środowisko dev, można odpalić jedną komendą. ✅
 
 ---
 
