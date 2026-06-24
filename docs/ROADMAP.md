@@ -104,13 +104,18 @@ docker compose up -d   # postgres + redis + minio + api + web
 - [x] Nauczyciel per zajęcie — `Class.teacherId?` (migracja), domyślnie nauczyciel grupy, można nadpisać w formularzu
 - [x] `batchId` — `Class.batchId?` (migracja), wspólny UUID dla zajęć z jednego bulka; `DELETE /classes/batch/:batchId` usuwa całą serię
 
-### 1.5 — Frekwencja
+### 1.5 — Frekwencja ✅
 
-- [ ] `AttendanceModule` — bulk update, statystyki
-- [ ] Testy jednostkowe + integracyjne
-- [ ] Hook `useAttendance`
-- [ ] UI zaznaczania obecności (lista uczniów + statusy)
-- [ ] Widok historii frekwencji ucznia z procentami
+- [x] `AttendanceModule` — `GET /attendance?classId`, `PATCH /attendance/bulk`, `GET /attendance/student/:id`
+  - Auto-tworzy rekordy dla wszystkich aktywnych uczniów grupy przy pierwszym GET
+  - Upsert po `classId+studentId` (unique constraint)
+  - Statystyki ogółem + per-grupa z procentem frekwencji (PRESENT+LATE = obecność)
+- [x] 7 testów jednostkowych — `attendance.service.spec.ts`
+- [x] Hook `useAttendance` — `useClassAttendance`, `useBulkUpdateAttendance`, `useStudentStats`
+- [x] `AttendanceModal` — lista uczniów, 4 statusy (P/S/N/U), przyciski "ustaw wszystkich", licznik obecnych, zapis
+- [x] `StudentAttendancePage` — okrągły wykres %, breakdown per grupa, historia zajęć
+- [x] `ClassesPage` lista — ikona Users otwiera AttendanceModal per zajęcia
+- [x] `UsersTable` — ikona BarChart2 prowadzi do strony frekwencji ucznia
 
 ### 1.6 — Materiały
 
@@ -169,11 +174,11 @@ docker compose up -d   # postgres + redis + minio + api + web
 
 ## ▶ Co robimy teraz?
 
-**Jesteśmy w Fazie 1.5 — Frekwencja**
+**Jesteśmy w Fazie 1.6 — Materiały**
 
 Kolejne kroki:
-1. `AttendanceModule` w NestJS — bulk update obecności dla zajęć (lista uczniów grupy → PRESENT/ABSENT/LATE/EXCUSED)
+1. `MaterialsModule` — upload plików do MinIO, presigned URL do pobierania, linki zewnętrzne
 2. Testy jednostkowe + integracyjne
-3. Frontend: widok zaznaczania obecności na stronie szczegółów zajęć, statystyki frekwencji ucznia
+3. Frontend: biblioteka materiałów, drag & drop upload, przypisywanie do zajęć
 
 Uwaga: po dodaniu shadcn komponentu trzeba naprawić importy — zmienić `src/lib/utils` → `@/lib/utils` oraz `src/components/ui/X` → `@/components/ui/X` (shadcn CLI generuje złe ścieżki).
