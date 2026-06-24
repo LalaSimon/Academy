@@ -30,7 +30,7 @@ export function GroupDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6 flex items-center justify-center min-h-64">
+      <div className="flex items-center justify-center min-h-64">
         <div className="w-8 h-8 border-4 border-violet-300 border-t-violet-600 rounded-full animate-spin" />
       </div>
     );
@@ -39,7 +39,7 @@ export function GroupDetailPage() {
   if (!group) return null;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate('/admin/groups')} className="rounded-xl">

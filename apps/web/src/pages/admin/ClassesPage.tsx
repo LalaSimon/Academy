@@ -147,7 +147,7 @@ export function ClassesPage() {
   };
 
   return (
-    <div className="space-y-5 p-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-xl font-semibold text-gray-800">Zajęcia</h2>
         <div className="flex items-center gap-2">

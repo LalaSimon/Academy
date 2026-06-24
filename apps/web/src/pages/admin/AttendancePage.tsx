@@ -25,7 +25,7 @@ export function AttendancePage() {
   const classes = data?.data ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
         <h1 className="text-xl font-semibold text-gray-900">Frekwencja</h1>
         <p className="text-sm text-gray-400 mt-0.5">Zaznaczaj obecność i przeglądaj statystyki uczniów</p>

@@ -35,7 +35,7 @@ export function StudentAttendancePage() {
   const { data: stats, isLoading } = useStudentStats(studentId!);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex items-center gap-3">
         <Link to="/admin/students" className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
           <ArrowLeft className="w-4 h-4 text-gray-500" />

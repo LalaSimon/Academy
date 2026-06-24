@@ -93,7 +93,7 @@ export function AdminLayout() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className="h-full"
+          className="p-8 max-w-6xl mx-auto"
         >
           <Outlet />
         </motion.div>
