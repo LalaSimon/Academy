@@ -103,7 +103,11 @@ export function GroupFormModal({ open, onClose, editGroup }: Props) {
             <Label>Nauczyciel</Label>
             <Select value={teacherId ?? ''} onValueChange={(v: string | null) => setValue('teacherId', v ?? '', { shouldValidate: true })}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Wybierz nauczyciela" />
+                <SelectValue>
+                  {teacherId
+                    ? (() => { const t = teachersData?.data.find((t) => t.id === teacherId); return t ? `${t.firstName ?? ''} ${t.lastName ?? ''}`.trim() : teacherId; })()
+                    : <span className="text-muted-foreground">Wybierz nauczyciela</span>}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {teachersData?.data.map((t) => (
