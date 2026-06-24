@@ -16,10 +16,23 @@ describe('Groups (e2e)', () => {
   let studentId: string;
 
   const cleanup = async (p: PrismaService) => {
-    const groups = await p.group.findMany({ where: { name: { startsWith: 'Test Group' } } });
-    for (const g of groups) await p.groupStudent.deleteMany({ where: { groupId: g.id } });
+    const groups = await p.group.findMany({
+      where: { name: { startsWith: 'Test Group' } },
+    });
+    for (const g of groups)
+      await p.groupStudent.deleteMany({ where: { groupId: g.id } });
     await p.group.deleteMany({ where: { name: { startsWith: 'Test Group' } } });
-    await p.user.deleteMany({ where: { email: { in: ['admin.grp@test.com', 'teacher.grp@test.com', 'student.grp@test.com'] } } });
+    await p.user.deleteMany({
+      where: {
+        email: {
+          in: [
+            'admin.grp@test.com',
+            'teacher.grp@test.com',
+            'student.grp@test.com',
+          ],
+        },
+      },
+    });
   };
 
   beforeAll(async () => {
@@ -30,16 +43,42 @@ describe('Groups (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.use(cookieParser());
     app.setGlobalPrefix('api/v1');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
 
     prisma = app.get(PrismaService);
     await cleanup(prisma);
 
-    const [admin, teacher, student] = await Promise.all([
-      prisma.user.create({ data: { email: 'admin.grp@test.com', passwordHash: await argon2.hash('Admin1234!'), firstName: 'Admin', lastName: 'G', role: Role.ADMIN } }),
-      prisma.user.create({ data: { email: 'teacher.grp@test.com', passwordHash: 'x', firstName: 'Teacher', lastName: 'G', role: Role.TEACHER } }),
-      prisma.user.create({ data: { email: 'student.grp@test.com', passwordHash: 'x', firstName: 'Student', lastName: 'G', role: Role.STUDENT } }),
+    const [_admin, teacher, student] = await Promise.all([
+      prisma.user.create({
+        data: {
+          email: 'admin.grp@test.com',
+          passwordHash: await argon2.hash('Admin1234!'),
+          firstName: 'Admin',
+          lastName: 'G',
+          role: Role.ADMIN,
+        },
+      }),
+      prisma.user.create({
+        data: {
+          email: 'teacher.grp@test.com',
+          passwordHash: 'x',
+          firstName: 'Teacher',
+          lastName: 'G',
+          role: Role.TEACHER,
+        },
+      }),
+      prisma.user.create({
+        data: {
+          email: 'student.grp@test.com',
+          passwordHash: 'x',
+          firstName: 'Student',
+          lastName: 'G',
+          role: Role.STUDENT,
+        },
+      }),
     ]);
 
     teacherId = teacher.id;
@@ -63,7 +102,12 @@ describe('Groups (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/groups')
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ name: 'Test Group A1', language: 'English', level: 'A1', teacherId })
+        .send({
+          name: 'Test Group A1',
+          language: 'English',
+          level: 'A1',
+          teacherId,
+        })
         .expect(201);
 
       expect(res.body.name).toBe('Test Group A1');
@@ -97,7 +141,9 @@ describe('Groups (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      res.body.data.forEach((g: { language: string }) => expect(g.language).toBe('English'));
+      res.body.data.forEach((g: { language: string }) =>
+        expect(g.language).toBe('English'),
+      );
     });
   });
 

@@ -1,6 +1,15 @@
 import {
-  Body, Controller, Delete, Get, HttpCode, HttpStatus,
-  Param, Patch, Post, Query, UseGuards,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -57,7 +66,10 @@ export class GroupsController {
   @Delete(':id/students/:studentId')
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
-  removeStudent(@Param('id') id: string, @Param('studentId') studentId: string) {
+  removeStudent(
+    @Param('id') id: string,
+    @Param('studentId') studentId: string,
+  ) {
     return this.groupsService.removeStudent(id, studentId);
   }
 }

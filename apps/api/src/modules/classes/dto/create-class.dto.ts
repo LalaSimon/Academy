@@ -1,4 +1,13 @@
-import { IsString, IsOptional, IsDateString, IsInt, IsUrl, Min, Max, IsNotEmpty } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsDateString,
+  IsInt,
+  IsUrl,
+  Min,
+  Max,
+  IsNotEmpty,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateClassDto {

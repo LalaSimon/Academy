@@ -69,7 +69,10 @@ describe('AuthService', () => {
       mockPrisma.refreshToken.create.mockResolvedValue({});
       (argon2.verify as jest.Mock).mockResolvedValue(true);
 
-      const result = await service.login({ email: 'test@example.com', password: 'password123' });
+      const result = await service.login({
+        email: 'test@example.com',
+        password: 'password123',
+      });
 
       expect(result.accessToken).toBe('access-token');
       expect(result.refreshToken).toBeDefined();
@@ -100,7 +103,12 @@ describe('AuthService', () => {
         id: 'rt-1',
         token: 'valid-token',
         expiresAt: new Date(Date.now() + 60_000),
-        user: { id: 'user-1', email: 'test@example.com', role: Role.STUDENT, isActive: true },
+        user: {
+          id: 'user-1',
+          email: 'test@example.com',
+          role: Role.STUDENT,
+          isActive: true,
+        },
       });
       mockPrisma.refreshToken.delete.mockResolvedValue({});
       mockPrisma.refreshToken.create.mockResolvedValue({});
@@ -109,7 +117,9 @@ describe('AuthService', () => {
 
       expect(result.accessToken).toBe('access-token');
       expect(result.refreshToken).toBeDefined();
-      expect(mockPrisma.refreshToken.delete).toHaveBeenCalledWith({ where: { id: 'rt-1' } });
+      expect(mockPrisma.refreshToken.delete).toHaveBeenCalledWith({
+        where: { id: 'rt-1' },
+      });
     });
 
     it('should throw ForbiddenException on expired token', async () => {
@@ -117,16 +127,25 @@ describe('AuthService', () => {
         id: 'rt-1',
         token: 'expired-token',
         expiresAt: new Date(Date.now() - 1000),
-        user: { id: 'user-1', email: 'test@example.com', role: Role.STUDENT, isActive: true },
+        user: {
+          id: 'user-1',
+          email: 'test@example.com',
+          role: Role.STUDENT,
+          isActive: true,
+        },
       });
 
-      await expect(service.refresh('expired-token')).rejects.toThrow(ForbiddenException);
+      await expect(service.refresh('expired-token')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('should throw ForbiddenException when token not found', async () => {
       mockPrisma.refreshToken.findUnique.mockResolvedValue(null);
 
-      await expect(service.refresh('unknown-token')).rejects.toThrow(ForbiddenException);
+      await expect(service.refresh('unknown-token')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 

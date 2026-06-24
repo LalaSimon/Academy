@@ -28,7 +28,9 @@ describe('Auth (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.use(cookieParser());
     app.setGlobalPrefix('api/v1');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
 
     prisma = app.get(PrismaService);
@@ -142,9 +144,7 @@ describe('Auth (e2e)', () => {
     });
 
     it('should return 401 without token', async () => {
-      await request(app.getHttpServer())
-        .get('/api/v1/auth/me')
-        .expect(401);
+      await request(app.getHttpServer()).get('/api/v1/auth/me').expect(401);
     });
 
     it('should return 401 with malformed token', async () => {
@@ -162,7 +162,9 @@ describe('Auth (e2e)', () => {
         .post('/api/v1/auth/login')
         .send({ email: testUser.email, password: testUser.password });
 
-      const refreshCookie = (loginRes.headers['set-cookie'] as unknown as string[])[0];
+      const refreshCookie = (
+        loginRes.headers['set-cookie'] as unknown as string[]
+      )[0];
 
       await request(app.getHttpServer())
         .post('/api/v1/auth/logout')

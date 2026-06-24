@@ -13,7 +13,9 @@ const GROUP_SELECT = {
   maxStudents: true,
   isActive: true,
   createdAt: true,
-  teacher: { select: { id: true, firstName: true, lastName: true, email: true } },
+  teacher: {
+    select: { id: true, firstName: true, lastName: true, email: true },
+  },
   _count: { select: { students: { where: { isActive: true } } } },
 } as const;
 
@@ -22,7 +24,14 @@ export class GroupsService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(query: GroupQueryDto) {
-    const { search, language, teacherId, isActive, page = 1, limit = 20 } = query;
+    const {
+      search,
+      language,
+      teacherId,
+      isActive,
+      page = 1,
+      limit = 20,
+    } = query;
     const skip = (page - 1) * limit;
 
     const where = {
@@ -39,7 +48,13 @@ export class GroupsService {
     };
 
     const [data, total] = await Promise.all([
-      this.prisma.group.findMany({ where, select: GROUP_SELECT, skip, take: limit, orderBy: { name: 'asc' } }),
+      this.prisma.group.findMany({
+        where,
+        select: GROUP_SELECT,
+        skip,
+        take: limit,
+        orderBy: { name: 'asc' },
+      }),
       this.prisma.group.count({ where }),
     ]);
 
@@ -56,7 +71,14 @@ export class GroupsService {
           select: {
             id: true,
             joinedAt: true,
-            student: { select: { id: true, firstName: true, lastName: true, email: true } },
+            student: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
           },
           orderBy: { student: { lastName: 'asc' } },
         },
@@ -72,7 +94,11 @@ export class GroupsService {
 
   async update(id: string, dto: UpdateGroupDto) {
     await this.assertExists(id);
-    return this.prisma.group.update({ where: { id }, data: dto, select: GROUP_SELECT });
+    return this.prisma.group.update({
+      where: { id },
+      data: dto,
+      select: GROUP_SELECT,
+    });
   }
 
   async remove(id: string) {
@@ -99,7 +125,10 @@ export class GroupsService {
   }
 
   private async assertExists(id: string) {
-    const group = await this.prisma.group.findUnique({ where: { id }, select: { id: true } });
+    const group = await this.prisma.group.findUnique({
+      where: { id },
+      select: { id: true },
+    });
     if (!group) throw new NotFoundException(`Group ${id} not found`);
   }
 }

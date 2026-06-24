@@ -85,15 +85,25 @@ export class ClassesService {
   async create(dto: CreateClassDto) {
     let { teacherId } = dto;
     if (!teacherId) {
-      const group = await this.prisma.group.findUnique({ where: { id: dto.groupId }, select: { teacherId: true } });
+      const group = await this.prisma.group.findUnique({
+        where: { id: dto.groupId },
+        select: { teacherId: true },
+      });
       teacherId = group?.teacherId;
     }
-    return this.prisma.class.create({ data: { ...dto, teacherId }, select: CLASS_SELECT });
+    return this.prisma.class.create({
+      data: { ...dto, teacherId },
+      select: CLASS_SELECT,
+    });
   }
 
   async update(id: string, dto: UpdateClassDto) {
     await this.assertExists(id);
-    return this.prisma.class.update({ where: { id }, data: dto, select: CLASS_SELECT });
+    return this.prisma.class.update({
+      where: { id },
+      data: dto,
+      select: CLASS_SELECT,
+    });
   }
 
   async remove(id: string) {
@@ -108,14 +118,19 @@ export class ClassesService {
       items.map(async (item) => {
         let { teacherId } = item;
         if (!teacherId) {
-          const group = await this.prisma.group.findUnique({ where: { id: item.groupId }, select: { teacherId: true } });
+          const group = await this.prisma.group.findUnique({
+            where: { id: item.groupId },
+            select: { teacherId: true },
+          });
           teacherId = group?.teacherId;
         }
         return { ...item, teacherId, batchId };
       }),
     );
     return this.prisma.$transaction(
-      prepared.map((data) => this.prisma.class.create({ data, select: CLASS_SELECT })),
+      prepared.map((data) =>
+        this.prisma.class.create({ data, select: CLASS_SELECT }),
+      ),
     );
   }
 
@@ -134,7 +149,10 @@ export class ClassesService {
   }
 
   private async assertExists(id: string) {
-    const cls = await this.prisma.class.findUnique({ where: { id }, select: { id: true } });
+    const cls = await this.prisma.class.findUnique({
+      where: { id },
+      select: { id: true },
+    });
     if (!cls) throw new NotFoundException(`Class ${id} not found`);
   }
 }

@@ -13,8 +13,20 @@ describe('Users (e2e)', () => {
   let prisma: PrismaService;
   let adminToken: string;
 
-  const admin = { email: 'admin.users@test.com', password: 'Admin1234!', firstName: 'Admin', lastName: 'Test', role: Role.ADMIN };
-  const student = { email: 'student.users@test.com', password: 'Student1234!', firstName: 'Anna', lastName: 'Nowak', role: Role.STUDENT };
+  const admin = {
+    email: 'admin.users@test.com',
+    password: 'Admin1234!',
+    firstName: 'Admin',
+    lastName: 'Test',
+    role: Role.ADMIN,
+  };
+  const student = {
+    email: 'student.users@test.com',
+    password: 'Student1234!',
+    firstName: 'Anna',
+    lastName: 'Nowak',
+    role: Role.STUDENT,
+  };
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -24,13 +36,23 @@ describe('Users (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.use(cookieParser());
     app.setGlobalPrefix('api/v1');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
 
     prisma = app.get(PrismaService);
 
-    await prisma.user.deleteMany({ where: { email: { in: [admin.email, student.email] } } });
-    await prisma.user.create({ data: { ...admin, passwordHash: await argon2.hash(admin.password), password: undefined } as never });
+    await prisma.user.deleteMany({
+      where: { email: { in: [admin.email, student.email] } },
+    });
+    await prisma.user.create({
+      data: {
+        ...admin,
+        passwordHash: await argon2.hash(admin.password),
+        password: undefined,
+      } as never,
+    });
 
     const res = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
@@ -39,7 +61,9 @@ describe('Users (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.user.deleteMany({ where: { email: { in: [admin.email, student.email] } } });
+    await prisma.user.deleteMany({
+      where: { email: { in: [admin.email, student.email] } },
+    });
     await app.close();
   });
 
@@ -66,7 +90,9 @@ describe('Users (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      res.body.data.forEach((u: { role: string }) => expect(u.role).toBe('ADMIN'));
+      res.body.data.forEach((u: { role: string }) =>
+        expect(u.role).toBe('ADMIN'),
+      );
     });
   });
 
@@ -105,7 +131,9 @@ describe('Users (e2e)', () => {
     let studentId: string;
 
     beforeAll(async () => {
-      const u = await prisma.user.findUnique({ where: { email: student.email } });
+      const u = await prisma.user.findUnique({
+        where: { email: student.email },
+      });
       studentId = u!.id;
     });
 
@@ -132,7 +160,9 @@ describe('Users (e2e)', () => {
     let studentId: string;
 
     beforeAll(async () => {
-      const u = await prisma.user.findUnique({ where: { email: student.email } });
+      const u = await prisma.user.findUnique({
+        where: { email: student.email },
+      });
       studentId = u!.id;
     });
 
@@ -151,7 +181,13 @@ describe('Users (e2e)', () => {
   describe('DELETE /api/v1/users/:id', () => {
     it('should delete user and return 204', async () => {
       const tmp = await prisma.user.create({
-        data: { email: 'delete.me@test.com', passwordHash: 'x', firstName: 'Del', lastName: 'Me', role: Role.STUDENT },
+        data: {
+          email: 'delete.me@test.com',
+          passwordHash: 'x',
+          firstName: 'Del',
+          lastName: 'Me',
+          role: Role.STUDENT,
+        },
       });
 
       await request(app.getHttpServer())
@@ -168,7 +204,15 @@ describe('Users (e2e)', () => {
 
     beforeAll(async () => {
       const [parent, s] = await Promise.all([
-        prisma.user.create({ data: { email: 'parent.link@test.com', passwordHash: 'x', firstName: 'Rodzic', lastName: 'Link', role: Role.PARENT } }),
+        prisma.user.create({
+          data: {
+            email: 'parent.link@test.com',
+            passwordHash: 'x',
+            firstName: 'Rodzic',
+            lastName: 'Link',
+            role: Role.PARENT,
+          },
+        }),
         prisma.user.findUnique({ where: { email: student.email } }),
       ]);
       parentId = parent.id;
@@ -176,7 +220,9 @@ describe('Users (e2e)', () => {
     });
 
     afterAll(async () => {
-      await prisma.user.deleteMany({ where: { email: 'parent.link@test.com' } });
+      await prisma.user.deleteMany({
+        where: { email: 'parent.link@test.com' },
+      });
     });
 
     it('should link parent to student', async () => {

@@ -12,7 +12,12 @@ const mockGroup = {
   maxStudents: 10,
   isActive: true,
   createdAt: new Date(),
-  teacher: { id: 'teacher-1', firstName: 'Jan', lastName: 'Kowalski', email: 't@t.com' },
+  teacher: {
+    id: 'teacher-1',
+    firstName: 'Jan',
+    lastName: 'Kowalski',
+    email: 't@t.com',
+  },
   _count: { students: 3 },
 };
 
@@ -36,7 +41,10 @@ describe('GroupsService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [GroupsService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        GroupsService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
     }).compile();
     service = module.get(GroupsService);
     jest.clearAllMocks();
@@ -59,7 +67,9 @@ describe('GroupsService', () => {
 
       await service.findAll({ language: 'English' });
 
-      const call = mockPrisma.group.findMany.mock.calls[0][0] as { where: unknown };
+      const call = mockPrisma.group.findMany.mock.calls[0][0] as {
+        where: unknown;
+      };
       expect(call.where).toMatchObject({ language: 'English' });
     });
 
@@ -69,14 +79,19 @@ describe('GroupsService', () => {
 
       await service.findAll({ teacherId: 'teacher-1' });
 
-      const call = mockPrisma.group.findMany.mock.calls[0][0] as { where: unknown };
+      const call = mockPrisma.group.findMany.mock.calls[0][0] as {
+        where: unknown;
+      };
       expect(call.where).toMatchObject({ teacherId: 'teacher-1' });
     });
   });
 
   describe('findOne', () => {
     it('should return group with students', async () => {
-      mockPrisma.group.findUnique.mockResolvedValue({ ...mockGroup, students: [] });
+      mockPrisma.group.findUnique.mockResolvedValue({
+        ...mockGroup,
+        students: [],
+      });
       const result = await service.findOne('group-1');
       expect(result.id).toBe('group-1');
     });
@@ -90,7 +105,10 @@ describe('GroupsService', () => {
   describe('create', () => {
     it('should create group', async () => {
       mockPrisma.group.create.mockResolvedValue(mockGroup);
-      const result = await service.create({ name: 'English A1', teacherId: 'teacher-1' });
+      const result = await service.create({
+        name: 'English A1',
+        teacherId: 'teacher-1',
+      });
       expect(result.name).toBe('English A1');
     });
   });
@@ -98,14 +116,19 @@ describe('GroupsService', () => {
   describe('update', () => {
     it('should update group', async () => {
       mockPrisma.group.findUnique.mockResolvedValue({ id: 'group-1' });
-      mockPrisma.group.update.mockResolvedValue({ ...mockGroup, name: 'English B1' });
+      mockPrisma.group.update.mockResolvedValue({
+        ...mockGroup,
+        name: 'English B1',
+      });
       const result = await service.update('group-1', { name: 'English B1' });
       expect(result.name).toBe('English B1');
     });
 
     it('should throw NotFoundException for unknown group', async () => {
       mockPrisma.group.findUnique.mockResolvedValue(null);
-      await expect(service.update('bad', {})).rejects.toThrow(NotFoundException);
+      await expect(service.update('bad', {})).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -114,7 +137,9 @@ describe('GroupsService', () => {
       mockPrisma.group.findUnique.mockResolvedValue({ id: 'group-1' });
       mockPrisma.group.delete.mockResolvedValue(mockGroup);
       await service.remove('group-1');
-      expect(mockPrisma.group.delete).toHaveBeenCalledWith({ where: { id: 'group-1' } });
+      expect(mockPrisma.group.delete).toHaveBeenCalledWith({
+        where: { id: 'group-1' },
+      });
     });
 
     it('should throw NotFoundException for unknown group', async () => {
@@ -126,7 +151,10 @@ describe('GroupsService', () => {
   describe('addStudent / removeStudent', () => {
     it('should upsert student into group', async () => {
       mockPrisma.group.findUnique.mockResolvedValue({ id: 'group-1' });
-      mockPrisma.groupStudent.upsert.mockResolvedValue({ groupId: 'group-1', studentId: 'student-1' });
+      mockPrisma.groupStudent.upsert.mockResolvedValue({
+        groupId: 'group-1',
+        studentId: 'student-1',
+      });
       await service.addStudent('group-1', 'student-1');
       expect(mockPrisma.groupStudent.upsert).toHaveBeenCalled();
     });

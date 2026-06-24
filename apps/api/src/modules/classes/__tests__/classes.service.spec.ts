@@ -14,7 +14,13 @@ const mockClass = {
   status: ClassStatus.SCHEDULED,
   cancelReason: null,
   createdAt: new Date(),
-  group: { id: 'grp1', name: 'Grupa A', language: 'Angielski', level: 'A1', teacher: { id: 'tch1', firstName: 'Jan', lastName: 'Kowalski' } },
+  group: {
+    id: 'grp1',
+    name: 'Grupa A',
+    language: 'Angielski',
+    level: 'A1',
+    teacher: { id: 'tch1', firstName: 'Jan', lastName: 'Kowalski' },
+  },
   _count: { attendances: 0 },
 };
 
@@ -60,7 +66,9 @@ describe('ClassesService', () => {
       prismaMock.class.count.mockResolvedValue(0);
       await service.findAll({ groupId: 'grp1' });
       expect(prismaMock.class.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ groupId: 'grp1' }) }),
+        expect.objectContaining({
+          where: expect.objectContaining({ groupId: 'grp1' }),
+        }),
       );
     });
 
@@ -69,7 +77,9 @@ describe('ClassesService', () => {
       prismaMock.class.count.mockResolvedValue(0);
       await service.findAll({ status: ClassStatus.COMPLETED });
       expect(prismaMock.class.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ status: ClassStatus.COMPLETED }) }),
+        expect.objectContaining({
+          where: expect.objectContaining({ status: ClassStatus.COMPLETED }),
+        }),
       );
     });
 
@@ -80,7 +90,10 @@ describe('ClassesService', () => {
       expect(prismaMock.class.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            scheduledAt: { gte: new Date('2025-01-01'), lte: new Date('2025-01-31') },
+            scheduledAt: {
+              gte: new Date('2025-01-01'),
+              lte: new Date('2025-01-31'),
+            },
           }),
         }),
       );
@@ -89,14 +102,19 @@ describe('ClassesService', () => {
 
   describe('findOne', () => {
     it('returns class with attendances', async () => {
-      prismaMock.class.findUnique.mockResolvedValue({ ...mockClass, attendances: [] });
+      prismaMock.class.findUnique.mockResolvedValue({
+        ...mockClass,
+        attendances: [],
+      });
       const result = await service.findOne('cls1');
       expect(result.id).toBe('cls1');
     });
 
     it('throws NotFoundException for unknown id', async () => {
       prismaMock.class.findUnique.mockResolvedValue(null);
-      await expect(service.findOne('unknown')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne('unknown')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -115,14 +133,19 @@ describe('ClassesService', () => {
   describe('update', () => {
     it('updates a class', async () => {
       prismaMock.class.findUnique.mockResolvedValue(mockClass);
-      prismaMock.class.update.mockResolvedValue({ ...mockClass, title: 'Updated' });
+      prismaMock.class.update.mockResolvedValue({
+        ...mockClass,
+        title: 'Updated',
+      });
       const result = await service.update('cls1', { title: 'Updated' });
       expect(result.title).toBe('Updated');
     });
 
     it('throws NotFoundException for unknown id', async () => {
       prismaMock.class.findUnique.mockResolvedValue(null);
-      await expect(service.update('unknown', {})).rejects.toThrow(NotFoundException);
+      await expect(service.update('unknown', {})).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -132,23 +155,38 @@ describe('ClassesService', () => {
       prismaMock.attendance.deleteMany.mockResolvedValue({ count: 0 });
       prismaMock.class.delete.mockResolvedValue(mockClass);
       await service.remove('cls1');
-      expect(prismaMock.attendance.deleteMany).toHaveBeenCalledWith({ where: { classId: 'cls1' } });
-      expect(prismaMock.class.delete).toHaveBeenCalledWith({ where: { id: 'cls1' } });
+      expect(prismaMock.attendance.deleteMany).toHaveBeenCalledWith({
+        where: { classId: 'cls1' },
+      });
+      expect(prismaMock.class.delete).toHaveBeenCalledWith({
+        where: { id: 'cls1' },
+      });
     });
   });
 
   describe('updateStatus', () => {
     it('updates status to COMPLETED', async () => {
       prismaMock.class.findUnique.mockResolvedValue(mockClass);
-      prismaMock.class.update.mockResolvedValue({ ...mockClass, status: ClassStatus.COMPLETED });
+      prismaMock.class.update.mockResolvedValue({
+        ...mockClass,
+        status: ClassStatus.COMPLETED,
+      });
       const result = await service.updateStatus('cls1', ClassStatus.COMPLETED);
       expect(result.status).toBe(ClassStatus.COMPLETED);
     });
 
     it('updates status to CANCELLED with reason', async () => {
       prismaMock.class.findUnique.mockResolvedValue(mockClass);
-      prismaMock.class.update.mockResolvedValue({ ...mockClass, status: ClassStatus.CANCELLED, cancelReason: 'Choroba' });
-      const result = await service.updateStatus('cls1', ClassStatus.CANCELLED, 'Choroba');
+      prismaMock.class.update.mockResolvedValue({
+        ...mockClass,
+        status: ClassStatus.CANCELLED,
+        cancelReason: 'Choroba',
+      });
+      const result = await service.updateStatus(
+        'cls1',
+        ClassStatus.CANCELLED,
+        'Choroba',
+      );
       expect(result.cancelReason).toBe('Choroba');
     });
   });

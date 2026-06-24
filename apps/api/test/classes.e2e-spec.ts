@@ -16,13 +16,17 @@ describe('Classes (e2e)', () => {
   let groupId: string;
 
   const cleanup = async (p: PrismaService) => {
-    const groups = await p.group.findMany({ where: { name: { startsWith: 'TestClass Group' } } });
+    const groups = await p.group.findMany({
+      where: { name: { startsWith: 'TestClass Group' } },
+    });
     for (const g of groups) {
       await p.attendance.deleteMany({ where: { class: { groupId: g.id } } });
       await p.class.deleteMany({ where: { groupId: g.id } });
       await p.groupStudent.deleteMany({ where: { groupId: g.id } });
     }
-    await p.group.deleteMany({ where: { name: { startsWith: 'TestClass Group' } } });
+    await p.group.deleteMany({
+      where: { name: { startsWith: 'TestClass Group' } },
+    });
     await p.user.deleteMany({
       where: { email: { in: ['admin.cls@test.com', 'teacher.cls@test.com'] } },
     });
@@ -36,18 +40,32 @@ describe('Classes (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.use(cookieParser());
     app.setGlobalPrefix('api/v1');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
 
     prisma = app.get(PrismaService);
     await cleanup(prisma);
 
-    const [admin, teacher] = await Promise.all([
+    const [_admin, teacher] = await Promise.all([
       prisma.user.create({
-        data: { email: 'admin.cls@test.com', passwordHash: await argon2.hash('Admin1234!'), firstName: 'Admin', lastName: 'C', role: Role.ADMIN },
+        data: {
+          email: 'admin.cls@test.com',
+          passwordHash: await argon2.hash('Admin1234!'),
+          firstName: 'Admin',
+          lastName: 'C',
+          role: Role.ADMIN,
+        },
       }),
       prisma.user.create({
-        data: { email: 'teacher.cls@test.com', passwordHash: await argon2.hash('Admin1234!'), firstName: 'Teacher', lastName: 'C', role: Role.TEACHER },
+        data: {
+          email: 'teacher.cls@test.com',
+          passwordHash: await argon2.hash('Admin1234!'),
+          firstName: 'Teacher',
+          lastName: 'C',
+          role: Role.TEACHER,
+        },
       }),
     ]);
 
@@ -57,8 +75,12 @@ describe('Classes (e2e)', () => {
     groupId = group.id;
 
     const [adminRes, teacherRes] = await Promise.all([
-      request(app.getHttpServer()).post('/api/v1/auth/login').send({ email: 'admin.cls@test.com', password: 'Admin1234!' }),
-      request(app.getHttpServer()).post('/api/v1/auth/login').send({ email: 'teacher.cls@test.com', password: 'Admin1234!' }),
+      request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: 'admin.cls@test.com', password: 'Admin1234!' }),
+      request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: 'teacher.cls@test.com', password: 'Admin1234!' }),
     ]);
     adminToken = adminRes.body.accessToken;
     teacherToken = teacherRes.body.accessToken;
@@ -75,7 +97,12 @@ describe('Classes (e2e)', () => {
     const res = await request(app.getHttpServer())
       .post('/api/v1/classes')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ title: 'Angielski lekcja 1', scheduledAt: '2025-06-01T10:00:00Z', durationMin: 60, groupId });
+      .send({
+        title: 'Angielski lekcja 1',
+        scheduledAt: '2025-06-01T10:00:00Z',
+        durationMin: 60,
+        groupId,
+      });
     expect(res.status).toBe(201);
     expect(res.body.title).toBe('Angielski lekcja 1');
     expect(res.body.status).toBe(ClassStatus.SCHEDULED);
@@ -120,7 +147,10 @@ describe('Classes (e2e)', () => {
     const res = await request(app.getHttpServer())
       .patch(`/api/v1/classes/${classId}`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ title: 'Updated title', meetLink: 'https://meet.google.com/abc-def-ghi' });
+      .send({
+        title: 'Updated title',
+        meetLink: 'https://meet.google.com/abc-def-ghi',
+      });
     expect(res.status).toBe(200);
     expect(res.body.title).toBe('Updated title');
     expect(res.body.meetLink).toBe('https://meet.google.com/abc-def-ghi');
@@ -139,7 +169,10 @@ describe('Classes (e2e)', () => {
     const res = await request(app.getHttpServer())
       .patch(`/api/v1/classes/${classId}/status`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ status: ClassStatus.CANCELLED, cancelReason: 'Choroba nauczyciela' });
+      .send({
+        status: ClassStatus.CANCELLED,
+        cancelReason: 'Choroba nauczyciela',
+      });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe(ClassStatus.CANCELLED);
     expect(res.body.cancelReason).toBe('Choroba nauczyciela');

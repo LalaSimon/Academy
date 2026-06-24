@@ -41,7 +41,13 @@ export class UsersService {
     };
 
     const [data, total] = await Promise.all([
-      this.prisma.user.findMany({ where, select: USER_SELECT, skip, take: limit, orderBy: { lastName: 'asc' } }),
+      this.prisma.user.findMany({
+        where,
+        select: USER_SELECT,
+        skip,
+        take: limit,
+        orderBy: { lastName: 'asc' },
+      }),
       this.prisma.user.count({ where }),
     ]);
 
@@ -53,9 +59,21 @@ export class UsersService {
       where: { id },
       select: {
         ...USER_SELECT,
-        studentGroups: { select: { group: { select: { id: true, name: true, language: true } } } },
-        asParent: { select: { student: { select: { id: true, firstName: true, lastName: true } } } },
-        asStudent: { select: { parent: { select: { id: true, firstName: true, lastName: true } } } },
+        studentGroups: {
+          select: {
+            group: { select: { id: true, name: true, language: true } },
+          },
+        },
+        asParent: {
+          select: {
+            student: { select: { id: true, firstName: true, lastName: true } },
+          },
+        },
+        asStudent: {
+          select: {
+            parent: { select: { id: true, firstName: true, lastName: true } },
+          },
+        },
       },
     });
     if (!user) throw new NotFoundException(`User ${id} not found`);
@@ -63,17 +81,26 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto) {
-    const exists = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const exists = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
     if (exists) throw new ConflictException('Email already in use');
 
     const passwordHash = await argon2.hash(dto.password);
-    const { password: _, ...rest } = dto;
-    return this.prisma.user.create({ data: { ...rest, passwordHash }, select: USER_SELECT });
+    const { password: _password, ...rest } = dto;
+    return this.prisma.user.create({
+      data: { ...rest, passwordHash },
+      select: USER_SELECT,
+    });
   }
 
   async update(id: string, dto: UpdateUserDto) {
     await this.findOne(id);
-    return this.prisma.user.update({ where: { id }, data: dto, select: USER_SELECT });
+    return this.prisma.user.update({
+      where: { id },
+      data: dto,
+      select: USER_SELECT,
+    });
   }
 
   async remove(id: string) {

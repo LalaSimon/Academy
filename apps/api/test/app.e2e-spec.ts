@@ -22,8 +22,6 @@ describe('App (e2e)', () => {
   });
 
   it('GET /api/v1/auth/me should return 401 when unauthenticated', () => {
-    return request(app.getHttpServer())
-      .get('/api/v1/auth/me')
-      .expect(401);
+    return request(app.getHttpServer()).get('/api/v1/auth/me').expect(401);
   });
 });

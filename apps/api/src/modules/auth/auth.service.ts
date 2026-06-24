@@ -32,13 +32,25 @@ export class AuthService {
     const accessToken = this.signAccessToken(user.id, user.email, user.role);
     const refreshToken = await this.createRefreshToken(user.id);
 
-    return { accessToken, refreshToken, user: { id: user.id, email: user.email, role: user.role, firstName: user.firstName, lastName: user.lastName } };
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+    };
   }
 
   async refresh(token: string) {
     const stored = await this.prisma.refreshToken.findUnique({
       where: { token },
-      include: { user: { select: { id: true, email: true, role: true, isActive: true } } },
+      include: {
+        user: { select: { id: true, email: true, role: true, isActive: true } },
+      },
     });
 
     if (!stored || stored.expiresAt < new Date() || !stored.user.isActive) {
@@ -62,12 +74,24 @@ export class AuthService {
   async getMe(userId: string) {
     return this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, role: true, firstName: true, lastName: true, phone: true, createdAt: true },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        createdAt: true,
+      },
     });
   }
 
   private signAccessToken(sub: string, email: string, role: string) {
-    const payload: JwtPayload = { sub, email, role: role as JwtPayload['role'] };
+    const payload: JwtPayload = {
+      sub,
+      email,
+      role: role as JwtPayload['role'],
+    };
     return this.jwt.sign(payload, {
       secret: this.config.getOrThrow<string>('JWT_SECRET'),
       expiresIn: this.config.get('JWT_ACCESS_EXPIRES', '15m'),
@@ -79,7 +103,9 @@ export class AuthService {
     const days = 7;
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
-    await this.prisma.refreshToken.create({ data: { token, userId, expiresAt } });
+    await this.prisma.refreshToken.create({
+      data: { token, userId, expiresAt },
+    });
     return token;
   }
 }

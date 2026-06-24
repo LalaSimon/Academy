@@ -14,7 +14,6 @@ import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import type { JwtPayload } from './types/jwt-payload';
 
 const REFRESH_COOKIE = 'refresh_token';
 const COOKIE_OPTIONS = {
@@ -35,7 +34,8 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { accessToken, refreshToken, user } = await this.authService.login(dto);
+    const { accessToken, refreshToken, user } =
+      await this.authService.login(dto);
     res.cookie(REFRESH_COOKIE, refreshToken, COOKIE_OPTIONS);
     return { accessToken, user };
   }
@@ -56,10 +56,7 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async logout(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const token = req.cookies?.[REFRESH_COOKIE] as string | undefined;
     if (token) await this.authService.logout(token);
     res.clearCookie(REFRESH_COOKIE, { path: '/' });
@@ -67,7 +64,9 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  async me(@Req() req: Request & { user: { id: string; email: string; role: string } }) {
+  async me(
+    @Req() req: Request & { user: { id: string; email: string; role: string } },
+  ) {
     return this.authService.getMe(req.user.id);
   }
 }
