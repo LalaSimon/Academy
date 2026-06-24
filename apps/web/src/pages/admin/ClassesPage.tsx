@@ -27,8 +27,13 @@ function calLabel(date: Date, view: string) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CalToolbar({ date, view, onNavigate, onView }: ToolbarProps<any, any>) {
   return (
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-1">
+    <div className="grid grid-cols-3 items-center mb-4">
+      <div className="flex items-center gap-2">
+        <button onClick={() => onNavigate('TODAY')} className="px-3 py-1 text-sm rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
+          Dziś
+        </button>
+      </div>
+      <div className="flex items-center justify-center gap-1">
         <button onClick={() => onNavigate('PREV')} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
           <ChevronLeft className="w-4 h-4" />
         </button>
@@ -39,10 +44,7 @@ function CalToolbar({ date, view, onNavigate, onView }: ToolbarProps<any, any>) 
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
-      <div className="flex items-center gap-2">
-        <button onClick={() => onNavigate('TODAY')} className="px-3 py-1 text-sm rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
-          Dziś
-        </button>
+      <div className="flex items-center justify-end">
         <div className="flex rounded-lg border border-gray-200 overflow-hidden">
           {(['month', 'week', 'day'] as const).map((v) => (
             <button key={v} onClick={() => onView(v)}
