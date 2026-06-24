@@ -58,18 +58,22 @@ docker compose up -d   # postgres + redis + minio + api + web
 # http://localhost:9001  — MinIO console (minioadmin / minioadmin)
 ```
 
-### 1.2 — Użytkownicy 🔜
+### 1.2 — Użytkownicy ✅
 
-- [ ] `UsersModule` w NestJS — CRUD z filtrem po roli, paginacja
-- [ ] Endpoint powiązania rodzic ↔ uczeń
-- [ ] Testy jednostkowe + integracyjne dla UsersModule
-- [ ] TanStack Query hook `useUsers` / `useUser`
-- [ ] Strona listy nauczycieli (tabela + wyszukiwarka)
-- [ ] Strona listy uczniów (tabela + filtr po grupie)
-- [ ] Modal tworzenia/edycji użytkownika (reużywalny formularz)
-- [ ] Widok szczegółów ucznia (grupy, frekwencja, powiązani rodzice)
+- [x] `UsersModule` — `apps/api/src/modules/users/`
+  - `UsersService`: findAll (paginacja, filtr po roli, wyszukiwarka), findOne (z relacjami), create (argon2 hash), update, remove
+  - `UsersController`: GET/POST/PATCH/DELETE `/users`, POST/DELETE `/users/:parentId/students/:studentId`
+  - Wszystkie endpointy chronione `JwtAuthGuard` + `RolesGuard(@Roles(ADMIN))`
+  - DTOs: `CreateUserDto`, `UpdateUserDto` (PartialType/OmitType bez pola password), `UserQueryDto`
+- [x] Powiązanie rodzic ↔ uczeń — `ParentStudent` upsert/delete przez osobny endpoint
+- [x] 10 testów jednostkowych — `users.service.spec.ts`
+- [x] 12 testów integracyjnych — `test/users.e2e-spec.ts`: CRUD, walidacja, 409 na duplikat emaila, link rodzic↔uczeń
+- [x] Hook `useUsers` / `useUser` / `useCreateUser` / `useUpdateUser` / `useDeleteUser` — `apps/web/src/hooks/useUsers.ts`
+- [x] `UsersTable` — reużywalny komponent tabeli z wyszukiwarką, paginacją, przyciskami edycji/usuwania, badge'ami ról, animacjami Framer Motion — `apps/web/src/components/users/UsersTable.tsx`
+- [x] `UserFormModal` — modal tworzenia/edycji z react-hook-form, Select roli — `apps/web/src/components/users/UserFormModal.tsx`
+- [x] `TeachersPage` (`/admin/teachers`) + `StudentsPage` (`/admin/students`) — `apps/web/src/pages/admin/`
 
-### 1.3 — Grupy
+### 1.3 — Grupy 🔜
 
 - [ ] `GroupsModule` — CRUD, przypisanie nauczyciela, przypisanie uczniów
 - [ ] Testy jednostkowe + integracyjne
@@ -152,11 +156,11 @@ docker compose up -d   # postgres + redis + minio + api + web
 
 ## ▶ Co robimy teraz?
 
-**Jesteśmy w Fazie 1.2 — Użytkownicy**
+**Jesteśmy w Fazie 1.3 — Grupy**
 
 Kolejne kroki:
-1. `UsersModule` w NestJS (`apps/api/src/modules/users/`) — serwis + kontroler + DTO + testy
-2. Endpoint `/api/v1/users` z paginacją i filtrem po roli
-3. Frontend: hook `useUsers`, strona listy nauczycieli i uczniów, modal tworzenia użytkownika
+1. `GroupsModule` w NestJS (`apps/api/src/modules/groups/`) — CRUD, przypisanie nauczyciela, zarządzanie uczniami w grupie
+2. Testy jednostkowe + integracyjne
+3. Frontend: hook `useGroups`, lista grup z filtrowaniem, strona szczegółów grupy, UI zarządzania uczniami
 
-Żeby dodać nowego shadcn komponent: `npx shadcn@latest add <nazwa>` w `apps/web/` — pliki trafiają do `src/components/ui/`.
+Uwaga: po dodaniu shadcn komponentu trzeba naprawić importy — zmienić `src/lib/utils` → `@/lib/utils` oraz `src/components/ui/X` → `@/components/ui/X` (shadcn CLI generuje złe ścieżki).
