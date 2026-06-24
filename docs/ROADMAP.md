@@ -5,7 +5,7 @@
 - [x] Dokumentacja projektu (ten folder)
 - [ ] Inicjalizacja repozytorium Git + push na GitHub
 - [ ] Konfiguracja `.gitignore` (node_modules, .env, dist, coverage)
-- [ ] Ochrona brancha `main` (wymagany PR + review, zakaz force push)
+- [~] Ochrona brancha `main` — wymaga GitHub Pro na prywatnym repo (pomiń lub upublicznij repo)
 - [ ] Setup monorepo (npm workspaces lub Turborepo)
 - [ ] Docker Compose dla lokalnego środowiska
 - [ ] NestJS boilerplate z Prisma + PostgreSQL
