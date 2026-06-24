@@ -1,13 +1,60 @@
 import { useState, useMemo } from 'react';
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar';
-import { format, parse, startOfWeek, getDay } from 'date-fns';
+import type { ToolbarProps } from 'react-big-calendar';
+import { format, parse, startOfWeek, getDay, startOfWeek as soW, endOfWeek } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { motion } from 'framer-motion';
-import { Plus, Video, Calendar as CalIcon, List, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Video, Calendar as CalIcon, List, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useClasses, useDeleteClass, useUpdateClassStatus, type Class, type ClassStatus } from '@/hooks/useClasses';
 import { ClassFormModal } from '@/components/classes/ClassFormModal';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+
+const MONTHS = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
+
+function calLabel(date: Date, view: string) {
+  if (view === 'month') return `${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+  if (view === 'week') {
+    const s = soW(date, { weekStartsOn: 1 });
+    const e = endOfWeek(date, { weekStartsOn: 1 });
+    if (s.getMonth() === e.getMonth())
+      return `${s.getDate()}–${e.getDate()} ${MONTHS[s.getMonth()]} ${s.getFullYear()}`;
+    return `${s.getDate()} ${MONTHS[s.getMonth()]} – ${e.getDate()} ${MONTHS[e.getMonth()]} ${e.getFullYear()}`;
+  }
+  return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function CalToolbar({ date, view, onNavigate, onView }: ToolbarProps<any, any>) {
+  return (
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-1">
+        <button onClick={() => onNavigate('PREV')} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <span className="text-base font-semibold text-gray-800 min-w-52 text-center select-none">
+          {calLabel(date, view)}
+        </span>
+        <button onClick={() => onNavigate('NEXT')} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="flex items-center gap-2">
+        <button onClick={() => onNavigate('TODAY')} className="px-3 py-1 text-sm rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
+          Dziś
+        </button>
+        <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+          {(['month', 'week', 'day'] as const).map((v) => (
+            <button key={v} onClick={() => onView(v)}
+              className={`px-3 py-1 text-sm transition-colors ${view === v ? 'bg-violet-500 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+              {v === 'month' ? 'Miesiąc' : v === 'week' ? 'Tydzień' : 'Dzień'}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const localizer = dateFnsLocalizer({
   format,
@@ -129,15 +176,8 @@ export function ClassesPage() {
               max={new Date(0, 0, 0, 22, 0)}
               scrollToTime={new Date(0, 0, 0, 6, 0)}
               culture="pl"
-              messages={{
-                next: 'Następny',
-                previous: 'Poprzedni',
-                today: 'Dziś',
-                month: 'Miesiąc',
-                week: 'Tydzień',
-                day: 'Dzień',
-                showMore: (count) => `+${count} więcej`,
-              }}
+              components={{ toolbar: CalToolbar }}
+              messages={{ showMore: (count) => `+${count} więcej` }}
               eventPropGetter={(e) => ({
                 style: {
                   backgroundColor: CALENDAR_EVENT_COLORS[(e.resource as Class).status],
