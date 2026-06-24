@@ -87,14 +87,19 @@ docker compose up -d   # postgres + redis + minio + api + web
 
 **Uwaga architektoniczna:** `@base-ui/react` Select's `onValueChange` zwraca `string | null`, nie `string` — zawsze rzutuj: `(v: string | null) => v && setValue(...)`.
 
-### 1.4 — Zajęcia 🔜
+### 1.4 — Zajęcia ✅
 
-- [ ] `ClassesModule` — CRUD, statusy (SCHEDULED→ONGOING→COMPLETED), manualny Meet link
-- [ ] Testy jednostkowe + integracyjne
-- [ ] Hook `useClasses` / `useClass`
-- [ ] Widok kalendarza zajęć (React Big Calendar)
-- [ ] Strona szczegółów zajęć z przyciskiem Meet
-- [ ] Zarządzanie statusami zajęć
+- [x] `ClassesModule` — `apps/api/src/modules/classes/`
+  - `ClassesService`: findAll (filter groupId/status/from/to, paginacja), findOne (z attendance), create, update, remove (kaskaduje Attendance), updateStatus
+  - `ClassesController`: ADMIN+TEACHER read+updateStatus, tylko ADMIN create/update/delete
+  - DTOs: `CreateClassDto`, `UpdateClassDto`, `ClassQueryDto`
+- [x] 12 testów jednostkowych — `classes.service.spec.ts`
+- [x] 12 testów integracyjnych — `test/classes.e2e-spec.ts`
+- [x] Hooki — `apps/web/src/hooks/useClasses.ts`: useClasses, useClass, useCreateClass, useUpdateClass, useUpdateClassStatus, useDeleteClass
+- [x] `ClassesPage` — przełącznik Kalendarz/Lista
+  - Kalendarz: `react-big-calendar` widok miesiąc/tydzień/dzień, eventi kolorowane po statusie
+  - Lista: karty z blokiem daty, badge statusu, przycisk Meet, szybkie Rozpocznij/Zakończ
+- [x] `ClassFormModal` — datetime-local, Select grupy z nazwą, czas trwania, opcjonalny meetLink
 
 ### 1.5 — Frekwencja
 
@@ -161,11 +166,11 @@ docker compose up -d   # postgres + redis + minio + api + web
 
 ## ▶ Co robimy teraz?
 
-**Jesteśmy w Fazie 1.4 — Zajęcia**
+**Jesteśmy w Fazie 1.5 — Frekwencja**
 
 Kolejne kroki:
-1. `ClassesModule` w NestJS (`apps/api/src/modules/classes/`) — CRUD, statusy (SCHEDULED→ONGOING→COMPLETED→CANCELLED), manualny Meet link
+1. `AttendanceModule` w NestJS — bulk update obecności dla zajęć (lista uczniów grupy → PRESENT/ABSENT/LATE/EXCUSED)
 2. Testy jednostkowe + integracyjne
-3. Frontend: hook `useClasses`, widok kalendarza (React Big Calendar), strona szczegółów zajęć
+3. Frontend: widok zaznaczania obecności na stronie szczegółów zajęć, statystyki frekwencji ucznia
 
 Uwaga: po dodaniu shadcn komponentu trzeba naprawić importy — zmienić `src/lib/utils` → `@/lib/utils` oraz `src/components/ui/X` → `@/components/ui/X` (shadcn CLI generuje złe ścieżki).
