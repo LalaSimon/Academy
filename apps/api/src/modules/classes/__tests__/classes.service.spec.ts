@@ -31,11 +31,16 @@ const prismaMock = {
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    deleteMany: jest.fn(),
     count: jest.fn(),
+  },
+  group: {
+    findUnique: jest.fn(),
   },
   attendance: {
     deleteMany: jest.fn(),
   },
+  $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
 };
 
 describe('ClassesService', () => {
@@ -120,6 +125,7 @@ describe('ClassesService', () => {
 
   describe('create', () => {
     it('creates a class', async () => {
+      prismaMock.group.findUnique.mockResolvedValue({ teacherId: 'tch1' });
       prismaMock.class.create.mockResolvedValue(mockClass);
       const result = await service.create({
         title: 'Angielski A1',

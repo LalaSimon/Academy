@@ -33,6 +33,7 @@ const mockPrisma = {
   groupStudent: {
     upsert: jest.fn(),
     update: jest.fn(),
+    deleteMany: jest.fn(),
   },
 };
 
