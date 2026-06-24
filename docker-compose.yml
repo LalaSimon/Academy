@@ -50,6 +50,48 @@ services:
       timeout: 5s
       retries: 5
 
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
+    container_name: academy_api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/api/src:/app/apps/api/src
+      - ./apps/api/prisma:/app/apps/api/prisma
+      - ./packages/shared/src:/app/packages/shared/src
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-academy}:${POSTGRES_PASSWORD:-academy}@postgres:5432/${POSTGRES_DB:-academy}
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: minio
+      FRONTEND_URL: http://localhost:5173
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile.dev
+    container_name: academy_web
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./apps/web/src:/app/apps/web/src
+      - ./packages/shared/src:/app/packages/shared/src
+    environment:
+      VITE_HOST: "0.0.0.0"
+      VITE_HMR_HOST: "localhost"
+      VITE_API_TARGET: "http://api:3000"
+    depends_on:
+      - api
+
 volumes:
   postgres_data:
   redis_data:

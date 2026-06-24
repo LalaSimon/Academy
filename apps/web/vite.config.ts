@@ -11,10 +11,14 @@ export default defineConfig({
     },
   },
   server: {
+    host: process.env.VITE_HOST ?? 'localhost',
     port: 5173,
+    hmr: process.env.VITE_HMR_HOST
+      ? { host: process.env.VITE_HMR_HOST }
+      : undefined,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: process.env.VITE_API_TARGET ?? 'http://localhost:3000',
         changeOrigin: true,
       },
     },
