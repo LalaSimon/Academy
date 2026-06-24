@@ -73,16 +73,21 @@ docker compose up -d   # postgres + redis + minio + api + web
 - [x] `UserFormModal` — modal tworzenia/edycji z react-hook-form, Select roli — `apps/web/src/components/users/UserFormModal.tsx`
 - [x] `TeachersPage` (`/admin/teachers`) + `StudentsPage` (`/admin/students`) — `apps/web/src/pages/admin/`
 
-### 1.3 — Grupy 🔜
+### 1.3 — Grupy ✅
 
-- [ ] `GroupsModule` — CRUD, przypisanie nauczyciela, przypisanie uczniów
-- [ ] Testy jednostkowe + integracyjne
-- [ ] Hook `useGroups` / `useGroup`
-- [ ] Lista grup z filtrowaniem (język, poziom, nauczyciel)
-- [ ] Strona szczegółów grupy
-- [ ] UI zarządzania uczniami w grupie
+- [x] `GroupsModule` — `apps/api/src/modules/groups/`
+  - `GroupsService`: findAll (paginacja, filtr language/teacherId/isActive/search), findOne (z listą aktywnych uczniów), create, update, remove (kaskaduje GroupStudent), addStudent (upsert isActive=true), removeStudent (soft-delete isActive=false)
+  - `GroupsController`: ADMIN+TEACHER mogą czytać, tylko ADMIN może pisać
+  - DTOs: `CreateGroupDto`, `UpdateGroupDto`, `GroupQueryDto`
+- [x] 12 testów jednostkowych — `groups.service.spec.ts`
+- [x] 10 testów integracyjnych — `test/groups.e2e-spec.ts`
+- [x] Hooki — `apps/web/src/hooks/useGroups.ts`: useGroups, useGroup, useCreateGroup, useUpdateGroup, useDeleteGroup, useAddStudentToGroup, useRemoveStudentFromGroup
+- [x] `GroupsPage` — siatka kart z badge'ami języka/poziomu, licznikiem uczniów, wyszukiwarką, paginacją — `/admin/groups`
+- [x] `GroupFormModal` — react-hook-form, Select nauczyciela ładowany z useUsers
 
-### 1.4 — Zajęcia
+**Uwaga architektoniczna:** `@base-ui/react` Select's `onValueChange` zwraca `string | null`, nie `string` — zawsze rzutuj: `(v: string | null) => v && setValue(...)`.
+
+### 1.4 — Zajęcia 🔜
 
 - [ ] `ClassesModule` — CRUD, statusy (SCHEDULED→ONGOING→COMPLETED), manualny Meet link
 - [ ] Testy jednostkowe + integracyjne
@@ -156,11 +161,11 @@ docker compose up -d   # postgres + redis + minio + api + web
 
 ## ▶ Co robimy teraz?
 
-**Jesteśmy w Fazie 1.3 — Grupy**
+**Jesteśmy w Fazie 1.4 — Zajęcia**
 
 Kolejne kroki:
-1. `GroupsModule` w NestJS (`apps/api/src/modules/groups/`) — CRUD, przypisanie nauczyciela, zarządzanie uczniami w grupie
+1. `ClassesModule` w NestJS (`apps/api/src/modules/classes/`) — CRUD, statusy (SCHEDULED→ONGOING→COMPLETED→CANCELLED), manualny Meet link
 2. Testy jednostkowe + integracyjne
-3. Frontend: hook `useGroups`, lista grup z filtrowaniem, strona szczegółów grupy, UI zarządzania uczniami
+3. Frontend: hook `useClasses`, widok kalendarza (React Big Calendar), strona szczegółów zajęć
 
 Uwaga: po dodaniu shadcn komponentu trzeba naprawić importy — zmienić `src/lib/utils` → `@/lib/utils` oraz `src/components/ui/X` → `@/components/ui/X` (shadcn CLI generuje złe ścieżki).
