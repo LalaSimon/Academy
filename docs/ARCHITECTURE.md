@@ -238,6 +238,27 @@ Odświeżenie strony:
               └─► 403 → logout() → redirect /login ✓
 ```
 
+### Docker API: nowe paczki npm wymagają rebuild obrazu
+
+**Problem:** Po `npm install <paczka> --workspace=apps/api` lokalnie paczka pojawia się w `node_modules` na hoście, ale kontener Dockera ma własne `node_modules` zbudowane przy ostatnim `docker compose build`. API w kontenerze nie kompiluje się i nie rejestruje modułów — endpoint zwraca 404, a logi pokazują błąd `Cannot find module`.
+
+**Przykład:** `@nestjs/mapped-types` zainstalowane lokalnie, ale API w Dockerze rzucało `TS2307: Cannot find module '@nestjs/mapped-types'` → wszystkie endpointy poza Auth dostawały 404.
+
+**Rozwiązanie:** Po każdym `npm install` nowej paczki do `apps/api` lub `apps/web` uruchom:
+
+```bash
+docker compose build api   # lub: docker compose build web
+docker compose up -d api   # lub: docker compose up -d web
+```
+
+**Zasada na przyszłość:** Jeśli endpoint API zwraca 404 (nie 401/403), najpierw sprawdź logi kontenera:
+```bash
+docker logs academy_api --tail 30
+```
+Błąd `Cannot find module` = trzeba `docker compose build api`.
+
+---
+
 ### shadcn/ui: złe ścieżki importów po `npx shadcn@latest add`
 
 **Problem:** shadcn CLI generuje komponenty z importami `from "src/lib/utils"` i `from "src/components/ui/button"` zamiast `from "@/lib/utils"`.
