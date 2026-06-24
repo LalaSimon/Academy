@@ -107,42 +107,62 @@ export class AttendanceService {
   }
 
   async getStudentStats(studentId: string) {
-    const attendances = await this.prisma.attendance.findMany({
-      where: { studentId },
-      select: {
-        status: true,
-        markedAt: true,
-        class: {
-          select: {
-            id: true,
-            title: true,
-            scheduledAt: true,
-            group: {
-              select: { id: true, name: true, language: true, level: true },
+    const [attendances, memberships] = await Promise.all([
+      this.prisma.attendance.findMany({
+        where: { studentId },
+        select: {
+          status: true,
+          markedAt: true,
+          class: {
+            select: {
+              id: true,
+              title: true,
+              scheduledAt: true,
+              group: {
+                select: { id: true, name: true, language: true, level: true },
+              },
             },
           },
         },
-      },
-      orderBy: { class: { scheduledAt: 'desc' } },
-    });
+        orderBy: { class: { scheduledAt: 'desc' } },
+      }),
+      this.prisma.groupStudent.findMany({
+        where: { studentId, isActive: true },
+        select: {
+          group: {
+            select: { id: true, name: true, language: true, level: true },
+          },
+        },
+      }),
+    ]);
 
-    // Group by group and compute per-group stats
-    const groupMap = new Map<
-      string,
-      {
-        group: {
-          id: string;
-          name: string;
-          language: string | null;
-          level: string | null;
-        };
-        total: number;
-        present: number;
-        late: number;
-        absent: number;
-        excused: number;
-      }
-    >();
+    type GroupEntry = {
+      group: {
+        id: string;
+        name: string;
+        language: string | null;
+        level: string | null;
+      };
+      total: number;
+      present: number;
+      late: number;
+      absent: number;
+      excused: number;
+    };
+
+    const groupMap = new Map<string, GroupEntry>();
+
+    // Seed map with all groups the student belongs to (even with 0 attendance)
+    for (const m of memberships) {
+      groupMap.set(m.group.id, {
+        group: m.group,
+        total: 0,
+        present: 0,
+        late: 0,
+        absent: 0,
+        excused: 0,
+      });
+    }
 
     for (const a of attendances) {
       const g = a.class.group;

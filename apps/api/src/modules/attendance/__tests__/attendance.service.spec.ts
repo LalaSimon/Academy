@@ -40,6 +40,9 @@ const prismaMock = {
     createMany: jest.fn(),
     upsert: jest.fn(),
   },
+  groupStudent: {
+    findMany: jest.fn().mockResolvedValue([]),
+  },
   $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
 };
 
