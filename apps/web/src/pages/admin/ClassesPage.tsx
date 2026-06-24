@@ -229,6 +229,7 @@ export function ClassesPage() {
                 </div>
                 <p className="text-sm text-gray-400 mt-0.5">
                   {cls.group.name} · {new Date(cls.scheduledAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })} · {cls.durationMin} min
+                  {' · '}{((cls.teacher ?? cls.group.teacher) as { firstName: string | null; lastName: string | null }).firstName} {((cls.teacher ?? cls.group.teacher) as { firstName: string | null; lastName: string | null }).lastName}
                 </p>
               </div>
 

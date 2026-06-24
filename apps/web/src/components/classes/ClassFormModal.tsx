@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCreateClass, useUpdateClass, type Class } from '@/hooks/useClasses';
 import { useGroups } from '@/hooks/useGroups';
+import { useUsers } from '@/hooks/useUsers';
 
 interface FormValues {
   title: string;
@@ -15,6 +16,7 @@ interface FormValues {
   durationMin: number;
   meetLink: string;
   groupId: string;
+  teacherId: string;
 }
 
 interface Props {
@@ -31,9 +33,10 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
   const updateClass = useUpdateClass();
   const [apiError, setApiError] = useState<string | null>(null);
   const { data: groupsData } = useGroups({ limit: 100 });
+  const { data: teachersData } = useUsers({ role: 'TEACHER', limit: 100 });
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
-    defaultValues: { durationMin: 60, groupId: defaultGroupId ?? '' },
+    defaultValues: { durationMin: 60, groupId: defaultGroupId ?? '', teacherId: '' },
   });
 
   useEffect(() => {
@@ -49,11 +52,22 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
         durationMin: editClass.durationMin,
         meetLink: editClass.meetLink ?? '',
         groupId: editClass.group.id,
+        teacherId: editClass.teacher?.id ?? editClass.group.teacher.id,
       });
     } else {
-      reset({ title: '', description: '', scheduledAt: defaultScheduledAt ?? '', durationMin: 60, meetLink: '', groupId: defaultGroupId ?? '' });
+      reset({ title: '', description: '', scheduledAt: defaultScheduledAt ?? '', durationMin: 60, meetLink: '', groupId: defaultGroupId ?? '', teacherId: '' });
     }
   }, [editClass, open, reset, defaultGroupId, defaultScheduledAt]);  // eslint-disable-line
+
+  const groupId = watch('groupId');
+  const teacherId = watch('teacherId');
+
+  // gdy zmienia się grupa → auto-uzupełnij nauczyciela tej grupy
+  const handleGroupChange = (v: string) => {
+    setValue('groupId', v);
+    const group = groupsData?.data.find((g) => g.id === v);
+    if (group) setValue('teacherId', group.teacher.id);
+  };
 
   const onSubmit = async (data: FormValues) => {
     setApiError(null);
@@ -62,6 +76,7 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
         ...data,
         description: data.description || undefined,
         meetLink: data.meetLink || undefined,
+        teacherId: data.teacherId || undefined,
         scheduledAt: new Date(data.scheduledAt).toISOString(),
       };
       if (isEdit) {
@@ -78,7 +93,8 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
     }
   };
 
-  const groupId = watch('groupId');
+  const selectedTeacher = teachersData?.data.find((t) => t.id === teacherId);
+  const selectedGroup = groupsData?.data.find((g) => g.id === groupId);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -96,11 +112,11 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
 
           <div className="space-y-1">
             <Label>Grupa</Label>
-            <Select value={groupId ?? ''} onValueChange={(v: string | null) => v && setValue('groupId', v)}>
+            <Select value={groupId ?? ''} onValueChange={(v: string | null) => v && handleGroupChange(v)}>
               <SelectTrigger className="w-full">
                 <SelectValue>
-                  {groupId
-                    ? (() => { const g = groupsData?.data.find((g) => g.id === groupId); return g ? g.name : groupId; })()
+                  {selectedGroup
+                    ? selectedGroup.name
                     : <span className="text-muted-foreground">Wybierz grupę</span>}
                 </SelectValue>
               </SelectTrigger>
@@ -111,6 +127,26 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
               </SelectContent>
             </Select>
             {errors.groupId && <p className="text-xs text-red-500">Wymagane</p>}
+          </div>
+
+          <div className="space-y-1">
+            <Label>Nauczyciel prowadzący</Label>
+            <Select value={teacherId ?? ''} onValueChange={(v: string | null) => v && setValue('teacherId', v)}>
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {selectedTeacher
+                    ? `${selectedTeacher.firstName ?? ''} ${selectedTeacher.lastName ?? ''}`.trim()
+                    : <span className="text-muted-foreground">Wybierz nauczyciela</span>}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {teachersData?.data.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.firstName ?? ''} {t.lastName ?? ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

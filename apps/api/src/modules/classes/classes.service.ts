@@ -24,6 +24,7 @@ const CLASS_SELECT = {
       teacher: { select: { id: true, firstName: true, lastName: true } },
     },
   },
+  teacher: { select: { id: true, firstName: true, lastName: true } },
   _count: { select: { attendances: true } },
 } as const;
 
@@ -80,7 +81,12 @@ export class ClassesService {
   }
 
   async create(dto: CreateClassDto) {
-    return this.prisma.class.create({ data: dto, select: CLASS_SELECT });
+    let { teacherId } = dto;
+    if (!teacherId) {
+      const group = await this.prisma.group.findUnique({ where: { id: dto.groupId }, select: { teacherId: true } });
+      teacherId = group?.teacherId;
+    }
+    return this.prisma.class.create({ data: { ...dto, teacherId }, select: CLASS_SELECT });
   }
 
   async update(id: string, dto: UpdateClassDto) {

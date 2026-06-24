@@ -11,6 +11,12 @@ export interface ClassGroup {
   teacher: { id: string; firstName: string | null; lastName: string | null };
 }
 
+export interface ClassTeacher {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+}
+
 export interface Class {
   id: string;
   title: string;
@@ -22,6 +28,7 @@ export interface Class {
   cancelReason: string | null;
   createdAt: string;
   group: ClassGroup;
+  teacher: ClassTeacher | null;
   _count: { attendances: number };
 }
 
@@ -57,6 +64,7 @@ export interface CreateClassPayload {
   durationMin?: number;
   meetLink?: string;
   groupId: string;
+  teacherId?: string;
 }
 
 export interface UpdateClassPayload extends Partial<Omit<CreateClassPayload, 'groupId'>> {

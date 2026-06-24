@@ -27,4 +27,8 @@ export class CreateClassDto {
   @IsString()
   @IsNotEmpty()
   groupId: string;
+
+  @IsOptional()
+  @IsString()
+  teacherId?: string;
 }

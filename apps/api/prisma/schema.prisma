@@ -71,6 +71,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   teacherGroups     Group[]         @relation("GroupTeacher")
+  taughtClasses     Class[]         @relation("ClassTeacher")
   studentGroups     GroupStudent[]
   attendances       Attendance[]
   uploadedMaterials Material[]
@@ -125,8 +126,11 @@ model Class {
 
   createdAt DateTime @default(now())
 
-  groupId String
-  group   Group  @relation(fields: [groupId], references: [id])
+  groupId   String
+  group     Group  @relation(fields: [groupId], references: [id])
+
+  teacherId String?
+  teacher   User?  @relation("ClassTeacher", fields: [teacherId], references: [id])
 
   attendances Attendance[]
   materials   ClassMaterial[]
