@@ -8,6 +8,7 @@ import { Plus, Video, Calendar as CalIcon, List, Pencil, Trash2, ChevronLeft, Ch
 import { Button } from '@/components/ui/button';
 import { useClasses, useDeleteClass, useUpdateClassStatus, type Class, type ClassStatus } from '@/hooks/useClasses';
 import { ClassFormModal } from '@/components/classes/ClassFormModal';
+import { RecurringClassModal } from '@/components/classes/RecurringClassModal';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
 const MONTHS = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
@@ -94,6 +95,7 @@ export function ClassesPage() {
   const [calDate, setCalDate] = useState(new Date());
   const [calView, setCalView] = useState<'month' | 'week' | 'day'>(Views.MONTH);
   const [modalOpen, setModalOpen] = useState(false);
+  const [recurringOpen, setRecurringOpen] = useState(false);
   const [editClass, setEditClass] = useState<Class | null>(null);
   const [defaultScheduledAt, setDefaultScheduledAt] = useState<string | undefined>();
 
@@ -154,6 +156,10 @@ export function ClassesPage() {
               Lista
             </button>
           </div>
+          <Button onClick={() => setRecurringOpen(true)} variant="ghost" className="rounded-xl h-9 px-4 border border-gray-200 text-gray-600 gap-2">
+            <Plus className="w-4 h-4" />
+            Cyklicznie
+          </Button>
           <Button onClick={handleCreate} className="bg-violet-500 hover:bg-violet-600 text-white rounded-xl h-9 px-4 gap-2">
             <Plus className="w-4 h-4" />
             Dodaj zajęcia
@@ -268,6 +274,7 @@ export function ClassesPage() {
       )}
 
       <ClassFormModal open={modalOpen} onClose={() => setModalOpen(false)} editClass={editClass} defaultScheduledAt={defaultScheduledAt} />
+      <RecurringClassModal open={recurringOpen} onClose={() => setRecurringOpen(false)} />
     </div>
   );
 }

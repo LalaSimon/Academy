@@ -8,6 +8,7 @@ import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 import { ClassQueryDto } from './dto/class-query.dto';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { CreateBulkClassDto } from './dto/create-bulk-class.dto';
 
 class UpdateStatusDto {
   @IsEnum(ClassStatus)
@@ -39,6 +40,12 @@ export class ClassesController {
   @Roles(Role.ADMIN)
   create(@Body() dto: CreateClassDto) {
     return this.classesService.create(dto);
+  }
+
+  @Post('bulk')
+  @Roles(Role.ADMIN)
+  createBulk(@Body() dto: CreateBulkClassDto) {
+    return this.classesService.createBulk(dto.items);
   }
 
   @Patch(':id')

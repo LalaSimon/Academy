@@ -100,6 +100,22 @@ export class ClassesService {
     await this.prisma.class.delete({ where: { id } });
   }
 
+  async createBulk(items: CreateClassDto[]) {
+    const prepared = await Promise.all(
+      items.map(async (item) => {
+        let { teacherId } = item;
+        if (!teacherId) {
+          const group = await this.prisma.group.findUnique({ where: { id: item.groupId }, select: { teacherId: true } });
+          teacherId = group?.teacherId;
+        }
+        return { ...item, teacherId };
+      }),
+    );
+    return this.prisma.$transaction(
+      prepared.map((data) => this.prisma.class.create({ data, select: CLASS_SELECT })),
+    );
+  }
+
   async updateStatus(id: string, status: ClassStatus, cancelReason?: string) {
     await this.assertExists(id);
     return this.prisma.class.update({

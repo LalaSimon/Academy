@@ -116,6 +116,15 @@ export function useUpdateClassStatus() {
   });
 }
 
+export function useCreateBulkClasses() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (items: CreateClassPayload[]) =>
+      api.post<Class[]>('/classes/bulk', { items }).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [CLASSES_KEY] }),
+  });
+}
+
 export function useDeleteClass() {
   const qc = useQueryClient();
   return useMutation({
