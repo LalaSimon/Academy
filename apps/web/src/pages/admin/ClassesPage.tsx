@@ -110,6 +110,8 @@ export function ClassesPage() {
               onNavigate={setCalDate}
               onView={(v) => setCalView(v as 'month' | 'week' | 'day')}
               onSelectEvent={(e) => handleEdit(e.resource as Class)}
+              min={new Date(0, 0, 0, 6, 0)}
+              max={new Date(0, 0, 0, 22, 0)}
               culture="pl"
               messages={{
                 next: 'Następny',
