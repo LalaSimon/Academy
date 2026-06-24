@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BookOpen, Pencil, Trash2, Users, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,12 +14,16 @@ export function GroupsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editGroup, setEditGroup] = useState<Group | null>(null);
 
+  const navigate = useNavigate();
   const { data, isLoading } = useGroups({ search: search || undefined, page, limit: 20 });
   const deleteGroup = useDeleteGroup();
 
-  const handleEdit = (g: Group) => { setEditGroup(g); setModalOpen(true); };
+  const handleEdit = (e: React.MouseEvent, g: Group) => { e.stopPropagation(); setEditGroup(g); setModalOpen(true); };
   const handleCreate = () => { setEditGroup(null); setModalOpen(true); };
-  const handleDelete = (id: string) => { if (confirm('Usunąć grupę i wszystkich jej uczniów?')) deleteGroup.mutate(id); };
+  const handleDelete = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (confirm('Usunąć grupę i wszystkich jej uczniów?')) deleteGroup.mutate(id);
+  };
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-4">
@@ -56,7 +61,8 @@ export function GroupsPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.04 }}
-            className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-shadow"
+            onClick={() => navigate(`/admin/groups/${group.id}`)}
+            className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-3 hover:shadow-md hover:border-violet-100 transition-all cursor-pointer"
           >
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -90,10 +96,10 @@ export function GroupsPage() {
                 <span>{group._count.students} / {group.maxStudents}</span>
               </div>
               <div className="flex gap-1">
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-violet-600" onClick={() => handleEdit(group)}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-violet-600" onClick={(e) => handleEdit(e, group)}>
                   <Pencil className="w-3.5 h-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-500" onClick={() => handleDelete(group.id)}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-500" onClick={(e) => handleDelete(e, group.id)}>
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
               </div>
