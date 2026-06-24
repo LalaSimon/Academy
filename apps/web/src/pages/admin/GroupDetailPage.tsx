@@ -94,17 +94,17 @@ export function GroupDetailPage() {
 
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-50/60">
-              <TableHead className="font-semibold text-gray-600">Imię i nazwisko</TableHead>
-              <TableHead className="font-semibold text-gray-600">Email</TableHead>
-              <TableHead className="font-semibold text-gray-600">Dołączył/a</TableHead>
-              <TableHead className="w-16" />
+            <TableRow className="bg-gray-50/70 border-b border-gray-100 hover:bg-gray-50/70">
+              <TableHead className="py-4 pl-6 pr-3 text-xs font-semibold uppercase tracking-wide text-gray-400 w-[40%]">Uczeń</TableHead>
+              <TableHead className="py-4 px-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Email</TableHead>
+              <TableHead className="py-4 px-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Dołączył/a</TableHead>
+              <TableHead className="py-4 pl-3 pr-6 w-16" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {group.students.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-12 text-gray-400">
+                <TableCell colSpan={4} className="py-16 text-center text-gray-400">
                   Brak uczniów w tej grupie
                 </TableCell>
               </TableRow>
@@ -117,22 +117,29 @@ export function GroupDetailPage() {
                 transition={{ delay: i * 0.03 }}
                 className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
               >
-                <TableCell className="font-medium text-gray-800">
-                  {gs.student.firstName} {gs.student.lastName}
+                <TableCell className="py-4 pl-6 pr-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-semibold shrink-0">
+                      {`${gs.student.firstName?.[0] ?? ''}${gs.student.lastName?.[0] ?? ''}`.toUpperCase()}
+                    </div>
+                    <p className="font-medium text-gray-900">{gs.student.firstName} {gs.student.lastName}</p>
+                  </div>
                 </TableCell>
-                <TableCell className="text-gray-500 text-sm">{gs.student.email}</TableCell>
-                <TableCell className="text-gray-400 text-sm">
+                <TableCell className="py-4 px-3 text-sm text-gray-500">{gs.student.email}</TableCell>
+                <TableCell className="py-4 px-3 text-sm text-gray-400">
                   {new Date(gs.joinedAt).toLocaleDateString('pl-PL')}
                 </TableCell>
-                <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-gray-400 hover:text-red-500"
-                    onClick={() => removeStudent.mutate({ groupId: id!, studentId: gs.student.id })}
-                  >
-                    <UserMinus className="w-3.5 h-3.5" />
-                  </Button>
+                <TableCell className="py-4 pl-3 pr-6">
+                  <div className="flex justify-end">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-gray-400 hover:text-red-500 rounded-lg"
+                      onClick={() => removeStudent.mutate({ groupId: id!, studentId: gs.student.id })}
+                    >
+                      <UserMinus className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 </TableCell>
               </motion.tr>
             ))}
