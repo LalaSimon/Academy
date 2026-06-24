@@ -54,6 +54,10 @@
 - Przyszłościowo: możliwość tworzenia wielu kursów/ścieżek
 - Raporty finansowe i frekwencyjne dla właściciela
 
+## Zasady procesu
+
+- **Nie przechodzimy do kolejnej fazy dopóki poprzednia nie jest w 100% ukończona** — każdy punkt checklisty w ROADMAP.md musi być odhaczony przed startem następnej fazy.
+
 ## Ograniczenia i priorytety MVP
 
 **In scope (Faza 1):**
