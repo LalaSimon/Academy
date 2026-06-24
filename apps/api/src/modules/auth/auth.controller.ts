@@ -67,7 +67,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  async me(@Req() req: Request & { user: JwtPayload }) {
-    return this.authService.getMe(req.user.sub);
+  async me(@Req() req: Request & { user: { id: string; email: string; role: string } }) {
+    return this.authService.getMe(req.user.id);
   }
 }

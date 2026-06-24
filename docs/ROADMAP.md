@@ -1,104 +1,129 @@
 # Roadmap — Plan Rozwoju
 
-## Faza 0 — Planowanie i Setup ✅
-
-- [x] Dokumentacja projektu (ten folder)
-- [x] Inicjalizacja repozytorium Git + push na GitHub
-- [x] Konfiguracja `.gitignore` (node_modules, .env, dist, coverage)
-- [~] Ochrona brancha `main` — wymaga GitHub Pro na prywatnym repo (pomiń lub upublicznij repo)
-- [x] Setup monorepo (Turborepo + npm workspaces: apps/api, apps/web, packages/shared)
-- [x] Docker Compose dla lokalnego środowiska (PostgreSQL, Redis, MinIO)
-- [x] NestJS boilerplate z Prisma + PostgreSQL (migracja `init` wykonana)
-- [x] React boilerplate z Vite + TypeScript + TanStack Query + Zustand + Axios
-- [x] Schemat bazy danych (Prisma schema — wszystkie modele)
-- [x] Tailwind CSS v4 + shadcn/ui
-- [x] CI podstawowy — GitHub Actions (lint, build, testy dla api i web)
-- [x] Konfiguracja Playwright (E2E) — playwright.config.ts + katalog e2e/
-- [x] docker-compose.test.yml (izolowana baza testowa na porcie 5433, tmpfs)
-
-**Cel:** Działające środowisko dev, można odpalić jedną komendą. ✅
+> **Zasada:** Nie przechodzimy do kolejnej fazy dopóki poprzednia nie jest w 100% ukończona.
 
 ---
 
-## Faza 1 — Core MVP
+## Faza 0 — Planowanie i Setup ✅
 
-### 1.1 — Auth
-- [ ] Moduł auth (login, logout, refresh token)
-- [ ] Testy jednostkowe: AuthService, Guards, strategie JWT
-- [ ] Testy integracyjne: `/auth/login`, `/auth/refresh`, role-based access
-- [ ] Role i Guards w NestJS
-- [ ] Strona logowania w React
-- [ ] Interceptor axios (auto-refresh)
-- [ ] Protected routes
+- [x] Dokumentacja projektu (`docs/`) — OVERVIEW, BUSINESS, ARCHITECTURE, TESTING, API, DATABASE, DOCKER
+- [x] Inicjalizacja repozytorium Git + push na GitHub → https://github.com/LalaSimon/Academy (prywatne)
+- [x] Konfiguracja `.gitignore` — chroni .env, node_modules, dist, coverage, playwright-report
+- [~] Ochrona brancha `main` — wymaga GitHub Pro (niedostępne na darmowym planie dla prywatnych repo)
+- [x] Setup monorepo — Turborepo + npm workspaces; `apps/api` (NestJS), `apps/web` (React), `packages/shared` (typy TS)
+- [x] Docker Compose (`docker-compose.yml`) — PostgreSQL 16, Redis 7, MinIO; `docker-compose.test.yml` — izolowana baza testowa port 5433 tmpfs
+- [x] NestJS boilerplate (`apps/api/src/`) — ValidationPipe, CORS, cookie-parser, global prefix `/api/v1`
+- [x] React boilerplate (`apps/web/src/`) — Vite 8, TanStack Query, Zustand, Axios, React Router
+- [x] Prisma schema (`apps/api/prisma/schema.prisma`) — wszystkie modele: User, Group, Class, Attendance, Material, Payment; migracja `init` wykonana
+- [x] Tailwind CSS v4 (`@tailwindcss/vite`) + shadcn/ui — komponenty w `apps/web/src/components/ui/`
+- [x] CI — GitHub Actions (`.github/workflows/ci.yml`): dwa równoległe joby `api` i `web`, każdy lint→build→test; Node 24
+- [x] Playwright config (`playwright.config.ts`) — katalog `e2e/`, Chromium, webServer na dev
+- [x] Dodatkowe biblioteki UI: Framer Motion, Recharts, React Big Calendar
 
-### 1.2 — Użytkownicy
-- [ ] CRUD użytkowników w API (admin only)
-- [ ] Lista nauczycieli (admin)
-- [ ] Lista uczniów (admin)
-- [ ] Tworzenie/edycja użytkownika
-- [ ] Powiązanie rodzic ↔ uczeń
+**Jak uruchomić środowisko dev:**
+```bash
+docker compose up -d          # baza, redis, minio
+cd apps/api && npm run dev    # NestJS na :3000
+cd apps/web && npm run dev    # React na :5173
+```
+
+---
+
+## Faza 1 — Core MVP 🔄
+
+### 1.1 — Auth ✅
+
+- [x] `PrismaService` + `PrismaModule` (@Global) — `apps/api/src/prisma/`
+- [x] `AuthModule` — `apps/api/src/modules/auth/`
+  - `AuthService` — login (argon2 verify), logout, refresh (token rotation), getMe
+  - `AuthController` — POST `/login`, `/refresh`, `/logout`; GET `/me`
+  - Refresh token w httpOnly cookie (`refresh_token`), access token w response body
+  - `JwtStrategy` (Passport) — waliduje token, sprawdza czy user aktywny w DB
+- [x] `JwtAuthGuard` + `RolesGuard` + `@Roles()` decorator — `apps/api/src/common/`
+- [x] Testy jednostkowe (11 testów) — `auth.service.spec.ts`, `roles.guard.spec.ts`
+- [x] Testy integracyjne (11 testów) — `test/auth.e2e-spec.ts`: login, refresh, /me, logout, walidacja
+- [x] Axios client z auto-refresh interceptorem — `apps/web/src/lib/api.ts` (kolejkowanie failedQueue)
+- [x] Zustand auth store — `apps/web/src/store/auth.store.ts` (persist user, token in memory)
+- [x] `useLogin` / `useLogout` hooks (TanStack Query) — `apps/web/src/hooks/useAuth.ts`
+- [x] `PrivateRoute` z role-based redirect — `apps/web/src/router/PrivateRoute.tsx`
+- [x] Strona logowania (`LoginPage`) — `apps/web/src/pages/auth/LoginPage.tsx`; Framer Motion, violet palette
+
+### 1.2 — Użytkownicy 🔜
+
+- [ ] `UsersModule` w NestJS — CRUD z filtrem po roli, paginacja
+- [ ] Endpoint powiązania rodzic ↔ uczeń
+- [ ] Testy jednostkowe + integracyjne dla UsersModule
+- [ ] TanStack Query hook `useUsers` / `useUser`
+- [ ] Strona listy nauczycieli (tabela + wyszukiwarka)
+- [ ] Strona listy uczniów (tabela + filtr po grupie)
+- [ ] Modal tworzenia/edycji użytkownika (reużywalny formularz)
+- [ ] Widok szczegółów ucznia (grupy, frekwencja, powiązani rodzice)
 
 ### 1.3 — Grupy
-- [ ] CRUD grup w API
-- [ ] Lista grup z filtrowaniem
-- [ ] Szczegóły grupy (uczniowie, nauczyciel)
-- [ ] Dodawanie/usuwanie uczniów z grupy
-- [ ] Zmiana nauczyciela grupy
+
+- [ ] `GroupsModule` — CRUD, przypisanie nauczyciela, przypisanie uczniów
+- [ ] Testy jednostkowe + integracyjne
+- [ ] Hook `useGroups` / `useGroup`
+- [ ] Lista grup z filtrowaniem (język, poziom, nauczyciel)
+- [ ] Strona szczegółów grupy
+- [ ] UI zarządzania uczniami w grupie
 
 ### 1.4 — Zajęcia
-- [ ] CRUD zajęć w API
-- [ ] Widok kalendarza zajęć
-- [ ] Strona szczegółów zajęć
-- [ ] Manualny Meet link (pole tekstowe)
-- [ ] Zmiana statusów (scheduled → ongoing → completed)
-- [ ] Odwołanie zajęć
+
+- [ ] `ClassesModule` — CRUD, statusy (SCHEDULED→ONGOING→COMPLETED), manualny Meet link
+- [ ] Testy jednostkowe + integracyjne
+- [ ] Hook `useClasses` / `useClass`
+- [ ] Widok kalendarza zajęć (React Big Calendar)
+- [ ] Strona szczegółów zajęć z przyciskiem Meet
+- [ ] Zarządzanie statusami zajęć
 
 ### 1.5 — Frekwencja
-- [ ] CRUD attendance w API
-- [ ] Bulk zaznaczanie obecności (nauczyciel)
-- [ ] Widok frekwencji ucznia
-- [ ] Statystyki frekwencji
+
+- [ ] `AttendanceModule` — bulk update, statystyki
+- [ ] Testy jednostkowe + integracyjne
+- [ ] Hook `useAttendance`
+- [ ] UI zaznaczania obecności (lista uczniów + statusy)
+- [ ] Widok historii frekwencji ucznia z procentami
 
 ### 1.6 — Materiały
-- [ ] Upload plików (MinIO)
-- [ ] Dodawanie linków
-- [ ] Biblioteka materiałów
-- [ ] Przypisywanie materiałów do zajęć
 
-**Cel:** Szkoła może działać operacyjnie — prowadzić zajęcia, zarządzać uczniami, zaznaczać obecność.
+- [ ] `MaterialsModule` — upload do MinIO, presigned URL, linki zewnętrzne
+- [ ] Testy jednostkowe + integracyjne
+- [ ] Hook `useMaterials`
+- [ ] Drag & drop upload
+- [ ] Biblioteka materiałów + przypisywanie do zajęć
+
+**Cel Fazy 1:** Szkoła może działać operacyjnie — prowadzić zajęcia, zarządzać uczniami, zaznaczać obecność.
 
 ---
 
 ## Faza 2 — Płatności + Portal rodzica
 
 ### 2.0 — E2E (Playwright)
-- [ ] Testy E2E: flow logowania dla każdej roli
+- [ ] Testy E2E: flow logowania dla każdej roli (`e2e/auth.spec.ts`)
 - [ ] Testy E2E: tworzenie zajęć + zaznaczanie obecności
 - [ ] Testy E2E: proces płatności (mock bramki)
 
 ### 2.1 — Płatności
-- [ ] Moduł płatności w API
-- [ ] Tworzenie opłat przez admina
-- [ ] Integracja Przelewy24 (checkout + webhook)
-- [ ] Ręczna zmiana statusu (admin)
-- [ ] Dashboard finansowy (admin)
+- [ ] `PaymentsModule` — CRUD opłat, statusy, bulk tworzenie dla grupy
+- [ ] Integracja Przelewy24 (checkout + webhook z weryfikacją podpisu)
+- [ ] Ręczna zmiana statusu przez admina
+- [ ] Cron: automatyczne oznaczanie OVERDUE
+- [ ] Dashboard finansowy admina (Recharts)
 - [ ] Strona płatności ucznia/rodzica
-- [ ] Cron: oznaczanie overdue
 
 ### 2.2 — Portal rodzica
-- [ ] Rejestracja konta rodzica (przez admina)
 - [ ] Widok frekwencji dziecka
 - [ ] Widok płatności dziecka
-- [ ] Powiadomienia o nieobecności
+- [ ] Powiadomienia email o nieobecności
 
 ### 2.3 — Powiadomienia email
-- [ ] Szablony email (HTML)
-- [ ] BullMQ kolejka
-- [ ] Cron: reminder przed zajęciami
-- [ ] Cron: reminder o płatnościach
-- [ ] In-app powiadomienia (bell icon)
+- [ ] BullMQ kolejka + szablony HTML (Nodemailer)
+- [ ] Cron: reminder 30 min przed zajęciami
+- [ ] Cron: reminder o zalegających płatnościach
+- [ ] In-app powiadomienia (bell icon w navbarze)
 
-**Cel:** Właściciel ma pełny wgląd w finanse. Rodzice są informowani.
+**Cel Fazy 2:** Właściciel ma pełny wgląd w finanse. Rodzice są informowani.
 
 ---
 
@@ -109,20 +134,19 @@
 - [ ] Tracking postępów ucznia
 - [ ] Google Calendar API (automatyczne Meet linki)
 - [ ] Raporty i eksport CSV/PDF
-- [ ] Powtarzające się zajęcia (recurence rules)
+- [ ] Powtarzające się zajęcia (recurrence rules)
 - [ ] Aplikacja mobilna (React Native lub PWA)
 - [ ] Czat wewnętrzny (nauczyciel ↔ uczeń)
 
 ---
 
-## Od czego zaczynamy?
+## ▶ Co robimy teraz?
 
-**Następny krok: Faza 0 — Setup**
+**Jesteśmy w Fazie 1.2 — Użytkownicy**
 
-1. Inicjalizacja monorepo
-2. Docker Compose (postgres, redis, minio)
-3. NestJS app z Prisma
-4. React app z Vite
-5. Prisma schema według `docs/technical/DATABASE.md`
+Kolejne kroki:
+1. `UsersModule` w NestJS (`apps/api/src/modules/users/`) — serwis + kontroler + DTO + testy
+2. Endpoint `/api/v1/users` z paginacją i filtrem po roli
+3. Frontend: hook `useUsers`, strona listy nauczycieli i uczniów, modal tworzenia użytkownika
 
-Kiedy środowisko działa → przechodzimy do Fazy 1.1 (Auth).
+Żeby dodać nowego shadcn komponent: `npx shadcn@latest add <nazwa>` w `apps/web/` — pliki trafiają do `src/components/ui/`.
