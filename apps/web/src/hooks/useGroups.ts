@@ -109,7 +109,7 @@ export function useAddStudentToGroup() {
   return useMutation({
     mutationFn: ({ groupId, studentId }: { groupId: string; studentId: string }) =>
       api.post(`/groups/${groupId}/students/${studentId}`),
-    onSuccess: (_d, { groupId }) => qc.invalidateQueries({ queryKey: [GROUPS_KEY, groupId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [GROUPS_KEY] }),
   });
 }
 
@@ -118,6 +118,6 @@ export function useRemoveStudentFromGroup() {
   return useMutation({
     mutationFn: ({ groupId, studentId }: { groupId: string; studentId: string }) =>
       api.delete(`/groups/${groupId}/students/${studentId}`),
-    onSuccess: (_d, { groupId }) => qc.invalidateQueries({ queryKey: [GROUPS_KEY, groupId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [GROUPS_KEY] }),
   });
 }
