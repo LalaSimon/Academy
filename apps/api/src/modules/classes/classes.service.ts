@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { ClassStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateClassDto } from './dto/create-class.dto';
@@ -14,6 +15,7 @@ const CLASS_SELECT = {
   meetLink: true,
   status: true,
   cancelReason: true,
+  batchId: true,
   createdAt: true,
   group: {
     select: {
@@ -101,6 +103,7 @@ export class ClassesService {
   }
 
   async createBulk(items: CreateClassDto[]) {
+    const batchId = randomUUID();
     const prepared = await Promise.all(
       items.map(async (item) => {
         let { teacherId } = item;
@@ -108,12 +111,17 @@ export class ClassesService {
           const group = await this.prisma.group.findUnique({ where: { id: item.groupId }, select: { teacherId: true } });
           teacherId = group?.teacherId;
         }
-        return { ...item, teacherId };
+        return { ...item, teacherId, batchId };
       }),
     );
     return this.prisma.$transaction(
       prepared.map((data) => this.prisma.class.create({ data, select: CLASS_SELECT })),
     );
+  }
+
+  async removeBatch(batchId: string) {
+    await this.prisma.attendance.deleteMany({ where: { class: { batchId } } });
+    await this.prisma.class.deleteMany({ where: { batchId } });
   }
 
   async updateStatus(id: string, status: ClassStatus, cancelReason?: string) {

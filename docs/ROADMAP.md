@@ -95,11 +95,14 @@ docker compose up -d   # postgres + redis + minio + api + web
   - DTOs: `CreateClassDto`, `UpdateClassDto`, `ClassQueryDto`
 - [x] 12 testów jednostkowych — `classes.service.spec.ts`
 - [x] 12 testów integracyjnych — `test/classes.e2e-spec.ts`
-- [x] Hooki — `apps/web/src/hooks/useClasses.ts`: useClasses, useClass, useCreateClass, useUpdateClass, useUpdateClassStatus, useDeleteClass
+- [x] Hooki — `apps/web/src/hooks/useClasses.ts`: useClasses, useClass, useCreateClass, useUpdateClass, useUpdateClassStatus, useDeleteClass, useCreateBulkClasses, useDeleteBatch
 - [x] `ClassesPage` — przełącznik Kalendarz/Lista
-  - Kalendarz: `react-big-calendar` widok miesiąc/tydzień/dzień, eventi kolorowane po statusie
-  - Lista: karty z blokiem daty, badge statusu, przycisk Meet, szybkie Rozpocznij/Zakończ
-- [x] `ClassFormModal` — datetime-local, Select grupy z nazwą, czas trwania, opcjonalny meetLink
+  - Kalendarz: `react-big-calendar` widok miesiąc/tydzień/dzień, eventi kolorowane po statusie; klik w puste pole → otwiera modal z datą/godziną
+  - Lista: zajęcia cykliczne zgrupowane w rozsuwane sekcje (batchId), bulk-delete całej serii; pojedyncze zajęcia poniżej
+- [x] `ClassFormModal` — datetime-local, Select grupy z nazwą, Select nauczyciela (auto z grupy), czas trwania, opcjonalny meetLink
+- [x] `RecurringClassModal` — wybór dni tygodnia, zakres dat, podgląd listy dat przed zapisem; tworzy serię przez `POST /classes/bulk`
+- [x] Nauczyciel per zajęcie — `Class.teacherId?` (migracja), domyślnie nauczyciel grupy, można nadpisać w formularzu
+- [x] `batchId` — `Class.batchId?` (migracja), wspólny UUID dla zajęć z jednego bulka; `DELETE /classes/batch/:batchId` usuwa całą serię
 
 ### 1.5 — Frekwencja
 

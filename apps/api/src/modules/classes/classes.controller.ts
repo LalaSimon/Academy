@@ -60,6 +60,12 @@ export class ClassesController {
     return this.classesService.updateStatus(id, dto.status, dto.cancelReason);
   }
 
+  @Delete('batch/:batchId')
+  @Roles(Role.ADMIN)
+  removeBatch(@Param('batchId') batchId: string) {
+    return this.classesService.removeBatch(batchId);
+  }
+
   @Delete(':id')
   @Roles(Role.ADMIN)
   remove(@Param('id') id: string) {

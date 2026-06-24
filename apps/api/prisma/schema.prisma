@@ -132,6 +132,8 @@ model Class {
   teacherId String?
   teacher   User?  @relation("ClassTeacher", fields: [teacherId], references: [id])
 
+  batchId   String?
+
   attendances Attendance[]
   materials   ClassMaterial[]
 }

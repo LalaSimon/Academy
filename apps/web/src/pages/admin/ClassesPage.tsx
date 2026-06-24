@@ -4,9 +4,9 @@ import type { ToolbarProps } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, startOfWeek as soW, endOfWeek } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { motion } from 'framer-motion';
-import { Plus, Video, Calendar as CalIcon, List, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Video, Calendar as CalIcon, List, Pencil, Trash2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useClasses, useDeleteClass, useUpdateClassStatus, type Class, type ClassStatus } from '@/hooks/useClasses';
+import { useClasses, useDeleteClass, useDeleteBatch, useUpdateClassStatus, type Class, type ClassStatus } from '@/hooks/useClasses';
 import { ClassFormModal } from '@/components/classes/ClassFormModal';
 import { RecurringClassModal } from '@/components/classes/RecurringClassModal';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -101,7 +101,16 @@ export function ClassesPage() {
 
   const { data, isLoading } = useClasses({ limit: 200 });
   const deleteClass = useDeleteClass();
+  const deleteBatch = useDeleteBatch();
   const updateStatus = useUpdateClassStatus();
+  const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set());
+
+  const toggleBatch = (batchId: string) =>
+    setExpandedBatches((prev) => {
+      const next = new Set(prev);
+      next.has(batchId) ? next.delete(batchId) : next.add(batchId);
+      return next;
+    });
 
   const events = useMemo(() =>
     (data?.data ?? []).map((cls) => ({
@@ -209,67 +218,128 @@ export function ClassesPage() {
               Brak zajęć. Dodaj pierwsze zajęcia.
             </div>
           )}
-          {data?.data.map((cls, i) => (
-            <motion.div
-              key={cls.id}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.02 }}
-              className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 flex items-center gap-4 hover:border-violet-100 transition-colors"
-            >
-              <div className="w-12 h-12 rounded-xl bg-violet-50 flex flex-col items-center justify-center shrink-0">
-                <span className="text-xs font-semibold text-violet-600 leading-none">
-                  {new Date(cls.scheduledAt).toLocaleDateString('pl-PL', { day: '2-digit', month: 'short' }).split(' ')[0]}
-                </span>
-                <span className="text-xs text-violet-400">
-                  {new Date(cls.scheduledAt).toLocaleDateString('pl-PL', { month: 'short' })}
-                </span>
-              </div>
+          {(() => {
+            const classes = data?.data ?? [];
+            // Separate singles from batches
+            const singles = classes.filter((c) => !c.batchId);
+            const batchMap = new Map<string, Class[]>();
+            classes.filter((c) => c.batchId).forEach((c) => {
+              const list = batchMap.get(c.batchId!) ?? [];
+              list.push(c);
+              batchMap.set(c.batchId!, list);
+            });
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-medium text-gray-900 truncate">{cls.title}</p>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[cls.status]}`}>
-                    {STATUS_LABELS[cls.status]}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-400 mt-0.5">
-                  {cls.group.name} · {new Date(cls.scheduledAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })} · {cls.durationMin} min
-                  {' · '}{((cls.teacher ?? cls.group.teacher) as { firstName: string | null; lastName: string | null }).firstName} {((cls.teacher ?? cls.group.teacher) as { firstName: string | null; lastName: string | null }).lastName}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-1 shrink-0">
-                {cls.meetLink && (
-                  <a href={cls.meetLink} target="_blank" rel="noreferrer">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-400 hover:text-blue-600 rounded-lg">
-                      <Video className="w-3.5 h-3.5" />
+            const ClassRow = ({ cls, i }: { cls: Class; i: number }) => {
+              const teacher = cls.teacher ?? cls.group.teacher;
+              return (
+                <motion.div
+                  key={cls.id}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.02 }}
+                  className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 flex items-center gap-4 hover:border-violet-100 transition-colors"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-violet-50 flex flex-col items-center justify-center shrink-0">
+                    <span className="text-xs font-semibold text-violet-600 leading-none">
+                      {new Date(cls.scheduledAt).toLocaleDateString('pl-PL', { day: '2-digit' })}
+                    </span>
+                    <span className="text-xs text-violet-400">
+                      {new Date(cls.scheduledAt).toLocaleDateString('pl-PL', { month: 'short' })}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-gray-900 truncate">{cls.title}</p>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[cls.status]}`}>
+                        {STATUS_LABELS[cls.status]}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-400 mt-0.5">
+                      {cls.group.name} · {new Date(cls.scheduledAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })} · {cls.durationMin} min
+                      {' · '}{(teacher as { firstName: string | null; lastName: string | null }).firstName} {(teacher as { firstName: string | null; lastName: string | null }).lastName}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {cls.meetLink && (
+                      <a href={cls.meetLink} target="_blank" rel="noreferrer">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-400 hover:text-blue-600 rounded-lg">
+                          <Video className="w-3.5 h-3.5" />
+                        </Button>
+                      </a>
+                    )}
+                    {cls.status === 'SCHEDULED' && (
+                      <Button variant="ghost" size="sm" className="h-8 text-xs text-amber-500 hover:text-amber-700 rounded-lg px-2"
+                        onClick={() => handleStatus(cls.id, 'ONGOING')}>Rozpocznij</Button>
+                    )}
+                    {cls.status === 'ONGOING' && (
+                      <Button variant="ghost" size="sm" className="h-8 text-xs text-green-600 hover:text-green-700 rounded-lg px-2"
+                        onClick={() => handleStatus(cls.id, 'COMPLETED')}>Zakończ</Button>
+                    )}
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-violet-600 rounded-lg" onClick={() => handleEdit(cls)}>
+                      <Pencil className="w-3.5 h-3.5" />
                     </Button>
-                  </a>
-                )}
-                {cls.status === 'SCHEDULED' && (
-                  <Button variant="ghost" size="sm" className="h-8 text-xs text-amber-500 hover:text-amber-700 rounded-lg px-2"
-                    onClick={() => handleStatus(cls.id, 'ONGOING')}>
-                    Rozpocznij
-                  </Button>
-                )}
-                {cls.status === 'ONGOING' && (
-                  <Button variant="ghost" size="sm" className="h-8 text-xs text-green-600 hover:text-green-700 rounded-lg px-2"
-                    onClick={() => handleStatus(cls.id, 'COMPLETED')}>
-                    Zakończ
-                  </Button>
-                )}
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-violet-600 rounded-lg"
-                  onClick={() => handleEdit(cls)}>
-                  <Pencil className="w-3.5 h-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-500 rounded-lg"
-                  onClick={() => handleDelete(cls.id)}>
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            </motion.div>
-          ))}
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-500 rounded-lg" onClick={() => handleDelete(cls.id)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </motion.div>
+              );
+            };
+
+            return (
+              <>
+                {/* Batch groups */}
+                {Array.from(batchMap.entries()).map(([batchId, items], bi) => {
+                  const expanded = expandedBatches.has(batchId);
+                  const sorted = [...items].sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+                  const first = sorted[0];
+                  const last = sorted[sorted.length - 1];
+                  return (
+                    <motion.div key={batchId} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: bi * 0.03 }}>
+                      {/* Batch header */}
+                      <div
+                        className="bg-white border border-violet-100 rounded-2xl px-5 py-3.5 flex items-center gap-3 cursor-pointer hover:bg-violet-50/40 transition-colors"
+                        onClick={() => toggleBatch(batchId)}
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
+                          <RefreshCw className="w-4 h-4 text-violet-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900">{first.title}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {items.length} zajęć · {first.group.name} ·{' '}
+                            {new Date(first.scheduledAt).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}
+                            {' – '}
+                            {new Date(last.scheduledAt).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost" size="sm"
+                          className="h-8 text-xs text-red-400 hover:text-red-600 rounded-lg px-2 shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`Usunąć wszystkie ${items.length} zajęcia z tej serii?`)) deleteBatch.mutate(batchId);
+                          }}
+                        >
+                          <Trash2 className="w-3.5 h-3.5 mr-1" />
+                          Usuń serię
+                        </Button>
+                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${expanded ? 'rotate-180' : ''}`} />
+                      </div>
+                      {/* Batch items */}
+                      {expanded && (
+                        <div className="mt-1.5 ml-4 space-y-1.5 border-l-2 border-violet-100 pl-4">
+                          {sorted.map((cls, i) => <ClassRow key={cls.id} cls={cls} i={i} />)}
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
+                {/* Single classes */}
+                {singles.map((cls, i) => <ClassRow key={cls.id} cls={cls} i={i} />)}
+              </>
+            );
+          })()}
         </div>
       )}
 

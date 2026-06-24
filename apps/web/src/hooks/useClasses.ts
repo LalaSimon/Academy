@@ -29,6 +29,7 @@ export interface Class {
   createdAt: string;
   group: ClassGroup;
   teacher: ClassTeacher | null;
+  batchId: string | null;
   _count: { attendances: number };
 }
 
@@ -112,6 +113,14 @@ export function useUpdateClassStatus() {
   return useMutation({
     mutationFn: ({ id, status, cancelReason }: { id: string; status: ClassStatus; cancelReason?: string }) =>
       api.patch<Class>(`/classes/${id}/status`, { status, cancelReason }).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [CLASSES_KEY] }),
+  });
+}
+
+export function useDeleteBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (batchId: string) => api.delete(`/classes/batch/${batchId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: [CLASSES_KEY] }),
   });
 }
