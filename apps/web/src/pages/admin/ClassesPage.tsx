@@ -1,0 +1,212 @@
+import { useState, useMemo } from 'react';
+import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar';
+import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { pl } from 'date-fns/locale';
+import { motion } from 'framer-motion';
+import { Plus, Video, Calendar as CalIcon, List, Pencil, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useClasses, useDeleteClass, useUpdateClassStatus, type Class, type ClassStatus } from '@/hooks/useClasses';
+import { ClassFormModal } from '@/components/classes/ClassFormModal';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }),
+  getDay,
+  locales: { pl },
+});
+
+const STATUS_LABELS: Record<ClassStatus, string> = {
+  SCHEDULED: 'Zaplanowane',
+  ONGOING: 'W trakcie',
+  COMPLETED: 'Zakończone',
+  CANCELLED: 'Odwołane',
+};
+
+const STATUS_COLORS: Record<ClassStatus, string> = {
+  SCHEDULED: 'bg-blue-100 text-blue-700',
+  ONGOING: 'bg-amber-100 text-amber-700',
+  COMPLETED: 'bg-green-100 text-green-700',
+  CANCELLED: 'bg-red-100 text-red-600',
+};
+
+const CALENDAR_EVENT_COLORS: Record<ClassStatus, string> = {
+  SCHEDULED: '#8b5cf6',
+  ONGOING: '#f59e0b',
+  COMPLETED: '#10b981',
+  CANCELLED: '#ef4444',
+};
+
+type ViewMode = 'calendar' | 'list';
+
+export function ClassesPage() {
+  const [view, setView] = useState<ViewMode>('calendar');
+  const [calDate, setCalDate] = useState(new Date());
+  const [calView, setCalView] = useState<'month' | 'week' | 'day'>(Views.MONTH);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editClass, setEditClass] = useState<Class | null>(null);
+
+  const { data, isLoading } = useClasses({ limit: 200 });
+  const deleteClass = useDeleteClass();
+  const updateStatus = useUpdateClassStatus();
+
+  const events = useMemo(() =>
+    (data?.data ?? []).map((cls) => ({
+      id: cls.id,
+      title: cls.title,
+      start: new Date(cls.scheduledAt),
+      end: new Date(new Date(cls.scheduledAt).getTime() + cls.durationMin * 60_000),
+      resource: cls,
+    })),
+    [data],
+  );
+
+  const handleEdit = (cls: Class) => { setEditClass(cls); setModalOpen(true); };
+  const handleCreate = () => { setEditClass(null); setModalOpen(true); };
+  const handleDelete = (id: string) => {
+    if (confirm('Usunąć te zajęcia?')) deleteClass.mutate(id);
+  };
+  const handleStatus = (id: string, status: ClassStatus) => {
+    updateStatus.mutate({ id, status });
+  };
+
+  return (
+    <div className="space-y-5 p-6">
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-xl font-semibold text-gray-800">Zajęcia</h2>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-xl border border-gray-200 overflow-hidden">
+            <button
+              onClick={() => setView('calendar')}
+              className={`px-3 py-1.5 text-sm flex items-center gap-1.5 transition-colors ${view === 'calendar' ? 'bg-violet-500 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
+              <CalIcon className="w-3.5 h-3.5" />
+              Kalendarz
+            </button>
+            <button
+              onClick={() => setView('list')}
+              className={`px-3 py-1.5 text-sm flex items-center gap-1.5 transition-colors ${view === 'list' ? 'bg-violet-500 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
+              <List className="w-3.5 h-3.5" />
+              Lista
+            </button>
+          </div>
+          <Button onClick={handleCreate} className="bg-violet-500 hover:bg-violet-600 text-white rounded-xl h-9 px-4 gap-2">
+            <Plus className="w-4 h-4" />
+            Dodaj zajęcia
+          </Button>
+        </div>
+      </div>
+
+      {view === 'calendar' && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="p-4" style={{ height: 640 }}>
+            <Calendar
+              localizer={localizer}
+              events={events}
+              date={calDate}
+              view={calView}
+              onNavigate={setCalDate}
+              onView={(v) => setCalView(v as 'month' | 'week' | 'day')}
+              onSelectEvent={(e) => handleEdit(e.resource as Class)}
+              culture="pl"
+              messages={{
+                next: 'Następny',
+                previous: 'Poprzedni',
+                today: 'Dziś',
+                month: 'Miesiąc',
+                week: 'Tydzień',
+                day: 'Dzień',
+                showMore: (count) => `+${count} więcej`,
+              }}
+              eventPropGetter={(e) => ({
+                style: {
+                  backgroundColor: CALENDAR_EVENT_COLORS[(e.resource as Class).status],
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '12px',
+                  padding: '2px 6px',
+                },
+              })}
+            />
+          </div>
+        </div>
+      )}
+
+      {view === 'list' && (
+        <div className="space-y-2">
+          {isLoading && <p className="text-center py-16 text-gray-400">Ładowanie...</p>}
+          {!isLoading && data?.data.length === 0 && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-16 text-center text-gray-400">
+              <CalIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              Brak zajęć. Dodaj pierwsze zajęcia.
+            </div>
+          )}
+          {data?.data.map((cls, i) => (
+            <motion.div
+              key={cls.id}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.02 }}
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 flex items-center gap-4 hover:border-violet-100 transition-colors"
+            >
+              <div className="w-12 h-12 rounded-xl bg-violet-50 flex flex-col items-center justify-center shrink-0">
+                <span className="text-xs font-semibold text-violet-600 leading-none">
+                  {new Date(cls.scheduledAt).toLocaleDateString('pl-PL', { day: '2-digit', month: 'short' }).split(' ')[0]}
+                </span>
+                <span className="text-xs text-violet-400">
+                  {new Date(cls.scheduledAt).toLocaleDateString('pl-PL', { month: 'short' })}
+                </span>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-gray-900 truncate">{cls.title}</p>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[cls.status]}`}>
+                    {STATUS_LABELS[cls.status]}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-400 mt-0.5">
+                  {cls.group.name} · {new Date(cls.scheduledAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })} · {cls.durationMin} min
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0">
+                {cls.meetLink && (
+                  <a href={cls.meetLink} target="_blank" rel="noreferrer">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-400 hover:text-blue-600 rounded-lg">
+                      <Video className="w-3.5 h-3.5" />
+                    </Button>
+                  </a>
+                )}
+                {cls.status === 'SCHEDULED' && (
+                  <Button variant="ghost" size="sm" className="h-8 text-xs text-amber-500 hover:text-amber-700 rounded-lg px-2"
+                    onClick={() => handleStatus(cls.id, 'ONGOING')}>
+                    Rozpocznij
+                  </Button>
+                )}
+                {cls.status === 'ONGOING' && (
+                  <Button variant="ghost" size="sm" className="h-8 text-xs text-green-600 hover:text-green-700 rounded-lg px-2"
+                    onClick={() => handleStatus(cls.id, 'COMPLETED')}>
+                    Zakończ
+                  </Button>
+                )}
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-violet-600 rounded-lg"
+                  onClick={() => handleEdit(cls)}>
+                  <Pencil className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-500 rounded-lg"
+                  onClick={() => handleDelete(cls.id)}>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      <ClassFormModal open={modalOpen} onClose={() => setModalOpen(false)} editClass={editClass} />
+    </div>
+  );
+}
