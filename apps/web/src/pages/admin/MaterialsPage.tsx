@@ -150,7 +150,7 @@ export default function MaterialsPage() {
 
   const handleDownload = async (id: string, url: string, fileKey: string | null) => {
     if (!fileKey) { window.open(url, '_blank'); return; }
-    const { data } = await api.get<{ url: string }>(`/api/v1/materials/${id}/download`);
+    const { data } = await api.get<{ url: string }>(`/materials/${id}/download`);
     window.open(data.url, '_blank');
   };
 

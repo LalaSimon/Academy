@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { AuthInitializer } from '@/components/AuthInitializer';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { TeachersPage } from '@/pages/admin/TeachersPage';
@@ -16,6 +17,7 @@ import { PrivateRoute } from '@/router/PrivateRoute';
 function App() {
   return (
     <BrowserRouter>
+      <Toaster position="top-right" richColors />
       <AuthInitializer>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
