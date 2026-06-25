@@ -45,3 +45,4 @@ Jeśli lint/test/build failuje — napraw przed commitem. Nie commituj "będzie 
 - `@base-ui/react` Select.Value pokazuje raw value, nie label — zawsze ręcznie wyszukuj label przez `.find()`.
 - `Role` importuj z `@prisma/client`, nie z własnych enumów.
 - Po dodaniu shadcn komponentu napraw importy: `src/lib/utils` → `@/lib/utils`.
+- W `apps/web` zawsze używaj `import { api } from '@/lib/api'` — nigdy gołego `import axios from 'axios'`. Tylko `api` ma interceptory z tokenem JWT. Gołe axios → 401.
