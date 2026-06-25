@@ -47,3 +47,4 @@ test-results/
 
 # Turbo
 .turbo/
+e2e/.auth/

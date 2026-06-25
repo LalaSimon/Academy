@@ -167,8 +167,14 @@ describe('MaterialsService', () => {
   describe('assignToClass', () => {
     it('upserts class material and auto-assigns to group', async () => {
       prismaMock.material.findUnique.mockResolvedValue({ id: 'm1' });
-      prismaMock.classMaterial.upsert.mockResolvedValue({ classId: 'c1', materialId: 'm1' });
-      prismaMock.groupMaterial.upsert.mockResolvedValue({ groupId: 'g1', materialId: 'm1' });
+      prismaMock.classMaterial.upsert.mockResolvedValue({
+        classId: 'c1',
+        materialId: 'm1',
+      });
+      prismaMock.groupMaterial.upsert.mockResolvedValue({
+        groupId: 'g1',
+        materialId: 'm1',
+      });
       await service.assignToClass('m1', 'c1');
       expect(prismaMock.$transaction).toHaveBeenCalled();
     });
@@ -177,7 +183,10 @@ describe('MaterialsService', () => {
   describe('assignToGroup', () => {
     it('upserts group material', async () => {
       prismaMock.material.findUnique.mockResolvedValue({ id: 'm1' });
-      prismaMock.groupMaterial.upsert.mockResolvedValue({ groupId: 'g1', materialId: 'm1' });
+      prismaMock.groupMaterial.upsert.mockResolvedValue({
+        groupId: 'g1',
+        materialId: 'm1',
+      });
       const result = await service.assignToGroup('m1', 'g1');
       expect(result.groupId).toBe('g1');
     });
