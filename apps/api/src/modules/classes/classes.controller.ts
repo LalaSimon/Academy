@@ -18,6 +18,7 @@ import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 import { ClassQueryDto } from './dto/class-query.dto';
 import {
+  IsDateString,
   IsEnum,
   IsInt,
   IsOptional,
@@ -49,6 +50,7 @@ class UpdateBatchBodyDto implements UpdateBatchDto {
   @Max(480)
   durationMin?: number;
   @IsOptional() @IsUrl() meetLink?: string;
+  @IsOptional() @IsDateString() scheduledAtTemplate?: string;
 }
 
 @UseGuards(JwtAuthGuard, RolesGuard)

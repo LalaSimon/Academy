@@ -83,11 +83,15 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
         scheduledAt: new Date(data.scheduledAt).toISOString(),
       };
       if (isEdit) {
-        const { groupId: _g, scheduledAt: _s, ...batchPayload } = payload;
         if (editScope === 'batch' && editClass!.batchId) {
-          await updateBatch.mutateAsync({ batchId: editClass!.batchId, ...batchPayload });
+          const { groupId: _g, scheduledAt, ...rest } = payload;
+          await updateBatch.mutateAsync({
+            batchId: editClass!.batchId,
+            ...rest,
+            scheduledAtTemplate: scheduledAt,
+          });
         } else {
-          const { groupId: _g2, ...rest } = payload;
+          const { groupId: _g, ...rest } = payload;
           await updateClass.mutateAsync({ id: editClass!.id, ...rest });
         }
       } else {
@@ -173,13 +177,18 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            {editScope !== 'batch' && (
-              <div className="space-y-1 col-span-2">
-                <Label htmlFor="scheduledAt">Data i godzina</Label>
-                <Input id="scheduledAt" type="datetime-local" {...register('scheduledAt', { required: true })} />
-                {errors.scheduledAt && <p className="text-xs text-red-500">Wymagane</p>}
-              </div>
-            )}
+            <div className="space-y-1 col-span-2">
+              <Label htmlFor="scheduledAt">
+                {editScope === 'batch' ? 'Wzorzec — pierwsza lekcja serii' : 'Data i godzina'}
+              </Label>
+              <Input id="scheduledAt" type="datetime-local" {...register('scheduledAt', { required: true })} />
+              {editScope === 'batch' && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Wszystkie zajęcia w serii przesuną się o tę samą liczbę dni i przyjmą tę samą godzinę.
+                </p>
+              )}
+              {errors.scheduledAt && <p className="text-xs text-red-500">Wymagane</p>}
+            </div>
             <div className="space-y-1">
               <Label htmlFor="durationMin">Czas trwania (min)</Label>
               <Input id="durationMin" type="number" min={15} max={480} step={15}

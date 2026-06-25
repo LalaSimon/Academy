@@ -12,6 +12,9 @@ export interface UpdateBatchDto {
   teacherId?: string;
   durationMin?: number;
   meetLink?: string;
+  // When provided, all classes shift by the same day offset as the first class
+  // and get the same UTC hour/minute as this template date
+  scheduledAtTemplate?: string;
 }
 
 const CLASS_SELECT = {
@@ -143,9 +146,56 @@ export class ClassesService {
   }
 
   async updateBatch(batchId: string, dto: UpdateBatchDto) {
-    const count = await this.prisma.class.count({ where: { batchId } });
-    if (count === 0) throw new NotFoundException(`Batch ${batchId} not found`);
-    await this.prisma.class.updateMany({ where: { batchId }, data: dto });
+    const classes = await this.prisma.class.findMany({
+      where: { batchId },
+      select: { id: true, scheduledAt: true },
+      orderBy: { scheduledAt: 'asc' },
+    });
+    if (classes.length === 0)
+      throw new NotFoundException(`Batch ${batchId} not found`);
+
+    const { scheduledAtTemplate, ...scalarFields } = dto;
+
+    if (scheduledAtTemplate) {
+      const template = new Date(scheduledAtTemplate);
+      const firstClass = classes[0].scheduledAt;
+      // Day shift = difference in whole days between template and first occurrence
+      const MS_PER_DAY = 24 * 60 * 60 * 1000;
+      const dayShift = Math.round(
+        (Date.UTC(
+          template.getUTCFullYear(),
+          template.getUTCMonth(),
+          template.getUTCDate(),
+        ) -
+          Date.UTC(
+            firstClass.getUTCFullYear(),
+            firstClass.getUTCMonth(),
+            firstClass.getUTCDate(),
+          )) /
+          MS_PER_DAY,
+      );
+      const newHour = template.getUTCHours();
+      const newMinute = template.getUTCMinutes();
+
+      await this.prisma.$transaction(
+        classes.map((cls) => {
+          const d = new Date(cls.scheduledAt);
+          d.setUTCDate(d.getUTCDate() + dayShift);
+          d.setUTCHours(newHour, newMinute, 0, 0);
+          return this.prisma.class.update({
+            where: { id: cls.id },
+            data: { ...scalarFields, scheduledAt: d },
+            select: CLASS_SELECT,
+          });
+        }),
+      );
+    } else {
+      await this.prisma.class.updateMany({
+        where: { batchId },
+        data: scalarFields,
+      });
+    }
+
     return this.prisma.class.findMany({
       where: { batchId },
       select: CLASS_SELECT,

@@ -123,6 +123,7 @@ export interface UpdateBatchPayload {
   teacherId?: string;
   durationMin?: number;
   meetLink?: string;
+  scheduledAtTemplate?: string;
 }
 
 export function useUpdateBatch() {
