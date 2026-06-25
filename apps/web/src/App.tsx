@@ -9,6 +9,7 @@ import { GroupDetailPage } from '@/pages/admin/GroupDetailPage';
 import { ClassesPage } from '@/pages/admin/ClassesPage';
 import { StudentAttendancePage } from '@/pages/admin/StudentAttendancePage';
 import { StudentProfilePage } from '@/pages/admin/StudentProfilePage';
+import { TeacherProfilePage } from '@/pages/admin/TeacherProfilePage';
 import { AttendancePage } from '@/pages/admin/AttendancePage';
 import MaterialsPage from '@/pages/admin/MaterialsPage';
 import { AdminLayout } from '@/layouts/AdminLayout';
@@ -30,6 +31,7 @@ function App() {
               <Route path="/admin/groups" element={<GroupsPage />} />
               <Route path="/admin/groups/:id" element={<GroupDetailPage />} />
               <Route path="/admin/classes" element={<ClassesPage />} />
+              <Route path="/admin/teachers/:teacherId" element={<TeacherProfilePage />} />
               <Route path="/admin/students/:studentId" element={<StudentProfilePage />} />
               <Route path="/admin/students/:studentId/attendance" element={<StudentAttendancePage />} />
               <Route path="/admin/attendance" element={<AttendancePage />} />

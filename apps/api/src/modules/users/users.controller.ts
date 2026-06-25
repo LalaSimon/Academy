@@ -11,6 +11,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { IsOptional, IsString } from 'class-validator';
 import { Role } from '@prisma/client';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -19,6 +20,11 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
 import { UsersService } from './users.service';
+
+class TeacherStatsQuery {
+  @IsOptional() @IsString() from?: string;
+  @IsOptional() @IsString() to?: string;
+}
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -29,6 +35,14 @@ export class UsersController {
   @Get()
   findAll(@Query() query: UserQueryDto) {
     return this.usersService.findAll(query);
+  }
+
+  @Get(':id/stats')
+  getTeacherStats(@Param('id') id: string, @Query() query: TeacherStatsQuery) {
+    return this.usersService.getTeacherStats(id, {
+      from: query.from ? new Date(query.from) : undefined,
+      to: query.to ? new Date(query.to) : undefined,
+    });
   }
 
   @Get(':id')

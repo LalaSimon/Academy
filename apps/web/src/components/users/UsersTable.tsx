@@ -142,6 +142,13 @@ export function UsersTable({ roleFilter, title }: Props) {
                         </Button>
                       </Link>
                     )}
+                    {user.role === 'TEACHER' && (
+                      <Link to={`/admin/teachers/${user.id}`}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-indigo-600 rounded-lg" title="Statystyki nauczyciela">
+                          <BarChart2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </Link>
+                    )}
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-violet-600 rounded-lg" onClick={() => handleEdit(user)}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>

@@ -122,4 +122,122 @@ export class UsersService {
       where: { parentId_studentId: { parentId, studentId } },
     });
   }
+
+  async getTeacherStats(teacherId: string, range?: { from?: Date; to?: Date }) {
+    await this.findOne(teacherId);
+
+    const dateFilter =
+      range?.from || range?.to
+        ? {
+            scheduledAt: {
+              ...(range.from && { gte: range.from }),
+              ...(range.to && { lte: range.to }),
+            },
+          }
+        : {};
+
+    const classes = await this.prisma.class.findMany({
+      where: { teacherId, ...dateFilter },
+      select: {
+        id: true,
+        title: true,
+        scheduledAt: true,
+        durationMin: true,
+        status: true,
+        group: {
+          select: { id: true, name: true, language: true, level: true },
+        },
+      },
+      orderBy: { scheduledAt: 'desc' },
+    });
+
+    const completed = classes.filter((c) => c.status === 'COMPLETED');
+
+    // Per-month breakdown
+    const monthMap = new Map<
+      string,
+      {
+        year: number;
+        month: number;
+        total: number;
+        completed: number;
+        hours: number;
+      }
+    >();
+    for (const c of classes) {
+      const d = new Date(c.scheduledAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (!monthMap.has(key)) {
+        monthMap.set(key, {
+          year: d.getFullYear(),
+          month: d.getMonth() + 1,
+          total: 0,
+          completed: 0,
+          hours: 0,
+        });
+      }
+      const m = monthMap.get(key)!;
+      m.total++;
+      if (c.status === 'COMPLETED') {
+        m.completed++;
+        m.hours += c.durationMin / 60;
+      }
+    }
+
+    // Per-group breakdown
+    const groupMap = new Map<
+      string,
+      {
+        group: {
+          id: string;
+          name: string;
+          language: string | null;
+          level: string | null;
+        };
+        total: number;
+        completed: number;
+        hours: number;
+      }
+    >();
+    for (const c of classes) {
+      if (!groupMap.has(c.group.id)) {
+        groupMap.set(c.group.id, {
+          group: c.group,
+          total: 0,
+          completed: 0,
+          hours: 0,
+        });
+      }
+      const g = groupMap.get(c.group.id)!;
+      g.total++;
+      if (c.status === 'COMPLETED') {
+        g.completed++;
+        g.hours += c.durationMin / 60;
+      }
+    }
+
+    const totalHours = completed.reduce(
+      (sum, c) => sum + c.durationMin / 60,
+      0,
+    );
+
+    return {
+      overall: {
+        total: classes.length,
+        completed: completed.length,
+        cancelled: classes.filter((c) => c.status === 'CANCELLED').length,
+        scheduled: classes.filter((c) => c.status === 'SCHEDULED').length,
+        hours: Math.round(totalHours * 100) / 100,
+      },
+      byMonth: Array.from(monthMap.values())
+        .sort((a, b) =>
+          a.year !== b.year ? a.year - b.year : a.month - b.month,
+        )
+        .map((m) => ({ ...m, hours: Math.round(m.hours * 100) / 100 })),
+      byGroup: Array.from(groupMap.values())
+        .sort((a, b) => b.completed - a.completed)
+        .map((g) => ({ ...g, hours: Math.round(g.hours * 100) / 100 })),
+      classes,
+    };
+  }
 }

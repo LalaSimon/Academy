@@ -70,6 +70,24 @@ export function useUser(id: string) {
   });
 }
 
+export interface TeacherStats {
+  overall: { total: number; completed: number; cancelled: number; scheduled: number; hours: number };
+  byMonth: { year: number; month: number; total: number; completed: number; hours: number }[];
+  byGroup: { group: { id: string; name: string; language: string | null; level: string | null }; total: number; completed: number; hours: number }[];
+  classes: { id: string; title: string; scheduledAt: string; durationMin: number; status: string; group: { id: string; name: string } }[];
+}
+
+export function useTeacherStats(teacherId: string, range?: { from?: string; to?: string }) {
+  return useQuery<TeacherStats>({
+    queryKey: [USERS_KEY, teacherId, 'stats', range],
+    queryFn: () =>
+      api
+        .get<TeacherStats>(`/users/${teacherId}/stats`, { params: { from: range?.from, to: range?.to } })
+        .then((r) => r.data),
+    enabled: !!teacherId,
+  });
+}
+
 export function useCreateUser() {
   const queryClient = useQueryClient();
   return useMutation({
