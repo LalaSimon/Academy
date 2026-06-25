@@ -126,7 +126,7 @@ export class UsersService {
   async getTeacherStats(teacherId: string, range?: { from?: Date; to?: Date }) {
     await this.findOne(teacherId);
 
-    const dateFilter =
+    const scheduledAtFilter =
       range?.from || range?.to
         ? {
             scheduledAt: {
@@ -136,8 +136,14 @@ export class UsersService {
           }
         : {};
 
+    // Include classes where teacherId is set directly OR inherited from the group
     const classes = await this.prisma.class.findMany({
-      where: { teacherId, ...dateFilter },
+      where: {
+        OR: [
+          { teacherId, ...scheduledAtFilter },
+          { teacherId: null, group: { teacherId }, ...scheduledAtFilter },
+        ],
+      },
       select: {
         id: true,
         title: true,

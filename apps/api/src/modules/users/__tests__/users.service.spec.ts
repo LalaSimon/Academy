@@ -311,20 +311,38 @@ describe('UsersService', () => {
       expect(result.byGroup[1].completed).toBe(1);
     });
 
-    it('should apply date filter to class query', async () => {
+    it('should query both direct teacherId and group-inherited teacherId', async () => {
+      mockPrisma.class.findMany.mockResolvedValue([]);
+
+      await service.getTeacherStats('teacher-1');
+
+      expect(mockPrisma.class.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [
+              { teacherId: 'teacher-1' },
+              { teacherId: null, group: { teacherId: 'teacher-1' } },
+            ],
+          },
+        }),
+      );
+    });
+
+    it('should apply date filter inside OR branches', async () => {
       mockPrisma.class.findMany.mockResolvedValue([]);
 
       const from = new Date('2026-01-01');
       const to = new Date('2026-03-31');
       await service.getTeacherStats('teacher-1', { from, to });
 
-      expect(mockPrisma.class.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            scheduledAt: { gte: from, lte: to },
-          }),
-        }),
-      );
+      const call = mockPrisma.class.findMany.mock.calls[0][0] as {
+        where: { OR: unknown[] };
+      };
+      expect(call.where.OR).toHaveLength(2);
+      // Both OR branches must carry the date filter — not just the top-level where
+      (call.where.OR as { scheduledAt?: unknown }[]).forEach((branch) => {
+        expect(branch.scheduledAt).toEqual({ gte: from, lte: to });
+      });
     });
 
     it('should return empty stats when teacher has no classes', async () => {
