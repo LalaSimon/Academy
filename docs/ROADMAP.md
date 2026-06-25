@@ -133,10 +133,14 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ## Faza 2 — Płatności + Portal rodzica
 
-### 2.0 — E2E (Playwright)
-- [ ] Testy E2E: flow logowania dla każdej roli (`e2e/auth.spec.ts`)
-- [ ] Testy E2E: tworzenie zajęć + zaznaczanie obecności
-- [ ] Testy E2E: proces płatności (mock bramki)
+### 2.0 — E2E (Playwright) ✅
+
+- [x] `global.setup.ts` — seed DB (admin/teacher/student/group) + zapis storageState admina
+- [x] `e2e/helpers/seed.js` — fixture'y przez Prisma (upsert, idempotentne)
+- [x] `auth.spec.ts` — formularz logowania, błędne dane, redirect do /admin, ochrona tras, wylogowanie, sesja po reload
+- [x] `classes.spec.ts` — lista zajęć, tworzenie klasy, zmiana statusu, modal obecności, zajęcia cykliczne
+- [x] CI e2e job — postgres service, build API + start, build web + serve, wait-on, run Playwright, upload HTML report jako artifact
+- [ ] Testy E2E: proces płatności (mock bramki) — do dodania po Fazie 2.1
 
 ### 2.1 — Płatności
 - [ ] `PaymentsModule` — CRUD opłat, statusy, bulk tworzenie dla grupy
@@ -175,6 +179,6 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ## ▶ Co robimy teraz?
 
-**Faza 1 ukończona. Przechodzimy do Fazy 2.**
+**Faza 2.0 (E2E) ukończona. Następna: Faza 2.1 — Płatności.**
 
-Następna funkcjonalność do ustalenia z użytkownikiem.
+Czekamy na potwierdzenie od użytkownika, czy przechodzimy do 2.1 (PaymentsModule + Przelewy24) czy 2.2 (Portal rodzica).
