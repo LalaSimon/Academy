@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useCreateClass, useUpdateClass, type Class } from '@/hooks/useClasses';
+import { useCreateClass, useUpdateClass, useUpdateBatch, type Class } from '@/hooks/useClasses';
 import { useGroups } from '@/hooks/useGroups';
 import { useUsers } from '@/hooks/useUsers';
 
@@ -31,6 +31,8 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
   const isEdit = !!editClass;
   const createClass = useCreateClass();
   const updateClass = useUpdateClass();
+  const updateBatch = useUpdateBatch();
+  const [editScope, setEditScope] = useState<'single' | 'batch'>('single');
   const [apiError, setApiError] = useState<string | null>(null);
   const { data: groupsData } = useGroups({ limit: 100 });
   const { data: teachersData } = useUsers({ role: 'TEACHER', limit: 100 });
@@ -41,6 +43,7 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
 
   useEffect(() => {
     setApiError(null);
+    setEditScope('single');
     if (editClass) {
       const local = new Date(editClass.scheduledAt);
       const pad = (n: number) => String(n).padStart(2, '0');
@@ -80,8 +83,13 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
         scheduledAt: new Date(data.scheduledAt).toISOString(),
       };
       if (isEdit) {
-        const { groupId: _g, ...rest } = payload;
-        await updateClass.mutateAsync({ id: editClass!.id, ...rest });
+        const { groupId: _g, scheduledAt: _s, ...batchPayload } = payload;
+        if (editScope === 'batch' && editClass!.batchId) {
+          await updateBatch.mutateAsync({ batchId: editClass!.batchId, ...batchPayload });
+        } else {
+          const { groupId: _g2, ...rest } = payload;
+          await updateClass.mutateAsync({ id: editClass!.id, ...rest });
+        }
       } else {
         await createClass.mutateAsync(payload);
       }
@@ -102,6 +110,21 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edytuj zajęcia' : 'Nowe zajęcia'}</DialogTitle>
         </DialogHeader>
+
+        {isEdit && editClass?.batchId && (
+          <div className="flex rounded-xl border border-gray-200 overflow-hidden text-sm mt-3">
+            <button type="button"
+              onClick={() => setEditScope('single')}
+              className={`flex-1 py-2 font-medium transition-colors ${editScope === 'single' ? 'bg-violet-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              Tylko te zajęcia
+            </button>
+            <button type="button"
+              onClick={() => setEditScope('batch')}
+              className={`flex-1 py-2 font-medium transition-colors ${editScope === 'batch' ? 'bg-violet-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              Całą serię
+            </button>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
           <div className="space-y-1">
@@ -150,11 +173,13 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1 col-span-2">
-              <Label htmlFor="scheduledAt">Data i godzina</Label>
-              <Input id="scheduledAt" type="datetime-local" {...register('scheduledAt', { required: true })} />
-              {errors.scheduledAt && <p className="text-xs text-red-500">Wymagane</p>}
-            </div>
+            {editScope !== 'batch' && (
+              <div className="space-y-1 col-span-2">
+                <Label htmlFor="scheduledAt">Data i godzina</Label>
+                <Input id="scheduledAt" type="datetime-local" {...register('scheduledAt', { required: true })} />
+                {errors.scheduledAt && <p className="text-xs text-red-500">Wymagane</p>}
+              </div>
+            )}
             <div className="space-y-1">
               <Label htmlFor="durationMin">Czas trwania (min)</Label>
               <Input id="durationMin" type="number" min={15} max={480} step={15}

@@ -117,6 +117,23 @@ export function useUpdateClassStatus() {
   });
 }
 
+export interface UpdateBatchPayload {
+  title?: string;
+  description?: string;
+  teacherId?: string;
+  durationMin?: number;
+  meetLink?: string;
+}
+
+export function useUpdateBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ batchId, ...payload }: UpdateBatchPayload & { batchId: string }) =>
+      api.patch<Class[]>(`/classes/batch/${batchId}`, payload).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [CLASSES_KEY] }),
+  });
+}
+
 export function useDeleteBatch() {
   const qc = useQueryClient();
   return useMutation({

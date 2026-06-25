@@ -13,11 +13,20 @@ import { ClassStatus, Role } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { ClassesService } from './classes.service';
+import { ClassesService, UpdateBatchDto } from './classes.service';
 import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 import { ClassQueryDto } from './dto/class-query.dto';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Max,
+  Min,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 import { CreateBulkClassDto } from './dto/create-bulk-class.dto';
 
 class UpdateStatusDto {
@@ -27,6 +36,19 @@ class UpdateStatusDto {
   @IsOptional()
   @IsString()
   cancelReason?: string;
+}
+
+class UpdateBatchBodyDto implements UpdateBatchDto {
+  @IsOptional() @IsString() title?: string;
+  @IsOptional() @IsString() description?: string;
+  @IsOptional() @IsString() teacherId?: string;
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(15)
+  @Max(480)
+  durationMin?: number;
+  @IsOptional() @IsUrl() meetLink?: string;
 }
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -56,6 +78,15 @@ export class ClassesController {
   @Roles(Role.ADMIN)
   createBulk(@Body() dto: CreateBulkClassDto) {
     return this.classesService.createBulk(dto.items);
+  }
+
+  @Patch('batch/:batchId')
+  @Roles(Role.ADMIN)
+  updateBatch(
+    @Param('batchId') batchId: string,
+    @Body() dto: UpdateBatchBodyDto,
+  ) {
+    return this.classesService.updateBatch(batchId, dto);
   }
 
   @Patch(':id')

@@ -6,6 +6,14 @@ import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 import { ClassQueryDto } from './dto/class-query.dto';
 
+export interface UpdateBatchDto {
+  title?: string;
+  description?: string;
+  teacherId?: string;
+  durationMin?: number;
+  meetLink?: string;
+}
+
 const CLASS_SELECT = {
   id: true,
   title: true,
@@ -132,6 +140,17 @@ export class ClassesService {
         this.prisma.class.create({ data, select: CLASS_SELECT }),
       ),
     );
+  }
+
+  async updateBatch(batchId: string, dto: UpdateBatchDto) {
+    const count = await this.prisma.class.count({ where: { batchId } });
+    if (count === 0) throw new NotFoundException(`Batch ${batchId} not found`);
+    await this.prisma.class.updateMany({ where: { batchId }, data: dto });
+    return this.prisma.class.findMany({
+      where: { batchId },
+      select: CLASS_SELECT,
+      orderBy: { scheduledAt: 'asc' },
+    });
   }
 
   async removeBatch(batchId: string) {
