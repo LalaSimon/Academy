@@ -14,6 +14,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { useMaterials, useUploadMaterial, useCreateLinkMaterial, useDeleteMaterial, type MaterialType } from '../../hooks/useMaterials';
+import { toast } from 'sonner';
 import { api } from '@/lib/api';
 
 const TYPE_LABELS: Record<MaterialType, string> = {
@@ -148,10 +149,22 @@ export default function MaterialsPage() {
     if (confirm('Usunąć ten materiał?')) await deleteMaterial.mutateAsync(id);
   };
 
-  const handleDownload = async (id: string, url: string, fileKey: string | null) => {
+  const handleDownload = async (id: string, url: string, fileKey: string | null, title: string) => {
     if (!fileKey) { window.open(url, '_blank'); return; }
-    const { data } = await api.get<{ url: string }>(`/materials/${id}/download`);
-    window.open(data.url, '_blank');
+    try {
+      const response = await api.get(`/materials/${id}/file`, { responseType: 'blob' });
+      const disposition = response.headers['content-disposition'] as string | undefined;
+      const match = disposition?.match(/filename\*=UTF-8''(.+)/);
+      const filename = match ? decodeURIComponent(match[1]) : title;
+      const objectUrl = URL.createObjectURL(response.data as Blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      toast.error('Nie udało się pobrać pliku');
+    }
   };
 
   return (
@@ -256,7 +269,7 @@ export default function MaterialsPage() {
                 </div>
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => handleDownload(m.id, m.url, m.fileKey)}
+                    onClick={() => handleDownload(m.id, m.url, m.fileKey, m.title)}
                     className="p-1.5 text-gray-400 hover:text-indigo-600 rounded"
                     title="Otwórz"
                   >

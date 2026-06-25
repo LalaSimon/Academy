@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import type { Response } from 'express';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MinioService } from './minio.service';
@@ -40,7 +41,13 @@ export class MaterialsService {
     };
 
     const [data, total] = await Promise.all([
-      this.prisma.material.findMany({ where, select: MATERIAL_SELECT, skip, take: limit, orderBy: { createdAt: 'desc' } }),
+      this.prisma.material.findMany({
+        where,
+        select: MATERIAL_SELECT,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
       this.prisma.material.count({ where }),
     ]);
 
@@ -48,7 +55,10 @@ export class MaterialsService {
   }
 
   async findOne(id: string) {
-    const m = await this.prisma.material.findUnique({ where: { id }, select: MATERIAL_SELECT });
+    const m = await this.prisma.material.findUnique({
+      where: { id },
+      select: MATERIAL_SELECT,
+    });
     if (!m) throw new NotFoundException(`Material ${id} not found`);
     return m;
   }
@@ -60,7 +70,12 @@ export class MaterialsService {
     });
   }
 
-  async upload(file: Express.Multer.File, title: string, description: string | undefined, uploaderId: string) {
+  async upload(
+    file: Express.Multer.File,
+    title: string,
+    description: string | undefined,
+    uploaderId: string,
+  ) {
     const ext = file.originalname.split('.').pop() ?? 'bin';
     const key = `materials/${randomUUID()}.${ext}`;
     await this.minio.putObject(key, file.buffer, file.mimetype);
@@ -69,21 +84,53 @@ export class MaterialsService {
     const url = `/api/v1/materials/file/${key}`;
 
     return this.prisma.material.create({
-      data: { title, description, type, url, fileKey: key, uploadedBy: uploaderId },
+      data: {
+        title,
+        description,
+        type,
+        url,
+        fileKey: key,
+        uploadedBy: uploaderId,
+      },
       select: MATERIAL_SELECT,
     });
   }
 
-  async getDownloadUrl(id: string) {
-    const m = await this.prisma.material.findUnique({ where: { id }, select: { fileKey: true, url: true } });
+  async streamFile(id: string, res: Response) {
+    const m = await this.prisma.material.findUnique({
+      where: { id },
+      select: { fileKey: true, title: true },
+    });
     if (!m) throw new NotFoundException(`Material ${id} not found`);
-    if (!m.fileKey) return { url: m.url };
-    const url = await this.minio.presignedGetUrl(m.fileKey);
-    return { url };
+    if (!m.fileKey)
+      throw new NotFoundException(
+        'This material has no file — it is an external link',
+      );
+
+    const stat = await this.minio.statObject(m.fileKey);
+    const stream = await this.minio.getObject(m.fileKey);
+
+    const contentType =
+      (stat.metaData?.['content-type'] as string | undefined) ??
+      'application/octet-stream';
+    const ext = m.fileKey.split('.').pop() ?? 'bin';
+    const filename = encodeURIComponent(`${m.title}.${ext}`);
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', stat.size);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename*=UTF-8''${filename}`,
+    );
+
+    stream.pipe(res);
   }
 
   async remove(id: string) {
-    const m = await this.prisma.material.findUnique({ where: { id }, select: { fileKey: true } });
+    const m = await this.prisma.material.findUnique({
+      where: { id },
+      select: { fileKey: true },
+    });
     if (!m) throw new NotFoundException(`Material ${id} not found`);
     await this.prisma.classMaterial.deleteMany({ where: { materialId: id } });
     await this.prisma.material.delete({ where: { id } });
@@ -100,7 +147,9 @@ export class MaterialsService {
   }
 
   async removeFromClass(materialId: string, classId: string) {
-    await this.prisma.classMaterial.deleteMany({ where: { classId, materialId } });
+    await this.prisma.classMaterial.deleteMany({
+      where: { classId, materialId },
+    });
   }
 
   async getForClass(classId: string) {
@@ -120,7 +169,10 @@ export class MaterialsService {
   }
 
   private async assertMaterialExists(id: string) {
-    const m = await this.prisma.material.findUnique({ where: { id }, select: { id: true } });
+    const m = await this.prisma.material.findUnique({
+      where: { id },
+      select: { id: true },
+    });
     if (!m) throw new NotFoundException(`Material ${id} not found`);
   }
 }

@@ -33,7 +33,8 @@ const prismaMock = {
 
 const minioMock = {
   putObject: jest.fn(),
-  presignedGetUrl: jest.fn(),
+  getObject: jest.fn(),
+  statObject: jest.fn(),
   removeObject: jest.fn(),
 };
 
@@ -80,7 +81,11 @@ describe('MaterialsService', () => {
     it('creates external link material', async () => {
       prismaMock.material.create.mockResolvedValue(MATERIAL_STUB);
       const result = await service.create(
-        { title: 'Test PDF', type: MaterialType.PDF, url: 'http://example.com/file.pdf' },
+        {
+          title: 'Test PDF',
+          type: MaterialType.PDF,
+          url: 'http://example.com/file.pdf',
+        },
         'u1',
       );
       expect(result.title).toBe('Test PDF');
@@ -88,29 +93,54 @@ describe('MaterialsService', () => {
     });
   });
 
-  describe('getDownloadUrl', () => {
-    it('returns presigned url for file material', async () => {
-      prismaMock.material.findUnique.mockResolvedValue({ fileKey: 'materials/abc.pdf', url: '/api/v1/materials/file/materials/abc.pdf' });
-      minioMock.presignedGetUrl.mockResolvedValue('https://minio/presigned');
-      const result = await service.getDownloadUrl('m1');
-      expect(result.url).toBe('https://minio/presigned');
+  describe('streamFile', () => {
+    it('streams file from minio', async () => {
+      const fakeStream = { pipe: jest.fn() };
+      prismaMock.material.findUnique.mockResolvedValue({
+        fileKey: 'materials/abc.pdf',
+        title: 'Test',
+      });
+      minioMock.statObject.mockResolvedValue({
+        size: 1024,
+        metaData: { 'content-type': 'application/pdf' },
+      });
+      minioMock.getObject.mockResolvedValue(fakeStream);
+      const res = {
+        setHeader: jest.fn(),
+      } as unknown as import('express').Response;
+      await service.streamFile('m1', res);
+      expect(fakeStream.pipe).toHaveBeenCalledWith(res);
     });
 
-    it('returns original url for external link', async () => {
-      prismaMock.material.findUnique.mockResolvedValue({ fileKey: null, url: 'https://youtube.com/watch?v=abc' });
-      const result = await service.getDownloadUrl('m1');
-      expect(result.url).toBe('https://youtube.com/watch?v=abc');
+    it('throws 404 if material has no fileKey', async () => {
+      prismaMock.material.findUnique.mockResolvedValue({
+        fileKey: null,
+        title: 'Link',
+      });
+      const res = {
+        setHeader: jest.fn(),
+      } as unknown as import('express').Response;
+      await expect(service.streamFile('m1', res)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('throws 404 if material not found', async () => {
       prismaMock.material.findUnique.mockResolvedValue(null);
-      await expect(service.getDownloadUrl('bad')).rejects.toThrow(NotFoundException);
+      const res = {
+        setHeader: jest.fn(),
+      } as unknown as import('express').Response;
+      await expect(service.streamFile('bad', res)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
   describe('remove', () => {
     it('removes material and minio file', async () => {
-      prismaMock.material.findUnique.mockResolvedValue({ fileKey: 'materials/abc.pdf' });
+      prismaMock.material.findUnique.mockResolvedValue({
+        fileKey: 'materials/abc.pdf',
+      });
       prismaMock.classMaterial.deleteMany.mockResolvedValue({ count: 0 });
       prismaMock.material.delete.mockResolvedValue({});
       await service.remove('m1');
@@ -129,7 +159,10 @@ describe('MaterialsService', () => {
   describe('assignToClass', () => {
     it('upserts class material', async () => {
       prismaMock.material.findUnique.mockResolvedValue({ id: 'm1' });
-      prismaMock.classMaterial.upsert.mockResolvedValue({ classId: 'c1', materialId: 'm1' });
+      prismaMock.classMaterial.upsert.mockResolvedValue({
+        classId: 'c1',
+        materialId: 'm1',
+      });
       const result = await service.assignToClass('m1', 'c1');
       expect(result.classId).toBe('c1');
     });

@@ -1,5 +1,5 @@
 import { MaterialType } from '@prisma/client';
-import { IsBoolean, IsEnum, IsOptional, IsString, IsUrl } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
 
 export class CreateMaterialDto {
   @IsString()

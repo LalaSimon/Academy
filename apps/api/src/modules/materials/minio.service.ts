@@ -31,12 +31,22 @@ export class MinioService implements OnModuleInit {
     }
   }
 
-  async putObject(key: string, buffer: Buffer, contentType: string): Promise<void> {
-    await this.client.putObject(this.bucket, key, buffer, buffer.length, { 'Content-Type': contentType });
+  async putObject(
+    key: string,
+    buffer: Buffer,
+    contentType: string,
+  ): Promise<void> {
+    await this.client.putObject(this.bucket, key, buffer, buffer.length, {
+      'Content-Type': contentType,
+    });
   }
 
-  async presignedGetUrl(key: string, expirySeconds = 3600): Promise<string> {
-    return this.client.presignedGetObject(this.bucket, key, expirySeconds);
+  async getObject(key: string): Promise<import('stream').Readable> {
+    return this.client.getObject(this.bucket, key);
+  }
+
+  async statObject(key: string): Promise<Minio.BucketItemStat> {
+    return this.client.statObject(this.bucket, key);
   }
 
   async removeObject(key: string): Promise<void> {

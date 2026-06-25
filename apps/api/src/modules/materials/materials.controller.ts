@@ -10,9 +10,11 @@ import {
   UseInterceptors,
   UploadedFile,
   Req,
+  Res,
   ParseFilePipe,
   MaxFileSizeValidator,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { Role } from '@prisma/client';
@@ -41,10 +43,10 @@ export class MaterialsController {
     return this.materialsService.findOne(id);
   }
 
-  @Get(':id/download')
+  @Get(':id/file')
   @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT)
-  getDownloadUrl(@Param('id') id: string) {
-    return this.materialsService.getDownloadUrl(id);
+  async streamFile(@Param('id') id: string, @Res() res: Response) {
+    await this.materialsService.streamFile(id, res);
   }
 
   @Get('class/:classId')
@@ -55,7 +57,10 @@ export class MaterialsController {
 
   @Post()
   @Roles(Role.ADMIN, Role.TEACHER)
-  create(@Body() dto: CreateMaterialDto, @Req() req: Request & { user: { id: string } }) {
+  create(
+    @Body() dto: CreateMaterialDto,
+    @Req() req: Request & { user: { id: string } },
+  ) {
     return this.materialsService.create(dto, req.user.id);
   }
 
@@ -63,7 +68,11 @@ export class MaterialsController {
   @Roles(Role.ADMIN, Role.TEACHER)
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
   upload(
-    @UploadedFile(new ParseFilePipe({ validators: [new MaxFileSizeValidator({ maxSize: 50 * 1024 * 1024 })] }))
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [new MaxFileSizeValidator({ maxSize: 50 * 1024 * 1024 })],
+      }),
+    )
     file: Express.Multer.File,
     @Body('title') title: string,
     @Body('description') description: string,
