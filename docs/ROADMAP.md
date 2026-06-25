@@ -27,7 +27,7 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ---
 
-## Faza 1 — Core MVP 🔄
+## Faza 1 — Core MVP ✅
 
 ### 1.1 — Auth ✅
 
@@ -45,89 +45,89 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [x] `useLogin` / `useLogout` hooks (TanStack Query) — `apps/web/src/hooks/useAuth.ts`
 - [x] `PrivateRoute` z role-based redirect — `apps/web/src/router/PrivateRoute.tsx`
 - [x] Strona logowania (`LoginPage`) — `apps/web/src/pages/auth/LoginPage.tsx`; Framer Motion, violet palette
+- [x] `AuthInitializer` — proaktywnie odświeża access token przy ładowaniu strony; ref-guard zapobiega podwójnemu wywołaniu (React StrictMode)
 - [x] Docker dev stack — `apps/api/Dockerfile.dev` + `apps/web/Dockerfile.dev`; `docker-compose.yml` rozszerzony o serwisy `api` (:3000) i `web` (:5173)
   - Volume mounty tylko na `src/` i `prisma/` → hot-reload bez rebuildu obrazu
-  - Networking wewnątrz Dockera: `postgres:5432`, `redis:6379`, `minio:9000`
-  - Vite proxy kieruje na `http://api:3000` przez `VITE_API_TARGET`; lokalny dev bez zmian
-
-**Jak uruchomić cały stack:**
-```bash
-docker compose up -d   # postgres + redis + minio + api + web
-# http://localhost:5173  — frontend
-# http://localhost:3000  — API
-# http://localhost:9001  — MinIO console (minioadmin / minioadmin)
-```
+  - Vite proxy kieruje na `http://api:3000` przez `VITE_API_TARGET`
 
 ### 1.2 — Użytkownicy ✅
 
 - [x] `UsersModule` — `apps/api/src/modules/users/`
-  - `UsersService`: findAll (paginacja, filtr po roli, wyszukiwarka), findOne (z relacjami), create (argon2 hash), update, remove
+  - `UsersService`: findAll (paginacja, filtr po roli, wyszukiwarka), findOne, create, update, remove, linkParentStudent, unlinkParentStudent
   - `UsersController`: GET/POST/PATCH/DELETE `/users`, POST/DELETE `/users/:parentId/students/:studentId`
-  - Wszystkie endpointy chronione `JwtAuthGuard` + `RolesGuard(@Roles(ADMIN))`
-  - DTOs: `CreateUserDto`, `UpdateUserDto` (PartialType/OmitType bez pola password), `UserQueryDto`
-- [x] Powiązanie rodzic ↔ uczeń — `ParentStudent` upsert/delete przez osobny endpoint
-- [x] 10 testów jednostkowych — `users.service.spec.ts`
-- [x] 12 testów integracyjnych — `test/users.e2e-spec.ts`: CRUD, walidacja, 409 na duplikat emaila, link rodzic↔uczeń
-- [x] Hook `useUsers` / `useUser` / `useCreateUser` / `useUpdateUser` / `useDeleteUser` — `apps/web/src/hooks/useUsers.ts`
-- [x] `UsersTable` — reużywalny komponent tabeli z wyszukiwarką, paginacją, przyciskami edycji/usuwania, badge'ami ról, animacjami Framer Motion — `apps/web/src/components/users/UsersTable.tsx`
-- [x] `UserFormModal` — modal tworzenia/edycji z react-hook-form, Select roli — `apps/web/src/components/users/UserFormModal.tsx`
-- [x] `TeachersPage` (`/admin/teachers`) + `StudentsPage` (`/admin/students`) — `apps/web/src/pages/admin/`
+  - `GET /users/:id/stats` — statystyki nauczyciela (zajęcia, godziny, breakdown per miesiąc i grupę)
+- [x] 19 testów jednostkowych — `users.service.spec.ts` (w tym 7 dla getTeacherStats)
+- [x] 12 testów integracyjnych — `test/users.e2e-spec.ts`
+- [x] Hooki — `useUsers`, `useUser`, `useCreateUser`, `useUpdateUser`, `useDeleteUser`, `useTeacherStats`
+- [x] `UsersTable` — reużywalny komponent; ikona BarChart2 → profil ucznia lub statystyki nauczyciela
+- [x] `TeachersPage` + `StudentsPage`
+- [x] `TeacherProfilePage` (`/admin/teachers/:teacherId`) — filtr okresu (30d/90d/6m/rok szkolny/własny), karty summary, tabela miesięczna do rozliczeń, breakdown per grupę
+- [x] `StudentProfilePage` (`/admin/students/:studentId`) — frekwencja z filtrem okresu
 
 ### 1.3 — Grupy ✅
 
-- [x] `GroupsModule` — `apps/api/src/modules/groups/`
-  - `GroupsService`: findAll (paginacja, filtr language/teacherId/isActive/search), findOne (z listą aktywnych uczniów), create, update, remove (kaskaduje GroupStudent), addStudent (upsert isActive=true), removeStudent (soft-delete isActive=false)
-  - `GroupsController`: ADMIN+TEACHER mogą czytać, tylko ADMIN może pisać
-  - DTOs: `CreateGroupDto`, `UpdateGroupDto`, `GroupQueryDto`
+- [x] `GroupsModule` — findAll, findOne, create, update, remove, addStudent (upsert), removeStudent (soft-delete)
 - [x] 12 testów jednostkowych — `groups.service.spec.ts`
 - [x] 10 testów integracyjnych — `test/groups.e2e-spec.ts`
-- [x] Hooki — `apps/web/src/hooks/useGroups.ts`: useGroups, useGroup, useCreateGroup, useUpdateGroup, useDeleteGroup, useAddStudentToGroup, useRemoveStudentFromGroup
-- [x] `GroupsPage` — siatka kart z badge'ami języka/poziomu, licznikiem uczniów, wyszukiwarką, paginacją — `/admin/groups`
-- [x] `GroupFormModal` — react-hook-form, Select nauczyciela ładowany z useUsers
-
-**Uwaga architektoniczna:** `@base-ui/react` Select's `onValueChange` zwraca `string | null`, nie `string` — zawsze rzutuj: `(v: string | null) => v && setValue(...)`.
+- [x] Hooki — `useGroups`, `useGroup`, `useCreateGroup`, `useUpdateGroup`, `useDeleteGroup`, `useAddStudentToGroup`, `useRemoveStudentFromGroup`
+- [x] `GroupsPage` — siatka kart, wyszukiwarka, paginacja
+- [x] `GroupDetailPage` — lista uczniów, sekcja materiałów grupy
+- [x] `GroupFormModal`
 
 ### 1.4 — Zajęcia ✅
 
-- [x] `ClassesModule` — `apps/api/src/modules/classes/`
-  - `ClassesService`: findAll (filter groupId/status/from/to, paginacja), findOne (z attendance), create, update, remove (kaskaduje Attendance), updateStatus
-  - `ClassesController`: ADMIN+TEACHER read+updateStatus, tylko ADMIN create/update/delete
-  - DTOs: `CreateClassDto`, `UpdateClassDto`, `ClassQueryDto`
+- [x] `ClassesModule`
+  - CRUD + `updateStatus` + bulk create (`POST /classes/bulk`) + bulk delete (`DELETE /classes/batch/:batchId`)
+  - `PATCH /classes/batch/:batchId` — bulk edit serii: title, description, teacherId, durationMin, meetLink; `scheduledAtTemplate` przesuwa wszystkie daty proporcjonalnie (dayShift + nowa godzina)
+  - Auto-fallback: `Class.teacherId` null → nauczyciel dziedziczony z grupy (spójność z listą i statystykami)
 - [x] 12 testów jednostkowych — `classes.service.spec.ts`
 - [x] 12 testów integracyjnych — `test/classes.e2e-spec.ts`
-- [x] Hooki — `apps/web/src/hooks/useClasses.ts`: useClasses, useClass, useCreateClass, useUpdateClass, useUpdateClassStatus, useDeleteClass, useCreateBulkClasses, useDeleteBatch
-- [x] `ClassesPage` — przełącznik Kalendarz/Lista
-  - Kalendarz: `react-big-calendar` widok miesiąc/tydzień/dzień, eventi kolorowane po statusie; klik w puste pole → otwiera modal z datą/godziną
-  - Lista: zajęcia cykliczne zgrupowane w rozsuwane sekcje (batchId), bulk-delete całej serii; pojedyncze zajęcia poniżej
-- [x] `ClassFormModal` — datetime-local, Select grupy z nazwą, Select nauczyciela (auto z grupy), czas trwania, opcjonalny meetLink
-- [x] `RecurringClassModal` — wybór dni tygodnia, zakres dat, podgląd listy dat przed zapisem; tworzy serię przez `POST /classes/bulk`
-- [x] Nauczyciel per zajęcie — `Class.teacherId?` (migracja), domyślnie nauczyciel grupy, można nadpisać w formularzu
-- [x] `batchId` — `Class.batchId?` (migracja), wspólny UUID dla zajęć z jednego bulka; `DELETE /classes/batch/:batchId` usuwa całą serię
+- [x] Hooki — `useClasses`, `useClass`, `useCreateClass`, `useUpdateClass`, `useUpdateClassStatus`, `useDeleteClass`, `useCreateBulkClasses`, `useDeleteBatch`, `useUpdateBatch`
+- [x] `ClassesPage` — przełącznik Kalendarz/Lista; zajęcia cykliczne grupowane w sekcje batchId z bulk-delete
+- [x] `ClassFormModal` — toggle "Tylko te zajęcia / Całą serię" dla zajęć z batchId; w trybie serii pole daty działa jako wzorzec przesunięcia
+- [x] `RecurringClassModal` — wybór dni tygodnia, zakres dat, podgląd listy przed zapisem
+- [x] Przyciski statusu w liście: Zaplanowane → "Rozpocznij" → W trakcie → "Zakończ" → Zakończone
 
 ### 1.5 — Frekwencja ✅
 
-- [x] `AttendanceModule` — `GET /attendance?classId`, `PATCH /attendance/bulk`, `GET /attendance/student/:id`
+- [x] `AttendanceModule` — `GET /attendance?classId`, `PATCH /attendance/bulk`, `GET /attendance/student/:id?from=&to=`
   - Auto-tworzy rekordy dla wszystkich aktywnych uczniów grupy przy pierwszym GET
-  - Upsert po `classId+studentId` (unique constraint)
-  - Statystyki ogółem + per-grupa z procentem frekwencji (PRESENT+LATE = obecność)
+  - Statystyki ogółem + per-grupę + historia; filtr po zakresie dat
+  - Zapytanie stats uwzględnia klasy gdzie `teacherId` null → nauczyciel z grupy
 - [x] 7 testów jednostkowych — `attendance.service.spec.ts`
-- [x] Hook `useAttendance` — `useClassAttendance`, `useBulkUpdateAttendance`, `useStudentStats`
-- [x] `AttendanceModal` — lista uczniów, 4 statusy (P/S/N/U), przyciski "ustaw wszystkich", licznik obecnych, zapis
-- [x] `StudentAttendancePage` — okrągły wykres %, breakdown per grupa, historia zajęć
-- [x] `ClassesPage` lista — ikona Users otwiera AttendanceModal per zajęcia
-- [x] `UsersTable` — ikona BarChart2 prowadzi do strony frekwencji ucznia
+- [x] Hooki — `useClassAttendance`, `useBulkUpdateAttendance`, `useStudentStats`
+- [x] `AttendanceModal` — lista uczniów, 4 statusy (P/S/N/U), "ustaw wszystkich", licznik
+- [x] `StudentProfilePage` — frekwencja z filtrem okresu (presety + własny zakres)
 
 ### 1.6 — Materiały ✅
 
-- [x] `MaterialsModule` — upload do MinIO, presigned URL, linki zewnętrzne
-- [x] `MinioService` — auto-tworzy bucket, presigned GET URL (1h), upload/delete
-- [x] Endpointy: `GET /materials`, `GET /materials/:id`, `GET /materials/:id/download`, `GET /materials/class/:classId`, `POST /materials`, `POST /materials/upload`, `POST /materials/:id/classes/:classId`, `DELETE /materials/:id/classes/:classId`, `DELETE /materials/:id`
-- [x] ADMIN+TEACHER mogą dodawać, STUDENT może pobierać
+- [x] `MaterialsModule` + `MinioService` — upload plików (stream przez API, nie presigned URL), linki zewnętrzne
+  - `GET /materials/:id/file` — streaming przez API (MinIO `minio:9000` niedostępne z przeglądarki)
+  - `POST /materials/:id/classes/:classId` — przypisuje do zajęć + automatycznie do grupy tych zajęć (cascade)
+  - `POST /materials/:id/groups/:groupId`, `DELETE` odpowiedniki
+- [x] `GroupMaterial` model (migracja `add_group_material`)
 - [x] 10 testów jednostkowych — `materials.service.spec.ts`
-- [x] Hook `useMaterials` — `useMaterials`, `useClassMaterials`, `useUploadMaterial`, `useCreateLinkMaterial`, `useDeleteMaterial`, `useAssignMaterial`, `useUnassignMaterial`
-- [x] `MaterialsPage` — drag & drop upload, modal linku zewnętrznego, biblioteka z filtrowaniem po typie/search, paginacja, presigned download
+- [x] Hooki — `useMaterials`, `useClassMaterials`, `useGroupMaterials`, `useUploadMaterial`, `useCreateLinkMaterial`, `useDeleteMaterial`, `useAssignMaterialToClass`, `useUnassignMaterialFromClass`, `useAssignMaterialToGroup`, `useUnassignMaterialFromGroup`
+- [x] `MaterialsPage` — drag & drop upload, modal linku, biblioteka z filtrowaniem, paginacja, download (blob)
+- [x] `MaterialsPanel` — reużywalny panel (upload, link, biblioteka, download, odepnij); używany w `ClassesPage` i `GroupDetailPage`
 
-**Cel Fazy 1:** Szkoła może działać operacyjnie — prowadzić zajęcia, zarządzać uczniami, zaznaczać obecność.
+### 1.7 — Jakość i spójność danych ✅
+
+- [x] Naprawiono bug: `getTeacherStats` pomijało klasy gdzie `Class.teacherId = null` (nauczyciel z grupy)
+  - Zapytanie używa `OR: [{ teacherId }, { teacherId: null, group: { teacherId } }]`
+  - Testy weryfikują strukturę WHERE, nie tylko logikę agregacji
+- [x] Naprawiono bug: React StrictMode powodował podwójny refresh token → wylogowanie przy odświeżeniu strony
+  - Fix: `refreshInitiated` ref w `AuthInitializer` blokuje drugie wywołanie
+- [x] Uzupełniono `invalidateQueries` we wszystkich hookach mutacji:
+  - `useBulkUpdateAttendance` → invaliduje `['attendance','student']`
+  - Mutacje klas → invalidują `['users']` (statystyki nauczyciela) i `['attendance','student']`
+  - `useUpdateGroup` → invaliduje `['classes']` (klasy osadzają dane grupy)
+  - `useAddStudentToGroup` / `useRemoveStudentFromGroup` → invalidują `['users', studentId]`
+  - `useAssignMaterialToClass` → invaliduje `['materials','group']` (cascade GroupMaterial)
+  - `useUnassignMaterial*` → invalidują `['materials']`
+- [x] 73 testy jednostkowe przechodzą (8 suite'ów)
+
+**Cel Fazy 1:** Szkoła może działać operacyjnie — prowadzić zajęcia, zarządzać uczniami, zaznaczać obecność, zarządzać materiałami, rozliczać nauczycieli.
 
 ---
 
@@ -168,7 +168,6 @@ docker compose up -d   # postgres + redis + minio + api + web
 - [ ] Tracking postępów ucznia
 - [ ] Google Calendar API (automatyczne Meet linki)
 - [ ] Raporty i eksport CSV/PDF
-- [ ] Powtarzające się zajęcia (recurrence rules)
 - [ ] Aplikacja mobilna (React Native lub PWA)
 - [ ] Czat wewnętrzny (nauczyciel ↔ uczeń)
 
@@ -176,11 +175,6 @@ docker compose up -d   # postgres + redis + minio + api + web
 
 ## ▶ Co robimy teraz?
 
-**Jesteśmy w Fazie 1.6 — Materiały**
+**Faza 1 ukończona. Przechodzimy do Fazy 2.**
 
-Kolejne kroki:
-1. `MaterialsModule` — upload plików do MinIO, presigned URL do pobierania, linki zewnętrzne
-2. Testy jednostkowe + integracyjne
-3. Frontend: biblioteka materiałów, drag & drop upload, przypisywanie do zajęć
-
-Uwaga: po dodaniu shadcn komponentu trzeba naprawić importy — zmienić `src/lib/utils` → `@/lib/utils` oraz `src/components/ui/X` → `@/components/ui/X` (shadcn CLI generuje złe ścieżki).
+Następna funkcjonalność do ustalenia z użytkownikiem.
