@@ -94,7 +94,7 @@ const CALENDAR_EVENT_COLORS: Record<ClassStatus, string> = {
 type ViewMode = 'calendar' | 'list';
 
 export function ClassesPage() {
-  const [view, setView] = useState<ViewMode>('calendar');
+  const [view, setView] = useState<ViewMode>('list');
   const [calDate, setCalDate] = useState(new Date());
   const [calView, setCalView] = useState<'month' | 'week' | 'day'>(Views.MONTH);
   const [modalOpen, setModalOpen] = useState(false);

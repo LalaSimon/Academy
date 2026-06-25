@@ -63,10 +63,15 @@ export function useBulkUpdateAttendance() {
   });
 }
 
-export function useStudentStats(studentId: string) {
+export function useStudentStats(studentId: string, range?: { from?: string; to?: string }) {
   return useQuery<StudentStats>({
-    queryKey: [ATTENDANCE_KEY, 'student', studentId],
-    queryFn: () => api.get<StudentStats>(`/attendance/student/${studentId}`).then((r) => r.data),
+    queryKey: [ATTENDANCE_KEY, 'student', studentId, range],
+    queryFn: () =>
+      api
+        .get<StudentStats>(`/attendance/student/${studentId}`, {
+          params: { from: range?.from, to: range?.to },
+        })
+        .then((r) => r.data),
     enabled: !!studentId,
   });
 }

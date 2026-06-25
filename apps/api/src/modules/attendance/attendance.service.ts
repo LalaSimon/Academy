@@ -106,10 +106,22 @@ export class AttendanceService {
     return this.getForClass(dto.classId);
   }
 
-  async getStudentStats(studentId: string) {
+  async getStudentStats(studentId: string, range?: { from?: Date; to?: Date }) {
+    const dateFilter =
+      range?.from || range?.to
+        ? {
+            class: {
+              scheduledAt: {
+                ...(range.from && { gte: range.from }),
+                ...(range.to && { lte: range.to }),
+              },
+            },
+          }
+        : {};
+
     const [attendances, memberships] = await Promise.all([
       this.prisma.attendance.findMany({
-        where: { studentId },
+        where: { studentId, ...dateFilter },
         select: {
           status: true,
           markedAt: true,
@@ -152,8 +164,10 @@ export class AttendanceService {
 
     const groupMap = new Map<string, GroupEntry>();
 
-    // Seed map with all groups the student belongs to (even with 0 attendance)
+    // Seed with all groups only when no date filter is active
+    const seedAll = !range?.from && !range?.to;
     for (const m of memberships) {
+      if (!seedAll) continue;
       groupMap.set(m.group.id, {
         group: m.group,
         total: 0,

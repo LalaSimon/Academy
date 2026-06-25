@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Mail, Phone, Users, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Users, CheckCircle2, XCircle, Clock, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useUser } from '@/hooks/useUsers';
 import { useStudentStats } from '@/hooks/useAttendance';
@@ -30,10 +31,39 @@ function RateBar({ rate }: { rate: number }) {
   );
 }
 
+type Preset = '30d' | '90d' | '6m' | 'school-year' | 'custom';
+
+const PRESETS: { id: Preset; label: string }[] = [
+  { id: '30d', label: 'Ostatnie 30 dni' },
+  { id: '90d', label: 'Ostatnie 90 dni' },
+  { id: '6m', label: 'Ostatnie 6 mies.' },
+  { id: 'school-year', label: 'Rok szkolny' },
+  { id: 'custom', label: 'Własny zakres' },
+];
+
+function presetToRange(preset: Preset, customFrom: string, customTo: string) {
+  const now = new Date();
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  if (preset === '30d') return { from: fmt(new Date(Date.now() - 30 * 86400000)), to: fmt(now) };
+  if (preset === '90d') return { from: fmt(new Date(Date.now() - 90 * 86400000)), to: fmt(now) };
+  if (preset === '6m') return { from: fmt(new Date(Date.now() - 180 * 86400000)), to: fmt(now) };
+  if (preset === 'school-year') {
+    const sep = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+    return { from: `${sep}-09-01`, to: fmt(now) };
+  }
+  return { from: customFrom || undefined, to: customTo || undefined };
+}
+
 export function StudentProfilePage() {
   const { studentId } = useParams<{ studentId: string }>();
+  const [preset, setPreset] = useState<Preset>('school-year');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
+  const [showPresets, setShowPresets] = useState(false);
+
+  const range = presetToRange(preset, customFrom, customTo);
   const { data: student, isLoading: loadingStudent } = useUser(studentId!);
-  const { data: stats, isLoading: loadingStats } = useStudentStats(studentId!);
+  const { data: stats, isLoading: loadingStats } = useStudentStats(studentId!, range);
 
   if (loadingStudent || loadingStats) {
     return <p className="text-center py-16 text-gray-400">Ładowanie...</p>;
@@ -53,6 +83,50 @@ export function StudentProfilePage() {
           <ArrowLeft className="w-4 h-4 text-gray-500" />
         </Link>
         <h1 className="text-xl font-semibold text-gray-900">Profil ucznia</h1>
+      </div>
+
+      {/* Period filter */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <button
+            onClick={() => setShowPresets(p => !p)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm"
+          >
+            {PRESETS.find(p => p.id === preset)?.label}
+            <ChevronDown size={14} className={`transition-transform ${showPresets ? 'rotate-180' : ''}`} />
+          </button>
+          {showPresets && (
+            <div className="absolute top-full mt-1 left-0 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-44">
+              {PRESETS.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => { setPreset(p.id); setShowPresets(false); }}
+                  className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${preset === p.id ? 'text-indigo-600 font-medium' : 'text-gray-700'}`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {preset === 'custom' && (
+          <>
+            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <span className="text-gray-400 text-sm">–</span>
+            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </>
+        )}
+
+        {preset !== 'custom' && range.from && (
+          <span className="text-xs text-gray-400">
+            {new Date(range.from).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}
+            {' – '}
+            {new Date(range.to!).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}
+          </span>
+        )}
       </div>
 
       {/* Student card */}
