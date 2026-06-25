@@ -137,10 +137,9 @@ export function TeacherProfilePage() {
           {/* Overall */}
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Podsumowanie okresu</h2>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <StatCard label="Łącznie zajęć" value={stats.overall.total} color="bg-gray-50 text-gray-700" />
               <StatCard label="Zrealizowane" value={stats.overall.completed} color="bg-green-50 text-green-700" />
-              <StatCard label="Anulowane" value={stats.overall.cancelled} color="bg-red-50 text-red-700" />
               <StatCard
                 label="Godziny lekcyjne"
                 value={stats.overall.hours.toFixed(1)}
