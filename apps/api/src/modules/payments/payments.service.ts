@@ -15,10 +15,14 @@ import {
 } from './dto/update-payment.dto';
 import { QueryPaymentsDto } from './dto/query-payments.dto';
 import { PaymentStatus } from '@prisma/client';
-import * as crypto from 'crypto';
+import Stripe from 'stripe';
 
 @Injectable()
 export class PaymentsService {
+  private stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
+    apiVersion: '2026-06-24.dahlia',
+  });
+
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(query: QueryPaymentsDto) {
@@ -221,141 +225,80 @@ export class PaymentsService {
     return this.prisma.payment.delete({ where: { id } });
   }
 
-  // ── Przelewy24 ────────────────────────────────────────────────────────────
-
-  private get p24BaseUrl() {
-    return process.env.P24_SANDBOX === 'true'
-      ? 'https://sandbox.przelewy24.pl'
-      : 'https://secure.przelewy24.pl';
-  }
-
-  private p24Sign(fields: Record<string, string | number>) {
-    const crc = process.env.P24_CRC ?? '';
-    const json = JSON.stringify({ ...fields, crc });
-    return crypto.createHash('sha384').update(json).digest('hex');
-  }
+  // ── Stripe ────────────────────────────────────────────────────────────────
 
   async createCheckout(id: string, returnUrl: string) {
     const payment = await this.findOne(id);
-    if (payment.status !== 'PENDING') {
-      throw new BadRequestException('Only PENDING payments can be checked out');
+    if (payment.status !== 'PENDING' && payment.status !== 'OVERDUE') {
+      throw new BadRequestException(
+        'Only PENDING or OVERDUE payments can be checked out',
+      );
     }
 
-    const merchantId = Number(process.env.P24_MERCHANT_ID);
-    const posId = Number(process.env.P24_POS_ID ?? process.env.P24_MERCHANT_ID);
     const amountGrosze = Math.round(Number(payment.amount) * 100);
-    const sessionId = `${id}-${Date.now()}`;
+    const currency = payment.currency.toLowerCase();
 
-    const sign = this.p24Sign({
-      sessionId,
-      merchantId,
-      amount: amountGrosze,
-      currency: payment.currency,
+    const session = await this.stripe.checkout.sessions.create({
+      mode: 'payment',
+      payment_method_types: ['card'],
+      customer_email: payment.student.email,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency,
+            unit_amount: amountGrosze,
+            product_data: { name: payment.description },
+          },
+        },
+      ],
+      metadata: { paymentId: id },
+      success_url: `${returnUrl}?session_id={CHECKOUT_SESSION_ID}&status=success`,
+      cancel_url: `${returnUrl}?status=cancelled`,
     });
-
-    const body = {
-      merchantId,
-      posId,
-      sessionId,
-      amount: amountGrosze,
-      currency: payment.currency,
-      description: payment.description,
-      email: payment.student.email,
-      country: 'PL',
-      language: 'pl',
-      urlReturn: returnUrl,
-      urlStatus: `${process.env.API_PUBLIC_URL}/api/v1/payments/webhook/p24`,
-      sign,
-    };
-
-    const res = await fetch(`${this.p24BaseUrl}/api/v1/transaction/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Basic ${Buffer.from(`${posId}:${process.env.P24_API_KEY}`).toString('base64')}`,
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new BadRequestException(`Przelewy24 registration failed: ${err}`);
-    }
-
-    const { data } = (await res.json()) as { data: { token: string } };
 
     await this.prisma.payment.update({
       where: { id },
       data: {
-        externalId: sessionId,
-        paymentProvider: 'przelewy24',
-        providerData: { token: data.token },
+        externalId: session.id,
+        paymentProvider: 'stripe',
       },
     });
 
-    return { checkoutUrl: `${this.p24BaseUrl}/trnRequest/${data.token}` };
+    return { checkoutUrl: session.url };
   }
 
-  async handleWebhook(body: Record<string, unknown>) {
-    const { merchantId, posId, sessionId, amount, currency, orderId, sign } =
-      body as {
-        merchantId: number;
-        posId: number;
-        sessionId: string;
-        amount: number;
-        currency: string;
-        orderId: number;
-        sign: string;
-      };
+  async handleStripeWebhook(rawBody: Buffer, signature: string) {
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? '';
+    let event: Stripe.Event;
 
-    const expectedSign = this.p24Sign({ sessionId, orderId, amount, currency });
-    if (sign !== expectedSign) {
-      throw new BadRequestException('Invalid webhook signature');
+    try {
+      event = this.stripe.webhooks.constructEvent(
+        rawBody,
+        signature,
+        webhookSecret,
+      );
+    } catch {
+      throw new BadRequestException('Invalid Stripe webhook signature');
     }
 
-    const paymentId = String(sessionId).split('-')[0];
-    const payment = await this.findOne(paymentId);
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const paymentId = session.metadata?.paymentId;
+      if (!paymentId) return { received: true };
 
-    // Verify with P24
-    const posIdVal = Number(
-      process.env.P24_POS_ID ?? process.env.P24_MERCHANT_ID,
-    );
-    const verifySign = this.p24Sign({ sessionId, orderId, amount, currency });
-
-    const verifyRes = await fetch(
-      `${this.p24BaseUrl}/api/v1/transaction/verify`,
-      {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Basic ${Buffer.from(`${posIdVal}:${process.env.P24_API_KEY}`).toString('base64')}`,
+      await this.prisma.payment.update({
+        where: { id: paymentId },
+        data: {
+          status: 'PAID',
+          paidAt: new Date(),
+          externalId: session.id,
+          paymentProvider: 'stripe',
         },
-        body: JSON.stringify({
-          merchantId,
-          posId,
-          sessionId,
-          amount,
-          currency,
-          orderId,
-          sign: verifySign,
-        }),
-      },
-    );
-
-    if (!verifyRes.ok) {
-      throw new BadRequestException('Przelewy24 verification failed');
+      });
     }
 
-    await this.prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: 'PAID',
-        paidAt: new Date(),
-        providerData: { ...(payment.providerData as object), orderId },
-      },
-    });
-
-    return { status: 'ok' };
+    return { received: true };
   }
 
   // ── Cron ──────────────────────────────────────────────────────────────────

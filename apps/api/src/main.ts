@@ -7,7 +7,7 @@ const cookieParser = require('cookie-parser') as () => ReturnType<
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   app.use(cookieParser());
   app.setGlobalPrefix('api/v1');

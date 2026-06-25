@@ -10,7 +10,11 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Headers,
+  Req,
 } from '@nestjs/common';
+import type { RawBodyRequest } from '@nestjs/common';
+import { Request } from 'express';
 import { PaymentsService } from './payments.service';
 import {
   CreatePaymentDto,
@@ -32,64 +36,77 @@ class CheckoutDto {
 }
 
 @Controller('payments')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
+  // ── Public: Stripe webhook (must receive raw body) ────────────────────────
+  @Post('webhook/stripe')
+  @HttpCode(HttpStatus.OK)
+  handleStripeWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Headers('stripe-signature') sig: string,
+  ) {
+    return this.paymentsService.handleStripeWebhook(req.rawBody!, sig);
+  }
+
+  // ── Protected routes ──────────────────────────────────────────────────────
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Get()
   @Roles('ADMIN', 'TEACHER', 'STUDENT', 'PARENT')
   findAll(@Query() query: QueryPaymentsDto) {
     return this.paymentsService.findAll(query);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('stats')
   @Roles('ADMIN')
   getStats(@Query() query: { from?: string; to?: string; studentId?: string }) {
     return this.paymentsService.getStats(query);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Post()
   @Roles('ADMIN')
   create(@Body() dto: CreatePaymentDto) {
     return this.paymentsService.create(dto);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Post('bulk')
   @Roles('ADMIN')
   createBulk(@Body() dto: CreateBulkPaymentsDto) {
     return this.paymentsService.createBulk(dto);
   }
 
-  @Post('webhook/p24')
-  @HttpCode(HttpStatus.OK)
-  handleWebhook(@Body() body: Record<string, unknown>) {
-    return this.paymentsService.handleWebhook(body);
-  }
-
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Get(':id')
   @Roles('ADMIN', 'TEACHER', 'STUDENT', 'PARENT')
   findOne(@Param('id') id: string) {
     return this.paymentsService.findOne(id);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Patch(':id/status')
   @Roles('ADMIN')
   updateStatus(@Param('id') id: string, @Body() dto: UpdatePaymentStatusDto) {
     return this.paymentsService.updateStatus(id, dto);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Post(':id/checkout')
   @Roles('ADMIN', 'STUDENT', 'PARENT')
   checkout(@Param('id') id: string, @Body() body: CheckoutDto) {
     return this.paymentsService.createCheckout(id, body.returnUrl);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Patch(':id')
   @Roles('ADMIN')
   update(@Param('id') id: string, @Body() dto: UpdatePaymentDto) {
     return this.paymentsService.update(id, dto);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Delete(':id')
   @Roles('ADMIN')
   @HttpCode(HttpStatus.NO_CONTENT)
