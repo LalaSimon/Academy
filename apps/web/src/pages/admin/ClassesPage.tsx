@@ -4,12 +4,14 @@ import type { ToolbarProps } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, startOfWeek as soW, endOfWeek } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { motion } from 'framer-motion';
-import { Plus, Video, Calendar as CalIcon, List, Pencil, Trash2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Users } from 'lucide-react';
+import { Plus, Video, Calendar as CalIcon, List, Pencil, Trash2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Users, BookOpen, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useClasses, useDeleteClass, useDeleteBatch, useUpdateClassStatus, type Class, type ClassStatus } from '@/hooks/useClasses';
 import { ClassFormModal } from '@/components/classes/ClassFormModal';
 import { RecurringClassModal } from '@/components/classes/RecurringClassModal';
 import { AttendanceModal } from '@/components/attendance/AttendanceModal';
+import { MaterialsPanel } from '@/components/materials/MaterialsPanel';
+import { useClassMaterials, useAssignMaterialToClass, useUnassignMaterialFromClass } from '@/hooks/useMaterials';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
 const MONTHS = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
@@ -106,6 +108,7 @@ export function ClassesPage() {
   const updateStatus = useUpdateClassStatus();
   const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set());
   const [attendanceClass, setAttendanceClass] = useState<Class | null>(null);
+  const [materialsClass, setMaterialsClass] = useState<Class | null>(null);
 
   const toggleBatch = (batchId: string) =>
     setExpandedBatches((prev) => {
@@ -277,6 +280,10 @@ export function ClassesPage() {
                       <Button variant="ghost" size="sm" className="h-8 text-xs text-green-600 hover:text-green-700 rounded-lg px-2"
                         onClick={() => handleStatus(cls.id, 'COMPLETED')}>Zakończ</Button>
                     )}
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-violet-600 rounded-lg" title="Materiały"
+                      onClick={() => setMaterialsClass(cls)}>
+                      <BookOpen className="w-3.5 h-3.5" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-violet-600 rounded-lg" title="Obecność"
                       onClick={() => setAttendanceClass(cls)}>
                       <Users className="w-3.5 h-3.5" />
@@ -359,6 +366,38 @@ export function ClassesPage() {
           classTitle={attendanceClass.title}
         />
       )}
+      {materialsClass && (
+        <ClassMaterialsModal
+          cls={materialsClass}
+          onClose={() => setMaterialsClass(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function ClassMaterialsModal({ cls, onClose }: { cls: Class; onClose: () => void }) {
+  const { data: materials = [] } = useClassMaterials(cls.id);
+  const assign = useAssignMaterialToClass();
+  const unassign = useUnassignMaterialFromClass();
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold">{cls.title}</h2>
+            <p className="text-sm text-gray-500">Materiały do zajęć</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        </div>
+        <MaterialsPanel
+          assigned={materials}
+          onAssign={(materialId) => assign.mutate({ materialId, classId: cls.id })}
+          onRemove={(materialId) => unassign.mutate({ materialId, classId: cls.id })}
+          isRemoving={unassign.isPending}
+        />
+      </div>
     </div>
   );
 }

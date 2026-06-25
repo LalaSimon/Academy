@@ -110,7 +110,7 @@ export function useDeleteMaterial() {
   });
 }
 
-export function useAssignMaterial() {
+export function useAssignMaterialToClass() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, { materialId: string; classId: string }>({
     mutationFn: async ({ materialId, classId }) => {
@@ -118,11 +118,14 @@ export function useAssignMaterial() {
     },
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ['materials', 'class', vars.classId] });
+      queryClient.invalidateQueries({ queryKey: ['materials'] });
+      toast.success('Materiał przypisany do zajęć');
     },
+    onError: (e) => toast.error(`Błąd: ${e.message}`),
   });
 }
 
-export function useUnassignMaterial() {
+export function useUnassignMaterialFromClass() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, { materialId: string; classId: string }>({
     mutationFn: async ({ materialId, classId }) => {
@@ -131,16 +134,45 @@ export function useUnassignMaterial() {
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ['materials', 'class', vars.classId] });
     },
+    onError: (e) => toast.error(`Błąd: ${e.message}`),
   });
 }
 
-export function useDownloadUrl(id: string) {
-  return useQuery<{ url: string }>({
-    queryKey: ['materials', id, 'download'],
+export function useAssignMaterialToGroup() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, { materialId: string; groupId: string }>({
+    mutationFn: async ({ materialId, groupId }) => {
+      await api.post(`/materials/${materialId}/groups/${groupId}`);
+    },
+    onSuccess: (_d, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['materials', 'group', vars.groupId] });
+      queryClient.invalidateQueries({ queryKey: ['materials'] });
+      toast.success('Materiał przypisany do grupy');
+    },
+    onError: (e) => toast.error(`Błąd: ${e.message}`),
+  });
+}
+
+export function useUnassignMaterialFromGroup() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, { materialId: string; groupId: string }>({
+    mutationFn: async ({ materialId, groupId }) => {
+      await api.delete(`/materials/${materialId}/groups/${groupId}`);
+    },
+    onSuccess: (_d, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['materials', 'group', vars.groupId] });
+    },
+    onError: (e) => toast.error(`Błąd: ${e.message}`),
+  });
+}
+
+export function useGroupMaterials(groupId: string) {
+  return useQuery<Material[]>({
+    queryKey: ['materials', 'group', groupId],
     queryFn: async () => {
-      const { data } = await api.get<{ url: string }>(`/materials/${id}/download`);
+      const { data } = await api.get<Material[]>(`/materials/group/${groupId}`);
       return data;
     },
-    enabled: false,
+    enabled: !!groupId,
   });
 }

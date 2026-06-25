@@ -133,17 +133,35 @@ export class MaterialsService {
     });
     if (!m) throw new NotFoundException(`Material ${id} not found`);
     await this.prisma.classMaterial.deleteMany({ where: { materialId: id } });
+    await this.prisma.groupMaterial.deleteMany({ where: { materialId: id } });
     await this.prisma.material.delete({ where: { id } });
     if (m.fileKey) await this.minio.removeObject(m.fileKey);
   }
 
   async assignToClass(materialId: string, classId: string) {
     await this.assertMaterialExists(materialId);
-    return this.prisma.classMaterial.upsert({
-      where: { classId_materialId: { classId, materialId } },
-      create: { classId, materialId },
-      update: {},
+    const cls = await this.prisma.class.findUnique({
+      where: { id: classId },
+      select: { groupId: true },
     });
+    await this.prisma.$transaction([
+      this.prisma.classMaterial.upsert({
+        where: { classId_materialId: { classId, materialId } },
+        create: { classId, materialId },
+        update: {},
+      }),
+      ...(cls
+        ? [
+            this.prisma.groupMaterial.upsert({
+              where: {
+                groupId_materialId: { groupId: cls.groupId, materialId },
+              },
+              create: { groupId: cls.groupId, materialId },
+              update: {},
+            }),
+          ]
+        : []),
+    ]);
   }
 
   async removeFromClass(materialId: string, classId: string) {
@@ -155,6 +173,29 @@ export class MaterialsService {
   async getForClass(classId: string) {
     return this.prisma.material.findMany({
       where: { classes: { some: { classId } } },
+      select: MATERIAL_SELECT,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async assignToGroup(materialId: string, groupId: string) {
+    await this.assertMaterialExists(materialId);
+    return this.prisma.groupMaterial.upsert({
+      where: { groupId_materialId: { groupId, materialId } },
+      create: { groupId, materialId },
+      update: {},
+    });
+  }
+
+  async removeFromGroup(materialId: string, groupId: string) {
+    await this.prisma.groupMaterial.deleteMany({
+      where: { groupId, materialId },
+    });
+  }
+
+  async getForGroup(groupId: string) {
+    return this.prisma.material.findMany({
+      where: { groups: { some: { groupId } } },
       select: MATERIAL_SELECT,
       orderBy: { createdAt: 'desc' },
     });

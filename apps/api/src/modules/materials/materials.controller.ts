@@ -93,6 +93,24 @@ export class MaterialsController {
     return this.materialsService.removeFromClass(id, classId);
   }
 
+  @Get('group/:groupId')
+  @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT)
+  getForGroup(@Param('groupId') groupId: string) {
+    return this.materialsService.getForGroup(groupId);
+  }
+
+  @Post(':id/groups/:groupId')
+  @Roles(Role.ADMIN, Role.TEACHER)
+  assignToGroup(@Param('id') id: string, @Param('groupId') groupId: string) {
+    return this.materialsService.assignToGroup(id, groupId);
+  }
+
+  @Delete(':id/groups/:groupId')
+  @Roles(Role.ADMIN, Role.TEACHER)
+  removeFromGroup(@Param('id') id: string, @Param('groupId') groupId: string) {
+    return this.materialsService.removeFromGroup(id, groupId);
+  }
+
   @Delete(':id')
   @Roles(Role.ADMIN, Role.TEACHER)
   remove(@Param('id') id: string) {

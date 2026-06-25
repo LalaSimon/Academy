@@ -10,6 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useGroup, useAddStudentToGroup, useRemoveStudentFromGroup } from '@/hooks/useGroups';
 import { useUsers } from '@/hooks/useUsers';
 import { GroupFormModal } from '@/components/groups/GroupFormModal';
+import { MaterialsPanel } from '@/components/materials/MaterialsPanel';
+import { useGroupMaterials, useAssignMaterialToGroup, useUnassignMaterialFromGroup } from '@/hooks/useMaterials';
 import type { Group } from '@/hooks/useGroups';
 
 export function GroupDetailPage() {
@@ -22,6 +24,9 @@ export function GroupDetailPage() {
 
   const addStudent = useAddStudentToGroup();
   const removeStudent = useRemoveStudentFromGroup();
+  const { data: groupMaterials = [] } = useGroupMaterials(id!);
+  const assignMaterial = useAssignMaterialToGroup();
+  const unassignMaterial = useUnassignMaterialFromGroup();
 
   const { data: allStudents } = useUsers({ role: 'STUDENT', search: studentSearch || undefined, limit: 50 });
 
@@ -145,6 +150,25 @@ export function GroupDetailPage() {
             ))}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Materials section */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-gray-400" />
+            <h2 className="font-semibold text-gray-800">Materiały grupy</h2>
+            <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">{groupMaterials.length}</span>
+          </div>
+        </div>
+        <div className="p-5">
+          <MaterialsPanel
+            assigned={groupMaterials}
+            onAssign={(materialId) => assignMaterial.mutate({ materialId, groupId: id! })}
+            onRemove={(materialId) => unassignMaterial.mutate({ materialId, groupId: id! })}
+            isRemoving={unassignMaterial.isPending}
+          />
+        </div>
       </div>
 
       {/* Add student modal */}
