@@ -12,6 +12,7 @@ import { StudentProfilePage } from '@/pages/admin/StudentProfilePage';
 import { TeacherProfilePage } from '@/pages/admin/TeacherProfilePage';
 import { AttendancePage } from '@/pages/admin/AttendancePage';
 import MaterialsPage from '@/pages/admin/MaterialsPage';
+import { PaymentsPage } from '@/pages/admin/PaymentsPage';
 import { AdminLayout } from '@/layouts/AdminLayout';
 import { PrivateRoute } from '@/router/PrivateRoute';
 
@@ -36,6 +37,7 @@ function App() {
               <Route path="/admin/students/:studentId/attendance" element={<StudentAttendancePage />} />
               <Route path="/admin/attendance" element={<AttendancePage />} />
               <Route path="/admin/materials" element={<MaterialsPage />} />
+              <Route path="/admin/payments" element={<PaymentsPage />} />
             </Route>
           </Route>
 

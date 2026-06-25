@@ -7,6 +7,7 @@ import {
   Calendar,
   ClipboardList,
   FolderOpen,
+  CreditCard,
   LogOut,
   ChevronRight,
 } from 'lucide-react';
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { to: '/admin/classes', label: 'Zajęcia', icon: Calendar },
   { to: '/admin/attendance', label: 'Frekwencja', icon: ClipboardList },
   { to: '/admin/materials', label: 'Materiały', icon: FolderOpen },
+  { to: '/admin/payments', label: 'Płatności', icon: CreditCard },
 ];
 
 export function AdminLayout() {

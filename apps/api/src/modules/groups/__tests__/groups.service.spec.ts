@@ -41,7 +41,9 @@ const mockPrisma = {
     findFirst: jest.fn(),
     delete: jest.fn(),
   },
-  $transaction: jest.fn((fn: (tx: typeof mockPrisma) => unknown) => fn(mockPrisma)),
+  $transaction: jest.fn((fn: (tx: typeof mockPrisma) => unknown) =>
+    fn(mockPrisma),
+  ),
 };
 
 describe('GroupsService', () => {
