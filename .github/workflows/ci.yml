@@ -156,7 +156,8 @@ jobs:
         run: npm run build --workspace=apps/web
 
       - name: Serve Web
-        run: npx serve apps/web/dist -l 5173 &
+        run: npx vite preview --port 5173 &
+        working-directory: apps/web
 
       - name: Wait for services
         run: |
