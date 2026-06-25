@@ -117,13 +117,15 @@ docker compose up -d   # postgres + redis + minio + api + web
 - [x] `ClassesPage` lista — ikona Users otwiera AttendanceModal per zajęcia
 - [x] `UsersTable` — ikona BarChart2 prowadzi do strony frekwencji ucznia
 
-### 1.6 — Materiały
+### 1.6 — Materiały ✅
 
-- [ ] `MaterialsModule` — upload do MinIO, presigned URL, linki zewnętrzne
-- [ ] Testy jednostkowe + integracyjne
-- [ ] Hook `useMaterials`
-- [ ] Drag & drop upload
-- [ ] Biblioteka materiałów + przypisywanie do zajęć
+- [x] `MaterialsModule` — upload do MinIO, presigned URL, linki zewnętrzne
+- [x] `MinioService` — auto-tworzy bucket, presigned GET URL (1h), upload/delete
+- [x] Endpointy: `GET /materials`, `GET /materials/:id`, `GET /materials/:id/download`, `GET /materials/class/:classId`, `POST /materials`, `POST /materials/upload`, `POST /materials/:id/classes/:classId`, `DELETE /materials/:id/classes/:classId`, `DELETE /materials/:id`
+- [x] ADMIN+TEACHER mogą dodawać, STUDENT może pobierać
+- [x] 10 testów jednostkowych — `materials.service.spec.ts`
+- [x] Hook `useMaterials` — `useMaterials`, `useClassMaterials`, `useUploadMaterial`, `useCreateLinkMaterial`, `useDeleteMaterial`, `useAssignMaterial`, `useUnassignMaterial`
+- [x] `MaterialsPage` — drag & drop upload, modal linku zewnętrznego, biblioteka z filtrowaniem po typie/search, paginacja, presigned download
 
 **Cel Fazy 1:** Szkoła może działać operacyjnie — prowadzić zajęcia, zarządzać uczniami, zaznaczać obecność.
 
