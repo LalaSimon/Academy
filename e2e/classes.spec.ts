@@ -21,7 +21,8 @@ test.describe('Classes — list view', () => {
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
 
-    await modal.getByLabel('Tytuł').fill('E2E Nowe Zajęcia');
+    const title = `E2E Nowe Zajęcia ${Date.now()}`;
+    await modal.getByLabel('Tytuł').fill(title);
 
     // Select group (Radix UI Select trigger has role="combobox")
     await modal.getByRole('combobox').first().click();
@@ -37,7 +38,7 @@ test.describe('Classes — list view', () => {
     await modal.getByRole('button', { name: 'Utwórz zajęcia' }).click();
 
     await expect(modal).not.toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText('E2E Nowe Zajęcia')).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(title).first()).toBeVisible({ timeout: 5_000 });
   });
 });
 
