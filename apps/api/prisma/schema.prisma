@@ -99,6 +99,23 @@ model Group {
   students  GroupStudent[]
   classes   Class[]
   materials GroupMaterial[]
+  schedules GroupSchedule[]
+}
+
+model GroupSchedule {
+  id            String   @id @default(cuid())
+  groupId       String
+  dayOfWeek     Int      // 0=Mon, 6=Sun
+  startTime     String   // "HH:MM"
+  durationMin   Int      @default(60)
+  pricePerClass Decimal  @db.Decimal(10, 2)
+  effectiveFrom DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  group   Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  classes Class[]
+
+  @@index([groupId, effectiveFrom])
 }
 
 model GroupStudent {
@@ -116,24 +133,27 @@ model GroupStudent {
 }
 
 model Class {
-  id           String      @id @default(cuid())
-  title        String
-  description  String?
-  scheduledAt  DateTime
-  durationMin  Int         @default(60)
-  meetLink     String?
-  status       ClassStatus @default(SCHEDULED)
-  cancelReason String?
+  id            String      @id @default(cuid())
+  title         String
+  description   String?
+  scheduledAt   DateTime
+  durationMin   Int         @default(60)
+  meetLink      String?
+  status        ClassStatus @default(SCHEDULED)
+  cancelReason  String?
+  pricePerClass Decimal?    @db.Decimal(10, 2)
 
   createdAt DateTime @default(now())
 
-  groupId   String
-  group     Group  @relation(fields: [groupId], references: [id])
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id])
 
   teacherId String?
   teacher   User?  @relation("ClassTeacher", fields: [teacherId], references: [id])
 
-  batchId   String?
+  batchId    String?
+  scheduleId String?
+  schedule   GroupSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
 
   attendances Attendance[]
   materials   ClassMaterial[]
@@ -213,6 +233,8 @@ model Payment {
 
   studentId String
   student   User   @relation(fields: [studentId], references: [id])
+
+  groupId String?
 }
 
 model ParentStudent {

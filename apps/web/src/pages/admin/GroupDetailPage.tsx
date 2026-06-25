@@ -1,18 +1,32 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, UserPlus, UserMinus, Users, BookOpen, Pencil } from 'lucide-react';
+import { ArrowLeft, UserPlus, UserMinus, Users, BookOpen, Pencil, Calendar, Plus, Trash2, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useGroup, useAddStudentToGroup, useRemoveStudentFromGroup } from '@/hooks/useGroups';
+import {
+  useGroup,
+  useAddStudentToGroup,
+  useRemoveStudentFromGroup,
+  useAddGroupSchedule,
+  useRemoveGroupSchedule,
+  useGenerateClasses,
+  type GroupSchedulePayload,
+  type Group,
+} from '@/hooks/useGroups';
 import { useUsers } from '@/hooks/useUsers';
 import { GroupFormModal } from '@/components/groups/GroupFormModal';
 import { MaterialsPanel } from '@/components/materials/MaterialsPanel';
 import { useGroupMaterials, useAssignMaterialToGroup, useUnassignMaterialFromGroup } from '@/hooks/useMaterials';
-import type { Group } from '@/hooks/useGroups';
+
+const DAY_LABELS = ['Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota', 'Niedziela'];
+
+const DEFAULT_SLOT: GroupSchedulePayload = { dayOfWeek: 0, startTime: '18:00', durationMin: 60, pricePerClass: '' };
 
 export function GroupDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -20,10 +34,19 @@ export function GroupDetailPage() {
   const { data: group, isLoading } = useGroup(id!);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [generateModalOpen, setGenerateModalOpen] = useState(false);
   const [studentSearch, setStudentSearch] = useState('');
+  const [newSlot, setNewSlot] = useState<GroupSchedulePayload>({ ...DEFAULT_SLOT });
+  const [genYear, setGenYear] = useState(() => new Date().getFullYear());
+  const [genMonth, setGenMonth] = useState(() => new Date().getMonth() + 1);
+  const [generateResult, setGenerateResult] = useState<{ created: number } | null>(null);
 
   const addStudent = useAddStudentToGroup();
   const removeStudent = useRemoveStudentFromGroup();
+  const addSchedule = useAddGroupSchedule();
+  const removeSchedule = useRemoveGroupSchedule();
+  const generateClasses = useGenerateClasses();
   const { data: groupMaterials = [] } = useGroupMaterials(id!);
   const assignMaterial = useAssignMaterialToGroup();
   const unassignMaterial = useUnassignMaterialFromGroup();
@@ -152,6 +175,73 @@ export function GroupDetailPage() {
         </Table>
       </div>
 
+      {/* Schedule section */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-gray-400" />
+            <h2 className="font-semibold text-gray-800">Harmonogram zajęć</h2>
+            <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
+              {group.schedules.length}
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setGenerateResult(null); setGenerateModalOpen(true); }}
+              className="gap-1.5 text-violet-600 hover:text-violet-700"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              Generuj zajęcia
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setNewSlot({ ...DEFAULT_SLOT }); setScheduleModalOpen(true); }}
+              className="gap-1.5 text-gray-500"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Dodaj slot
+            </Button>
+          </div>
+        </div>
+
+        <div className="p-5">
+          {group.schedules.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">
+              Brak harmonogramu — dodaj slot lub ustaw przy tworzeniu grupy
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {group.schedules.map((s) => (
+                <div key={s.id} className="flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-gray-50/50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center text-xs font-bold">
+                      {DAY_LABELS[s.dayOfWeek].slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">
+                        {DAY_LABELS[s.dayOfWeek]}, {s.startTime} · {s.durationMin} min
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {Number(s.pricePerClass).toFixed(2)} PLN/lekcję · od {new Date(s.effectiveFrom).toLocaleDateString('pl-PL')}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => removeSchedule.mutate({ groupId: id!, scheduleId: s.id })}
+                    className="text-gray-300 hover:text-red-500 transition-colors p-1"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Materials section */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100">
@@ -214,6 +304,168 @@ export function GroupDetailPage() {
 
       {/* Edit group modal */}
       <GroupFormModal open={editModalOpen} onClose={() => setEditModalOpen(false)} editGroup={group as unknown as Group} />
+
+      {/* Add schedule slot modal */}
+      <Dialog open={scheduleModalOpen} onOpenChange={(v) => !v && setScheduleModalOpen(false)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Dodaj slot harmonogramu</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Dzień tygodnia</Label>
+              <Select
+                value={String(newSlot.dayOfWeek)}
+                onValueChange={(v: string | null) => v && setNewSlot((s) => ({ ...s, dayOfWeek: Number(v) }))}
+              >
+                <SelectTrigger>
+                  <SelectValue>{DAY_LABELS[newSlot.dayOfWeek]}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {DAY_LABELS.map((label, idx) => (
+                    <SelectItem key={idx} value={String(idx)}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Godzina</Label>
+                <Input
+                  type="time"
+                  value={newSlot.startTime}
+                  onChange={(e) => setNewSlot((s) => ({ ...s, startTime: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Czas trwania (min)</Label>
+                <Input
+                  type="number"
+                  min={15}
+                  max={480}
+                  value={newSlot.durationMin}
+                  onChange={(e) => setNewSlot((s) => ({ ...s, durationMin: Number(e.target.value) }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Cena za lekcję (PLN)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                placeholder="120.00"
+                value={newSlot.pricePerClass}
+                onChange={(e) => setNewSlot((s) => ({ ...s, pricePerClass: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Obowiązuje od</Label>
+              <Input
+                type="date"
+                value={newSlot.effectiveFrom ?? ''}
+                onChange={(e) => setNewSlot((s) => ({ ...s, effectiveFrom: e.target.value || undefined }))}
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button variant="ghost" className="flex-1" onClick={() => setScheduleModalOpen(false)}>
+                Anuluj
+              </Button>
+              <Button
+                className="flex-1 bg-violet-500 hover:bg-violet-600 text-white"
+                disabled={!newSlot.pricePerClass || addSchedule.isPending}
+                onClick={() => {
+                  addSchedule.mutate(
+                    { groupId: id!, ...newSlot },
+                    { onSuccess: () => setScheduleModalOpen(false) },
+                  );
+                }}
+              >
+                {addSchedule.isPending ? 'Zapisywanie...' : 'Dodaj slot'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Generate classes modal */}
+      <Dialog open={generateModalOpen} onOpenChange={(v) => !v && setGenerateModalOpen(false)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Generuj zajęcia</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            {generateResult ? (
+              <div className="text-center py-4 space-y-2">
+                <div className="w-12 h-12 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto">
+                  <Zap className="w-6 h-6" />
+                </div>
+                <p className="font-medium text-gray-800">Wygenerowano {generateResult.created} zajęć</p>
+                <p className="text-sm text-gray-400">Istniejące zajęcia zostały pominięte</p>
+                <Button className="w-full bg-violet-500 hover:bg-violet-600 text-white" onClick={() => setGenerateModalOpen(false)}>
+                  Zamknij
+                </Button>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-gray-500">
+                  Generuje zajęcia dla <strong>{group.name}</strong> na podstawie harmonogramu.
+                  Istniejące zajęcia są pomijane (idempotentne).
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Rok</Label>
+                    <Input
+                      type="number"
+                      min={2024}
+                      max={2030}
+                      value={genYear}
+                      onChange={(e) => setGenYear(Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Miesiąc</Label>
+                    <Select
+                      value={String(genMonth)}
+                      onValueChange={(v: string | null) => v && setGenMonth(Number(v))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue>
+                          {new Date(genYear, genMonth - 1, 1).toLocaleString('pl', { month: 'long' })}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 12 }, (_, i) => (
+                          <SelectItem key={i + 1} value={String(i + 1)}>
+                            {new Date(2026, i, 1).toLocaleString('pl', { month: 'long' })}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="ghost" className="flex-1" onClick={() => setGenerateModalOpen(false)}>
+                    Anuluj
+                  </Button>
+                  <Button
+                    className="flex-1 bg-violet-500 hover:bg-violet-600 text-white"
+                    disabled={generateClasses.isPending || !group.schedules.length}
+                    onClick={() => {
+                      generateClasses.mutate(
+                        { groupId: id!, year: genYear, month: genMonth },
+                        { onSuccess: (data) => setGenerateResult({ created: data.created }) },
+                      );
+                    }}
+                  >
+                    {generateClasses.isPending ? 'Generowanie...' : 'Generuj'}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

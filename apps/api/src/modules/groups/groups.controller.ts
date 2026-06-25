@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   Query,
@@ -18,6 +19,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupQueryDto } from './dto/group-query.dto';
+import { GroupScheduleDto } from './dto/group-schedule.dto';
 import { GroupsService } from './groups.service';
 
 @Controller('groups')
@@ -71,5 +73,31 @@ export class GroupsController {
     @Param('studentId') studentId: string,
   ) {
     return this.groupsService.removeStudent(id, studentId);
+  }
+
+  @Post(':id/schedule')
+  @Roles(Role.ADMIN)
+  addSchedule(@Param('id') id: string, @Body() dto: GroupScheduleDto) {
+    return this.groupsService.addSchedule(id, dto);
+  }
+
+  @Delete(':id/schedule/:scheduleId')
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeSchedule(
+    @Param('id') id: string,
+    @Param('scheduleId') scheduleId: string,
+  ) {
+    return this.groupsService.removeSchedule(id, scheduleId);
+  }
+
+  @Post(':id/generate-classes')
+  @Roles(Role.ADMIN)
+  generateClasses(
+    @Param('id') id: string,
+    @Query('year', ParseIntPipe) year: number,
+    @Query('month', ParseIntPipe) month: number,
+  ) {
+    return this.groupsService.generateClasses(id, year, month);
   }
 }

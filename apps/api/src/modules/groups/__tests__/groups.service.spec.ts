@@ -35,6 +35,13 @@ const mockPrisma = {
     update: jest.fn(),
     deleteMany: jest.fn(),
   },
+  groupSchedule: {
+    create: jest.fn(),
+    createMany: jest.fn(),
+    findFirst: jest.fn(),
+    delete: jest.fn(),
+  },
+  $transaction: jest.fn((fn: (tx: typeof mockPrisma) => unknown) => fn(mockPrisma)),
 };
 
 describe('GroupsService', () => {

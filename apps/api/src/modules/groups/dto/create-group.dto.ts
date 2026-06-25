@@ -1,4 +1,14 @@
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsArray,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { GroupScheduleDto } from './group-schedule.dto';
 
 export class CreateGroupDto {
   @IsString()
@@ -24,4 +34,10 @@ export class CreateGroupDto {
 
   @IsString()
   teacherId: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => GroupScheduleDto)
+  schedules?: GroupScheduleDto[];
 }

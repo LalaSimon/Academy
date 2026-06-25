@@ -25,6 +25,7 @@ export interface Group {
   createdAt: string;
   teacher: GroupTeacher;
   _count: { students: number };
+  schedules: GroupSchedule[];
 }
 
 export interface GroupDetail extends Group {
@@ -48,6 +49,23 @@ export interface GroupQuery {
   limit?: number;
 }
 
+export interface GroupSchedule {
+  id: string;
+  dayOfWeek: number;
+  startTime: string;
+  durationMin: number;
+  pricePerClass: string;
+  effectiveFrom: string;
+}
+
+export interface GroupSchedulePayload {
+  dayOfWeek: number;
+  startTime: string;
+  durationMin: number;
+  pricePerClass: string;
+  effectiveFrom?: string;
+}
+
 export interface CreateGroupPayload {
   name: string;
   description?: string;
@@ -55,6 +73,7 @@ export interface CreateGroupPayload {
   level?: string;
   maxStudents?: number;
   teacherId: string;
+  schedules?: GroupSchedulePayload[];
 }
 
 export interface UpdateGroupPayload extends Partial<CreateGroupPayload> {
@@ -129,6 +148,42 @@ export function useRemoveStudentFromGroup() {
     onSuccess: (_d, vars) => {
       void qc.invalidateQueries({ queryKey: [GROUPS_KEY] });
       void qc.invalidateQueries({ queryKey: ['users', vars.studentId] });
+    },
+  });
+}
+
+export function useAddGroupSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ groupId, ...payload }: GroupSchedulePayload & { groupId: string }) =>
+      api.post<GroupSchedule>(`/groups/${groupId}/schedule`, payload).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [GROUPS_KEY] }),
+  });
+}
+
+export function useRemoveGroupSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ groupId, scheduleId }: { groupId: string; scheduleId: string }) =>
+      api.delete(`/groups/${groupId}/schedule/${scheduleId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [GROUPS_KEY] }),
+  });
+}
+
+export function useGenerateClasses() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ groupId, year, month }: { groupId: string; year: number; month: number }) =>
+      api
+        .post<{ created: number; classes: { id: string; scheduledAt: string }[] }>(
+          `/groups/${groupId}/generate-classes`,
+          null,
+          { params: { year, month } },
+        )
+        .then((r) => r.data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['classes'] });
+      void qc.invalidateQueries({ queryKey: ['payments'] });
     },
   });
 }
