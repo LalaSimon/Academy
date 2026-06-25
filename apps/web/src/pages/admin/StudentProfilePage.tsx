@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Mail, Phone, Users, CheckCircle2, XCircle, Clock, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Users, CheckCircle2, XCircle, Clock, ChevronDown, CreditCard, AlertCircle, BadgeCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useUser } from '@/hooks/useUsers';
 import { useStudentStats } from '@/hooks/useAttendance';
+import { usePayments, usePaymentStats, useUpdatePaymentStatus, type Payment } from '@/hooks/usePayments';
 
 function StatCard({ label, value, sub, color }: { label: string; value: number | string; sub?: string; color: string }) {
   return (
@@ -54,6 +55,27 @@ function presetToRange(preset: Preset, customFrom: string, customTo: string) {
   return { from: customFrom || undefined, to: customTo || undefined };
 }
 
+const STATUS_LABEL: Record<Payment['status'], string> = {
+  PENDING: 'Oczekuje',
+  PAID: 'Opłacona',
+  OVERDUE: 'Zaległa',
+  REFUNDED: 'Zwrócona',
+  CANCELLED: 'Anulowana',
+};
+
+const STATUS_STYLE: Record<Payment['status'], string> = {
+  PENDING: 'bg-amber-100 text-amber-700',
+  PAID: 'bg-green-100 text-green-700',
+  OVERDUE: 'bg-red-100 text-red-700',
+  REFUNDED: 'bg-blue-100 text-blue-700',
+  CANCELLED: 'bg-gray-100 text-gray-500',
+};
+
+const NEXT_STATUS: Partial<Record<Payment['status'], Payment['status']>> = {
+  PENDING: 'PAID',
+  OVERDUE: 'PAID',
+};
+
 export function StudentProfilePage() {
   const { studentId } = useParams<{ studentId: string }>();
   const [preset, setPreset] = useState<Preset>('school-year');
@@ -64,6 +86,9 @@ export function StudentProfilePage() {
   const range = presetToRange(preset, customFrom, customTo);
   const { data: student, isLoading: loadingStudent } = useUser(studentId!);
   const { data: stats, isLoading: loadingStats } = useStudentStats(studentId!, range);
+  const { data: paymentsData } = usePayments({ studentId, limit: 50 });
+  const { data: paymentStats } = usePaymentStats({ studentId });
+  const updateStatus = useUpdatePaymentStatus();
 
   if (loadingStudent || loadingStats) {
     return <p className="text-center py-16 text-gray-400">Ładowanie...</p>;
@@ -223,6 +248,20 @@ export function StudentProfilePage() {
             </motion.div>
           )}
 
+          {/* Payments summary */}
+          {paymentStats && paymentStats.total > 0 && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <CreditCard className="w-3.5 h-3.5" /> Płatności — podsumowanie
+              </h2>
+              <div className="grid grid-cols-3 gap-3">
+                <StatCard label="Łącznie" value={`${paymentStats.totalAmount.toFixed(0)} PLN`} sub={`${paymentStats.total} faktur`} color="bg-gray-50 text-gray-700" />
+                <StatCard label="Opłacone" value={`${paymentStats.paidAmount.toFixed(0)} PLN`} sub={`${paymentStats.paid} faktur`} color="bg-green-50 text-green-700" />
+                <StatCard label="Zaległe" value={`${paymentStats.overdueAmount.toFixed(0)} PLN`} sub={`${paymentStats.overdue + paymentStats.pending} do zapłaty`} color={paymentStats.overdueAmount > 0 ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-400'} />
+              </div>
+            </motion.div>
+          )}
+
           {/* Recent history */}
           {stats.history.length > 0 && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
@@ -247,6 +286,65 @@ export function StudentProfilePage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </motion.div>
+          )}
+          {/* Payments list */}
+          {paymentsData && paymentsData.data.length > 0 && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <CreditCard className="w-3.5 h-3.5" /> Lista płatności
+              </h2>
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-50">
+                {paymentsData.data.map((p) => {
+                  const isOverdue = p.status === 'OVERDUE' || (p.status === 'PENDING' && new Date(p.dueDate) < new Date());
+                  const next = NEXT_STATUS[p.status];
+                  return (
+                    <div key={p.id} className="flex items-center gap-3 px-5 py-3.5">
+                      <div className="shrink-0">
+                        {p.status === 'PAID' ? (
+                          <BadgeCheck className="w-5 h-5 text-green-500" />
+                        ) : isOverdue ? (
+                          <AlertCircle className="w-5 h-5 text-red-400" />
+                        ) : (
+                          <CreditCard className="w-5 h-5 text-amber-400" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{p.description}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          Termin: {new Date(p.dueDate).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {p.paidAt && ` · opłacono ${new Date(p.paidAt).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}`}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-sm font-semibold text-gray-800">{Number(p.amount).toFixed(0)} {p.currency}</span>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-lg ${STATUS_STYLE[p.status]}`}>
+                          {STATUS_LABEL[p.status]}
+                        </span>
+                        {next && (
+                          <button
+                            onClick={() => updateStatus.mutate({ id: p.id, status: next })}
+                            className="text-xs text-violet-600 hover:text-violet-800 font-medium px-2 py-0.5 rounded-lg hover:bg-violet-50 transition-colors"
+                          >
+                            Oznacz jako opłaconą
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+
+          {paymentsData && paymentsData.data.length === 0 && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <CreditCard className="w-3.5 h-3.5" /> Płatności
+              </h2>
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-10 text-center text-gray-400 text-sm">
+                Brak płatności dla tego ucznia.
               </div>
             </motion.div>
           )}
