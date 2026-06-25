@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Pencil, Trash2, UserPlus, BarChart2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -17,21 +16,52 @@ const ROLE_LABELS: Record<User['role'], string> = {
 };
 
 const ROLE_COLORS: Record<User['role'], string> = {
-  ADMIN: 'bg-red-100 text-red-700',
-  TEACHER: 'bg-violet-100 text-violet-700',
-  STUDENT: 'bg-blue-100 text-blue-700',
-  PARENT: 'bg-green-100 text-green-700',
+  ADMIN: 'bg-red-500/15 text-red-400 border border-red-500/20',
+  TEACHER: 'bg-violet-500/15 text-violet-400 border border-violet-500/20',
+  STUDENT: 'bg-blue-500/15 text-blue-400 border border-blue-500/20',
+  PARENT: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20',
 };
 
 const AVATAR_COLORS: Record<User['role'], string> = {
-  ADMIN: 'bg-red-100 text-red-600',
-  TEACHER: 'bg-violet-100 text-violet-600',
-  STUDENT: 'bg-blue-100 text-blue-600',
-  PARENT: 'bg-green-100 text-green-600',
+  ADMIN: 'bg-red-500/20 text-red-400',
+  TEACHER: 'bg-violet-500/20 text-violet-400',
+  STUDENT: 'bg-blue-500/20 text-blue-400',
+  PARENT: 'bg-emerald-500/20 text-emerald-400',
 };
 
 function initials(user: User) {
   return `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase();
+}
+
+function SkeletonRow() {
+  return (
+    <TableRow className="border-b border-border/50">
+      <TableCell className="py-4 pl-6 pr-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-muted/50 animate-pulse" />
+          <div className="space-y-1.5">
+            <div className="h-3.5 w-28 rounded-md bg-muted/50 animate-pulse" />
+            <div className="h-2.5 w-20 rounded-md bg-muted/40 animate-pulse" />
+          </div>
+        </div>
+      </TableCell>
+      <TableCell className="py-4 px-3">
+        <div className="h-3 w-40 rounded-md bg-muted/50 animate-pulse" />
+      </TableCell>
+      <TableCell className="py-4 px-3">
+        <div className="h-5 w-20 rounded-full bg-muted/50 animate-pulse" />
+      </TableCell>
+      <TableCell className="py-4 px-3">
+        <div className="h-5 w-16 rounded-full bg-muted/50 animate-pulse" />
+      </TableCell>
+      <TableCell className="py-4 pl-3 pr-6">
+        <div className="flex justify-end gap-1.5">
+          <div className="h-7 w-7 rounded-lg bg-muted/50 animate-pulse" />
+          <div className="h-7 w-7 rounded-lg bg-muted/50 animate-pulse" />
+        </div>
+      </TableCell>
+    </TableRow>
+  );
 }
 
 interface Props {
@@ -53,106 +83,146 @@ export function UsersTable({ roleFilter, title }: Props) {
   const handleDelete = (id: string) => { if (confirm('Usunąć użytkownika?')) deleteUser.mutate(id); };
 
   return (
-    <div className="space-y-5 p-6">
+    <div className="space-y-5">
+      {/* Header */}
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-xl font-semibold text-gray-800">{title}</h2>
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+          {data && !isLoading && (
+            <p className="text-sm text-muted-foreground mt-0.5">{data.total} rekordów</p>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           <Input
             placeholder="Szukaj po imieniu, nazwisku, emailu..."
             value={search}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(1); }}
-            className="w-72 h-10 rounded-xl border-gray-200"
+            className="w-72 h-9 rounded-xl text-sm"
           />
-          <Button onClick={handleCreate} className="bg-violet-500 hover:bg-violet-600 text-white rounded-xl h-10 px-4 gap-2">
-            <UserPlus className="w-4 h-4" />
+          <Button
+            onClick={handleCreate}
+            className="h-9 rounded-xl px-4 gap-2 text-sm"
+            style={{ background: 'linear-gradient(135deg, #8b5cf6, #6366f1)', color: 'white' }}
+          >
+            <UserPlus className="w-3.5 h-3.5" />
             Dodaj
           </Button>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* Table */}
+      <div className="bg-card rounded-2xl border border-border overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-50/70 border-b border-gray-100 hover:bg-gray-50/70">
-              <TableHead className="py-4 pl-6 pr-3 text-xs font-semibold uppercase tracking-wide text-gray-400 w-[40%]">
+            <TableRow className="bg-muted/30 border-b border-border hover:bg-muted/30">
+              <TableHead className="py-3.5 pl-6 pr-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70 w-[40%]">
                 Osoba
               </TableHead>
-              <TableHead className="py-4 px-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <TableHead className="py-3.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                 Email
               </TableHead>
-              <TableHead className="py-4 px-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <TableHead className="py-3.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                 Rola
               </TableHead>
-              <TableHead className="py-4 px-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <TableHead className="py-3.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                 Status
               </TableHead>
-              <TableHead className="py-4 pl-3 pr-6 w-24" />
+              <TableHead className="py-3.5 pl-3 pr-6 w-28" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && (
-              <TableRow>
-                <TableCell colSpan={5} className="py-16 text-center text-gray-400">Ładowanie...</TableCell>
-              </TableRow>
-            )}
+            {isLoading && Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
+
             {!isLoading && data?.data.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="py-16 text-center text-gray-400">Brak użytkowników</TableCell>
+                <TableCell colSpan={5} className="py-16 text-center text-muted-foreground">
+                  Brak użytkowników
+                </TableCell>
               </TableRow>
             )}
+
             {data?.data.map((user, i) => (
               <motion.tr
                 key={user.id}
-                initial={{ opacity: 0, y: 6 }}
+                initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.03 }}
-                className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
+                transition={{ delay: i * 0.025, duration: 0.2 }}
+                className="border-b border-border/40 hover:bg-muted/20 transition-colors group"
               >
-                <TableCell className="py-4 pl-6 pr-3">
+                <TableCell className="py-3.5 pl-6 pr-3">
                   <div className="flex items-center gap-3">
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold shrink-0 ${AVATAR_COLORS[user.role]}`}>
                       {initials(user)}
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">{user.firstName} {user.lastName}</p>
-                      {user.phone && <p className="text-xs text-gray-400 mt-0.5">{user.phone}</p>}
+                      <p className="font-medium text-foreground text-[13.5px]">
+                        {user.firstName} {user.lastName}
+                      </p>
+                      {user.phone && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{user.phone}</p>
+                      )}
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="py-4 px-3 text-sm text-gray-500">{user.email}</TableCell>
-                <TableCell className="py-4 px-3">
+                <TableCell className="py-3.5 px-3 text-sm text-muted-foreground">
+                  {user.email}
+                </TableCell>
+                <TableCell className="py-3.5 px-3">
                   <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${ROLE_COLORS[user.role]}`}>
                     {ROLE_LABELS[user.role]}
                   </span>
                 </TableCell>
-                <TableCell className="py-4 px-3">
-                  <Badge
-                    variant={user.isActive ? 'default' : 'secondary'}
-                    className={user.isActive ? 'bg-green-100 text-green-700 hover:bg-green-100' : 'text-gray-400'}
+                <TableCell className="py-3.5 px-3">
+                  <span
+                    className={`text-xs font-medium px-2.5 py-1 rounded-full border ${
+                      user.isActive
+                        ? 'bg-emerald-500/12 text-emerald-400 border-emerald-500/20'
+                        : 'bg-muted/50 text-muted-foreground border-border'
+                    }`}
                   >
                     {user.isActive ? 'Aktywny' : 'Nieaktywny'}
-                  </Badge>
+                  </span>
                 </TableCell>
-                <TableCell className="py-4 pl-3 pr-6">
-                  <div className="flex items-center justify-end gap-1">
+                <TableCell className="py-3.5 pl-3 pr-6">
+                  <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     {user.role === 'STUDENT' && (
                       <Link to={`/admin/students/${user.id}`}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-violet-600 rounded-lg" title="Profil ucznia">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-violet-400 hover:bg-violet-500/10 rounded-lg"
+                          title="Profil ucznia"
+                        >
                           <BarChart2 className="w-3.5 h-3.5" />
                         </Button>
                       </Link>
                     )}
                     {user.role === 'TEACHER' && (
                       <Link to={`/admin/teachers/${user.id}`}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-indigo-600 rounded-lg" title="Statystyki nauczyciela">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg"
+                          title="Statystyki nauczyciela"
+                        >
                           <BarChart2 className="w-3.5 h-3.5" />
                         </Button>
                       </Link>
                     )}
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-violet-600 rounded-lg" onClick={() => handleEdit(user)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-violet-400 hover:bg-violet-500/10 rounded-lg"
+                      onClick={() => handleEdit(user)}
+                    >
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-500 rounded-lg" onClick={() => handleDelete(user.id)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded-lg"
+                      onClick={() => handleDelete(user.id)}
+                    >
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
@@ -163,14 +233,31 @@ export function UsersTable({ roleFilter, title }: Props) {
         </Table>
 
         {data && data.totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/40">
-            <p className="text-sm text-gray-500">
-              {data.total} {roleFilter === 'TEACHER' ? 'nauczycieli' : roleFilter === 'STUDENT' ? 'uczniów' : 'użytkowników'},
+          <div className="flex items-center justify-between px-6 py-3.5 border-t border-border bg-muted/10">
+            <p className="text-xs text-muted-foreground">
+              {data.total}{' '}
+              {roleFilter === 'TEACHER' ? 'nauczycieli' : roleFilter === 'STUDENT' ? 'uczniów' : 'użytkowników'},
               strona {data.page} z {data.totalPages}
             </p>
             <div className="flex gap-2">
-              <Button variant="ghost" size="sm" className="rounded-lg" onClick={() => setPage((p) => p - 1)} disabled={page === 1}>Poprzednia</Button>
-              <Button variant="ghost" size="sm" className="rounded-lg" onClick={() => setPage((p) => p + 1)} disabled={page === data.totalPages}>Następna</Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 rounded-lg text-xs"
+                onClick={() => setPage((p) => p - 1)}
+                disabled={page === 1}
+              >
+                Poprzednia
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 rounded-lg text-xs"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={page === data.totalPages}
+              >
+                Następna
+              </Button>
             </div>
           </div>
         )}

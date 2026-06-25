@@ -20,6 +20,7 @@ import {
   type Group,
 } from '@/hooks/useGroups';
 import { useUsers } from '@/hooks/useUsers';
+import { useClasses } from '@/hooks/useClasses';
 import { GroupFormModal } from '@/components/groups/GroupFormModal';
 import { MaterialsPanel } from '@/components/materials/MaterialsPanel';
 import { useGroupMaterials, useAssignMaterialToGroup, useUnassignMaterialFromGroup } from '@/hooks/useMaterials';
@@ -48,6 +49,7 @@ export function GroupDetailPage() {
   const removeSchedule = useRemoveGroupSchedule();
   const generateClasses = useGenerateClasses();
   const { data: groupMaterials = [] } = useGroupMaterials(id!);
+  const { data: upcomingClasses } = useClasses({ groupId: id!, limit: 10 });
   const assignMaterial = useAssignMaterialToGroup();
   const unassignMaterial = useUnassignMaterialFromGroup();
 
@@ -175,13 +177,79 @@ export function GroupDetailPage() {
         </Table>
       </div>
 
-      {/* Schedule section */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+      {/* Upcoming classes from calendar */}
+      <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-gray-400" />
-            <h2 className="font-semibold text-gray-800">Harmonogram zajęć</h2>
-            <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
+            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <h2 className="font-semibold text-foreground">Zajęcia w kalendarzu</h2>
+            <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+              {upcomingClasses?.total ?? 0}
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate(`/admin/classes`)}
+            className="text-xs text-muted-foreground gap-1.5"
+          >
+            Przejdź do zajęć →
+          </Button>
+        </div>
+        <div className="divide-y divide-border/50">
+          {!upcomingClasses || upcomingClasses.data.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              Brak zajęć — dodaj w widoku Zajęcia lub wygeneruj z szablonu poniżej
+            </p>
+          ) : (
+            upcomingClasses.data
+              .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
+              .map((cls) => {
+                const dt = new Date(cls.scheduledAt);
+                const STATUS_COLORS: Record<string, string> = {
+                  SCHEDULED: 'bg-blue-500/15 text-blue-400',
+                  ONGOING: 'bg-emerald-500/15 text-emerald-400',
+                  COMPLETED: 'bg-muted/40 text-muted-foreground',
+                  CANCELLED: 'bg-red-500/15 text-red-400',
+                };
+                const STATUS_LABELS: Record<string, string> = {
+                  SCHEDULED: 'Zaplanowane', ONGOING: 'W trakcie',
+                  COMPLETED: 'Zakończone', CANCELLED: 'Odwołane',
+                };
+                return (
+                  <div key={cls.id} className="flex items-center gap-4 px-5 py-3">
+                    <div className="w-10 text-center flex-shrink-0">
+                      <p className="text-[10px] text-muted-foreground uppercase">
+                        {dt.toLocaleDateString('pl-PL', { month: 'short' })}
+                      </p>
+                      <p className="text-base font-bold text-foreground leading-tight">{dt.getDate()}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {dt.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium text-foreground truncate">{cls.title}</p>
+                      {cls.teacher && (
+                        <p className="text-xs text-muted-foreground">{cls.teacher.firstName} {cls.teacher.lastName}</p>
+                      )}
+                    </div>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[cls.status] ?? ''}`}>
+                      {STATUS_LABELS[cls.status] ?? cls.status}
+                    </span>
+                  </div>
+                );
+              })
+          )}
+        </div>
+      </div>
+
+      {/* Schedule templates section */}
+      <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <h2 className="font-semibold text-foreground">Szablon harmonogramu</h2>
+            <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">
               {group.schedules.length}
             </span>
           </div>
@@ -199,39 +267,40 @@ export function GroupDetailPage() {
               variant="ghost"
               size="sm"
               onClick={() => { setNewSlot({ ...DEFAULT_SLOT }); setScheduleModalOpen(true); }}
-              className="gap-1.5 text-gray-500"
+              className="gap-1.5 text-muted-foreground hover:text-foreground"
             >
               <Plus className="w-3.5 h-3.5" />
-              Dodaj slot
+              Dodaj termin
             </Button>
           </div>
         </div>
 
         <div className="p-5">
           {group.schedules.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">
-              Brak harmonogramu — dodaj slot lub ustaw przy tworzeniu grupy
-            </p>
+            <div className="py-5 text-center space-y-1">
+              <p className="text-sm text-muted-foreground">Brak terminów — dodaj co najmniej jeden żeby generować zajęcia</p>
+              <p className="text-xs text-muted-foreground/60">Każdy termin to jeden dzień w tygodniu z godziną. Dwa terminy = 2x w tygodniu.</p>
+            </div>
           ) : (
             <div className="space-y-2">
               {group.schedules.map((s) => (
-                <div key={s.id} className="flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-gray-50/50">
+                <div key={s.id} className="flex items-center justify-between p-3 rounded-xl border border-border bg-muted/30">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center text-xs font-bold">
+                    <div className="w-8 h-8 rounded-lg bg-violet-500/15 text-violet-500 dark:text-violet-400 flex items-center justify-center text-xs font-bold">
                       {DAY_LABELS[s.dayOfWeek].slice(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-800">
+                      <p className="text-sm font-medium text-foreground">
                         {DAY_LABELS[s.dayOfWeek]}, {s.startTime} · {s.durationMin} min
                       </p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-muted-foreground">
                         {Number(s.pricePerClass).toFixed(2)} PLN/lekcję · od {new Date(s.effectiveFrom).toLocaleDateString('pl-PL')}
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={() => removeSchedule.mutate({ groupId: id!, scheduleId: s.id })}
-                    className="text-gray-300 hover:text-red-500 transition-colors p-1"
+                    className="text-muted-foreground/40 hover:text-red-500 transition-colors p-1"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -309,7 +378,7 @@ export function GroupDetailPage() {
       <Dialog open={scheduleModalOpen} onOpenChange={(v) => !v && setScheduleModalOpen(false)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Dodaj slot harmonogramu</DialogTitle>
+            <DialogTitle>Dodaj termin zajęć</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 mt-2">
             <div className="space-y-1">
@@ -381,7 +450,7 @@ export function GroupDetailPage() {
                   );
                 }}
               >
-                {addSchedule.isPending ? 'Zapisywanie...' : 'Dodaj slot'}
+                {addSchedule.isPending ? 'Zapisywanie...' : 'Dodaj termin'}
               </Button>
             </div>
           </div>

@@ -9,6 +9,8 @@ import { useCreateClass, useUpdateClass, useUpdateBatch, type Class } from '@/ho
 import { useGroups } from '@/hooks/useGroups';
 import { useUsers } from '@/hooks/useUsers';
 
+type Mode = 'group' | 'student';
+
 interface FormValues {
   title: string;
   description: string;
@@ -16,6 +18,7 @@ interface FormValues {
   durationMin: number;
   meetLink: string;
   groupId: string;
+  studentId: string;
   teacherId: string;
   pricePerClass: string;
 }
@@ -34,12 +37,14 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
   const updateClass = useUpdateClass();
   const updateBatch = useUpdateBatch();
   const [editScope, setEditScope] = useState<'single' | 'batch'>('single');
+  const [mode, setMode] = useState<Mode>('group');
   const [apiError, setApiError] = useState<string | null>(null);
   const { data: groupsData } = useGroups({ limit: 100 });
   const { data: teachersData } = useUsers({ role: 'TEACHER', limit: 100 });
+  const { data: studentsData } = useUsers({ role: 'STUDENT', limit: 100 });
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
-    defaultValues: { durationMin: 60, groupId: defaultGroupId ?? '', teacherId: '' },
+    defaultValues: { durationMin: 60, groupId: defaultGroupId ?? '', studentId: '', teacherId: '' },
   });
 
   useEffect(() => {
@@ -49,54 +54,65 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
       const local = new Date(editClass.scheduledAt);
       const pad = (n: number) => String(n).padStart(2, '0');
       const localStr = `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}T${pad(local.getHours())}:${pad(local.getMinutes())}`;
+      const hasGroup = !!editClass.group;
+      setMode(hasGroup ? 'group' : 'student');
       reset({
         title: editClass.title,
         description: editClass.description ?? '',
         scheduledAt: localStr,
         durationMin: editClass.durationMin,
         meetLink: editClass.meetLink ?? '',
-        groupId: editClass.group.id,
-        teacherId: editClass.teacher?.id ?? editClass.group.teacher.id,
+        groupId: editClass.group?.id ?? '',
+        studentId: (editClass as any).student?.id ?? '',
+        teacherId: editClass.teacher?.id ?? editClass.group?.teacher?.id ?? '',
       });
     } else {
-      reset({ title: '', description: '', scheduledAt: defaultScheduledAt ?? '', durationMin: 60, meetLink: '', groupId: defaultGroupId ?? '', teacherId: '' });
+      setMode('group');
+      reset({ title: '', description: '', scheduledAt: defaultScheduledAt ?? '', durationMin: 60, meetLink: '', groupId: defaultGroupId ?? '', studentId: '', teacherId: '' });
     }
   }, [editClass, open, reset, defaultGroupId, defaultScheduledAt]);  // eslint-disable-line
 
   const groupId = watch('groupId');
+  const studentId = watch('studentId');
   const teacherId = watch('teacherId');
 
-  // gdy zmienia się grupa → auto-uzupełnij nauczyciela tej grupy
   const handleGroupChange = (v: string) => {
     setValue('groupId', v);
     const group = groupsData?.data.find((g) => g.id === v);
     if (group) setValue('teacherId', group.teacher.id);
   };
 
+  const handleModeChange = (m: Mode) => {
+    setMode(m);
+    setValue('groupId', '');
+    setValue('studentId', '');
+    setValue('teacherId', '');
+  };
+
   const onSubmit = async (data: FormValues) => {
     setApiError(null);
     try {
-      const payload = {
-        ...data,
+      const base = {
+        title: data.title,
         description: data.description || undefined,
+        scheduledAt: new Date(data.scheduledAt).toISOString(),
+        durationMin: data.durationMin,
         meetLink: data.meetLink || undefined,
         teacherId: data.teacherId || undefined,
         pricePerClass: data.pricePerClass || undefined,
-        scheduledAt: new Date(data.scheduledAt).toISOString(),
       };
+
       if (isEdit) {
         if (editScope === 'batch' && editClass!.batchId) {
-          const { groupId: _g, scheduledAt, ...rest } = payload;
-          await updateBatch.mutateAsync({
-            batchId: editClass!.batchId,
-            ...rest,
-            scheduledAtTemplate: scheduledAt,
-          });
+          const { scheduledAt, ...rest } = base;
+          await updateBatch.mutateAsync({ batchId: editClass!.batchId, ...rest, scheduledAtTemplate: scheduledAt });
         } else {
-          const { groupId: _g, ...rest } = payload;
-          await updateClass.mutateAsync({ id: editClass!.id, ...rest });
+          await updateClass.mutateAsync({ id: editClass!.id, ...base });
         }
       } else {
+        const payload = mode === 'group'
+          ? { ...base, groupId: data.groupId }
+          : { ...base, studentId: data.studentId };
         await createClass.mutateAsync(payload);
       }
       onClose();
@@ -109,6 +125,7 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
 
   const selectedTeacher = teachersData?.data.find((t) => t.id === teacherId);
   const selectedGroup = groupsData?.data.find((g) => g.id === groupId);
+  const selectedStudent = studentsData?.data.find((s) => s.id === studentId);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -117,17 +134,34 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
           <DialogTitle>{isEdit ? 'Edytuj zajęcia' : 'Nowe zajęcia'}</DialogTitle>
         </DialogHeader>
 
+        {/* Edit scope (batch) */}
         {isEdit && editClass?.batchId && (
-          <div className="flex rounded-xl border border-gray-200 overflow-hidden text-sm mt-3">
+          <div className="flex rounded-xl border border-border overflow-hidden text-sm mt-3">
             <button type="button"
               onClick={() => setEditScope('single')}
-              className={`flex-1 py-2 font-medium transition-colors ${editScope === 'single' ? 'bg-violet-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              className={`flex-1 py-2 font-medium transition-colors ${editScope === 'single' ? 'bg-violet-500 text-white' : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
               Tylko te zajęcia
             </button>
             <button type="button"
               onClick={() => setEditScope('batch')}
-              className={`flex-1 py-2 font-medium transition-colors ${editScope === 'batch' ? 'bg-violet-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              className={`flex-1 py-2 font-medium transition-colors ${editScope === 'batch' ? 'bg-violet-500 text-white' : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
               Całą serię
+            </button>
+          </div>
+        )}
+
+        {/* Mode toggle (create only) */}
+        {!isEdit && (
+          <div className="flex rounded-xl border border-border overflow-hidden text-sm mt-3">
+            <button type="button"
+              onClick={() => handleModeChange('group')}
+              className={`flex-1 py-2 font-medium transition-colors ${mode === 'group' ? 'bg-violet-500 text-white' : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
+              Dla grupy
+            </button>
+            <button type="button"
+              onClick={() => handleModeChange('student')}
+              className={`flex-1 py-2 font-medium transition-colors ${mode === 'student' ? 'bg-violet-500 text-white' : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
+              Dla ucznia (1:1)
             </button>
           </div>
         )}
@@ -139,24 +173,44 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
             {errors.title && <p className="text-xs text-red-500">Wymagane</p>}
           </div>
 
-          <div className="space-y-1">
-            <Label>Grupa</Label>
-            <Select value={groupId ?? ''} onValueChange={(v: string | null) => v && handleGroupChange(v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {selectedGroup
-                    ? selectedGroup.name
-                    : <span className="text-muted-foreground">Wybierz grupę</span>}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {groupsData?.data.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.groupId && <p className="text-xs text-red-500">Wymagane</p>}
-          </div>
+          {/* Group or Student selector */}
+          {mode === 'group' ? (
+            <div className="space-y-1">
+              <Label>Grupa</Label>
+              <Select value={groupId ?? ''} onValueChange={(v: string | null) => v && handleGroupChange(v)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {selectedGroup ? selectedGroup.name : <span className="text-muted-foreground">Wybierz grupę</span>}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {groupsData?.data.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <Label>Uczeń</Label>
+              <Select value={studentId ?? ''} onValueChange={(v: string | null) => v && setValue('studentId', v)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {selectedStudent
+                      ? `${selectedStudent.firstName} ${selectedStudent.lastName}`
+                      : <span className="text-muted-foreground">Wybierz ucznia</span>}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {studentsData?.data.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.firstName} {s.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-1">
             <Label>Nauczyciel prowadzący</Label>
@@ -185,7 +239,7 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
               </Label>
               <Input id="scheduledAt" type="datetime-local" {...register('scheduledAt', { required: true })} />
               {editScope === 'batch' && (
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Wszystkie zajęcia w serii przesuną się o tę samą liczbę dni i przyjmą tę samą godzinę.
                 </p>
               )}
@@ -215,7 +269,7 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
           </div>
 
           {apiError && (
-            <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-lg">{apiError}</p>
+            <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 px-3 py-2 rounded-lg">{apiError}</p>
           )}
 
           <div className="flex justify-end gap-2 pt-2">

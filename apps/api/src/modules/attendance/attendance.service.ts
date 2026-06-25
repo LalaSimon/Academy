@@ -52,7 +52,7 @@ export class AttendanceService {
     );
 
     // Auto-create missing records for active group students
-    const missing = cls.group.students
+    const missing = (cls.group?.students ?? [])
       .map((gs) => gs.student)
       .filter((s) => !existingMap.has(s.id));
 
@@ -180,6 +180,7 @@ export class AttendanceService {
 
     for (const a of attendances) {
       const g = a.class.group;
+      if (!g) continue;
       if (!groupMap.has(g.id)) {
         groupMap.set(g.id, {
           group: g,

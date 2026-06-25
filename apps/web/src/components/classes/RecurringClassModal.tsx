@@ -165,7 +165,7 @@ export function RecurringClassModal({ open, onClose }: Props) {
                   className={`flex-1 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
                     selectedDays.includes(i)
                       ? 'bg-violet-500 text-white border-violet-500'
-                      : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                      : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
                 >
                   {label}

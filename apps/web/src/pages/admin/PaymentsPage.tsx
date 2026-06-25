@@ -23,11 +23,11 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  PENDING: 'bg-amber-100 text-amber-700',
-  PAID: 'bg-green-100 text-green-700',
-  OVERDUE: 'bg-red-100 text-red-700',
-  REFUNDED: 'bg-blue-100 text-blue-700',
-  CANCELLED: 'bg-gray-100 text-gray-500',
+  PENDING: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
+  PAID: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
+  OVERDUE: 'bg-red-500/15 text-red-400 border-red-500/20',
+  REFUNDED: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
+  CANCELLED: 'bg-muted/40 text-muted-foreground border-border',
 };
 
 const CHART_COLORS: Record<string, string> = {
@@ -36,18 +36,18 @@ const CHART_COLORS: Record<string, string> = {
   Zaległe: '#ef4444',
 };
 
-function StatCard({ icon: Icon, label, value, sub, color }: {
-  icon: React.ElementType; label: string; value: string; sub?: string; color: string;
+function StatCard({ icon: Icon, label, value, sub, iconClass }: {
+  icon: React.ElementType; label: string; value: string; sub?: string; iconClass: string;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-start gap-4">
-      <div className={`p-2.5 rounded-xl ${color}`}>
-        <Icon className="w-5 h-5" />
+    <div className="bg-card rounded-2xl border border-border p-5 flex items-start gap-4">
+      <div className={`p-2.5 rounded-xl ${iconClass}`}>
+        <Icon className="w-4.5 h-4.5" />
       </div>
       <div>
-        <p className="text-xs text-gray-500 mb-0.5">{label}</p>
-        <p className="text-xl font-bold text-gray-900">{value}</p>
-        {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+        <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
+        <p className="text-xl font-bold text-foreground">{value}</p>
+        {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
       </div>
     </div>
   );
@@ -99,13 +99,14 @@ export function PaymentsPage() {
   const fmtDate = (d: string) => new Date(d).toLocaleDateString('pl-PL');
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-gray-800">Płatności</h2>
+        <h2 className="text-xl font-semibold text-foreground">Płatności</h2>
         <Button
           onClick={() => setModalOpen(true)}
-          className="bg-violet-500 hover:bg-violet-600 text-white rounded-xl h-9 px-4 gap-2"
+          className="rounded-xl h-9 px-4 gap-2 text-white"
+          style={{ background: 'linear-gradient(135deg, #8b5cf6, #6366f1)' }}
         >
           <Plus className="w-4 h-4" />
           Nowa płatność
@@ -120,40 +121,40 @@ export function PaymentsPage() {
             label="Łącznie"
             value={fmt(stats.totalAmount)}
             sub={`${stats.total} płatności`}
-            color="bg-violet-100 text-violet-600"
+            iconClass="bg-violet-500/15 text-violet-400"
           />
           <StatCard
             icon={CheckCircle2}
             label="Zapłacone"
             value={fmt(stats.paidAmount)}
             sub={`${stats.paid} płatności`}
-            color="bg-green-100 text-green-600"
+            iconClass="bg-emerald-500/15 text-emerald-400"
           />
           <StatCard
             icon={AlertCircle}
             label="Zaległe"
             value={fmt(stats.overdueAmount)}
             sub={`${stats.overdue} płatności`}
-            color="bg-red-100 text-red-600"
+            iconClass="bg-red-500/15 text-red-400"
           />
           <StatCard
             icon={Clock}
             label="Oczekujące"
             value={fmt(stats.totalAmount - stats.paidAmount - stats.overdueAmount)}
             sub={`${stats.pending} płatności`}
-            color="bg-amber-100 text-amber-600"
+            iconClass="bg-amber-500/15 text-amber-400"
           />
         </div>
       )}
 
       {/* Chart */}
       {chartData.some((d) => d.value > 0) && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <p className="text-sm font-medium text-gray-700 mb-4">Rozkład kwot</p>
+        <div className="bg-card rounded-2xl border border-border p-5">
+          <p className="text-sm font-medium text-foreground mb-4">Rozkład kwot</p>
           <ResponsiveContainer width="100%" height={120}>
             <BarChart data={chartData} layout="vertical">
-              <XAxis type="number" tickFormatter={(v) => fmt(v)} tick={{ fontSize: 11 }} />
-              <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 12 }} />
+              <XAxis type="number" tickFormatter={(v) => fmt(v)} tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+              <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }} />
               <Tooltip formatter={(v) => fmt(Number(v))} />
               <Bar dataKey="value" radius={4}>
                 {chartData.map((entry) => (
@@ -171,10 +172,10 @@ export function PaymentsPage() {
           placeholder="Szukaj ucznia lub opisu..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="max-w-xs rounded-xl border-gray-200"
+          className="max-w-xs rounded-xl"
         />
         <Select value={statusFilter} onValueChange={(v: string | null) => { setStatusFilter(v ?? ''); setPage(1); }}>
-          <SelectTrigger className="w-44 rounded-xl border-gray-200">
+          <SelectTrigger className="w-44 rounded-xl">
             <SelectValue placeholder="Wszystkie statusy" />
           </SelectTrigger>
           <SelectContent>
@@ -187,40 +188,40 @@ export function PaymentsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-card rounded-2xl border border-border overflow-hidden">
         {isLoading ? (
-          <div className="flex items-center justify-center h-32 text-gray-400">Ładowanie...</div>
+          <div className="flex items-center justify-center h-32 text-muted-foreground">Ładowanie...</div>
         ) : payments.length === 0 ? (
-          <div className="flex items-center justify-center h-32 text-gray-400">Brak płatności.</div>
+          <div className="flex items-center justify-center h-32 text-muted-foreground">Brak płatności.</div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
+            <thead className="bg-muted/30 border-b border-border">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Uczeń</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Opis</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Kwota</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Termin</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
+                <th className="text-left px-4 py-3 text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">Uczeń</th>
+                <th className="text-left px-4 py-3 text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">Opis</th>
+                <th className="text-right px-4 py-3 text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">Kwota</th>
+                <th className="text-left px-4 py-3 text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">Termin</th>
+                <th className="text-left px-4 py-3 text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">Status</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-border/40">
               {payments.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-medium text-gray-900">
+                <tr key={p.id} className="hover:bg-muted/20 transition-colors">
+                  <td className="px-4 py-3 font-medium text-foreground text-[13px]">
                     {p.student.firstName} {p.student.lastName}
                   </td>
-                  <td className="px-4 py-3 text-gray-600 max-w-xs truncate">{p.description}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                  <td className="px-4 py-3 text-muted-foreground text-[13px] max-w-xs truncate">{p.description}</td>
+                  <td className="px-4 py-3 text-right font-semibold text-foreground">
                     {fmt(Number(p.amount))}
                   </td>
-                  <td className="px-4 py-3 text-gray-500">{fmtDate(p.dueDate)}</td>
+                  <td className="px-4 py-3 text-muted-foreground text-[13px]">{fmtDate(p.dueDate)}</td>
                   <td className="px-4 py-3">
                     <Select
                       value={p.status}
                       onValueChange={(v: string | null) => v && handleStatusChange(p.id, v)}
                     >
-                      <SelectTrigger className={`h-7 w-36 text-xs border-0 rounded-full px-3 font-medium ${STATUS_COLORS[p.status]}`}>
+                      <SelectTrigger className={`h-7 w-36 text-xs border rounded-full px-3 font-medium ${STATUS_COLORS[p.status]}`}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -236,7 +237,7 @@ export function PaymentsPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-violet-500 hover:text-violet-700"
+                          className="h-7 w-7 text-violet-400 hover:text-violet-300 hover:bg-violet-500/10"
                           title="Płać przez Przelewy24"
                           onClick={() => handleCheckout(p)}
                         >
@@ -246,7 +247,7 @@ export function PaymentsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-gray-400 hover:text-red-500"
+                        className="h-7 w-7 text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
                         title="Usuń"
                         onClick={() => handleDelete(p.id)}
                       >
@@ -262,7 +263,7 @@ export function PaymentsPage() {
 
         {/* Pagination */}
         {data && data.total > data.limit && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 text-sm text-gray-500">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border text-xs text-muted-foreground">
             <span>{data.total} płatności łącznie</span>
             <div className="flex gap-2">
               <Button variant="ghost" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>

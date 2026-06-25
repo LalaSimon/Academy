@@ -150,7 +150,7 @@ export class MaterialsService {
         create: { classId, materialId },
         update: {},
       }),
-      ...(cls
+      ...(cls?.groupId
         ? [
             this.prisma.groupMaterial.upsert({
               where: {

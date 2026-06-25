@@ -14,7 +14,14 @@ import { AttendancePage } from '@/pages/admin/AttendancePage';
 import MaterialsPage from '@/pages/admin/MaterialsPage';
 import { PaymentsPage } from '@/pages/admin/PaymentsPage';
 import { AdminLayout } from '@/layouts/AdminLayout';
+import { StudentLayout } from '@/layouts/StudentLayout';
 import { PrivateRoute } from '@/router/PrivateRoute';
+import StudentDashboardPage from '@/pages/student/StudentDashboardPage';
+import StudentClassesPage from '@/pages/student/StudentClassesPage';
+import StudentAttendancePage2 from '@/pages/student/StudentAttendancePage';
+import StudentGroupsPage from '@/pages/student/StudentGroupsPage';
+import StudentMaterialsPage from '@/pages/student/StudentMaterialsPage';
+import StudentPaymentsPage from '@/pages/student/StudentPaymentsPage';
 
 function App() {
   return (
@@ -46,7 +53,15 @@ function App() {
           </Route>
 
           <Route element={<PrivateRoute allowedRoles={['STUDENT']} />}>
-            <Route path="/student" element={<div className="p-6">Student Dashboard — WIP</div>} />
+            <Route element={<StudentLayout />}>
+              <Route path="/student" element={<Navigate to="/student/dashboard" replace />} />
+              <Route path="/student/dashboard" element={<StudentDashboardPage />} />
+              <Route path="/student/classes" element={<StudentClassesPage />} />
+              <Route path="/student/attendance" element={<StudentAttendancePage2 />} />
+              <Route path="/student/groups" element={<StudentGroupsPage />} />
+              <Route path="/student/materials" element={<StudentMaterialsPage />} />
+              <Route path="/student/payments" element={<StudentPaymentsPage />} />
+            </Route>
           </Route>
 
           <Route element={<PrivateRoute allowedRoles={['PARENT']} />}>

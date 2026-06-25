@@ -52,16 +52,16 @@ export function AttendanceModal({ open, onClose, classId, classTitle }: Props) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Lista obecności</DialogTitle>
-          <p className="text-sm text-gray-400 mt-0.5">{classTitle}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{classTitle}</p>
         </DialogHeader>
 
-        {isLoading && <p className="text-center py-8 text-gray-400">Ładowanie...</p>}
+        {isLoading && <p className="text-center py-8 text-muted-foreground">Ładowanie...</p>}
 
         {!isLoading && data && (
           <>
             <div className="mb-3">
-              <span className="text-sm text-gray-500">
-                Obecnych: <span className="font-semibold text-gray-900">{presentCount}/{total}</span>
+              <span className="text-sm text-muted-foreground">
+                Obecnych: <span className="font-semibold text-foreground">{presentCount}/{total}</span>
               </span>
             </div>
 
@@ -69,16 +69,16 @@ export function AttendanceModal({ open, onClose, classId, classTitle }: Props) {
               {data.map((record) => {
                 const current = (local[record.student.id] ?? record.status) as 'PRESENT' | 'ABSENT';
                 return (
-                  <div key={record.student.id} className="flex items-center gap-3 py-2.5 px-3 rounded-xl bg-gray-50">
-                    <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center shrink-0">
-                      <span className="text-xs font-semibold text-violet-600">
+                  <div key={record.student.id} className="flex items-center gap-3 py-2.5 px-3 rounded-xl bg-muted/40 border border-border/50">
+                    <div className="w-8 h-8 rounded-full bg-violet-500/15 flex items-center justify-center shrink-0">
+                      <span className="text-xs font-semibold text-violet-500 dark:text-violet-400">
                         {(record.student.firstName?.[0] ?? '?')}{(record.student.lastName?.[0] ?? '')}
                       </span>
                     </div>
-                    <span className="flex-1 text-sm font-medium text-gray-800 truncate">
+                    <span className="flex-1 text-sm font-medium text-foreground truncate">
                       {record.student.firstName} {record.student.lastName}
                     </span>
-                    <div className="flex rounded-lg overflow-hidden border border-gray-200 shrink-0">
+                    <div className="flex rounded-lg overflow-hidden border border-border shrink-0">
                       {STATUSES.map((s) => {
                         const cfg = STATUS_CONFIG[s];
                         const active = current === s;
@@ -88,7 +88,7 @@ export function AttendanceModal({ open, onClose, classId, classTitle }: Props) {
                             type="button"
                             onClick={() => setStatus(record.student.id, s)}
                             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
-                              active ? `${cfg.bg} ${cfg.text}` : 'bg-white text-gray-400 hover:bg-gray-50'
+                              active ? `${cfg.bg} ${cfg.text}` : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground'
                             }`}
                           >
                             {cfg.icon}
@@ -103,18 +103,19 @@ export function AttendanceModal({ open, onClose, classId, classTitle }: Props) {
             </div>
 
             {data.length === 0 && (
-              <p className="text-center py-6 text-sm text-gray-400">Brak uczniów w grupie.</p>
+              <p className="text-center py-6 text-sm text-muted-foreground">Brak uczniów w grupie.</p>
             )}
 
-            <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-              {saved && <span className="text-xs text-green-600 font-medium">Zapisano ✓</span>}
+            <div className="flex items-center justify-between pt-3 border-t border-border">
+              {saved && <span className="text-xs text-green-500 font-medium">Zapisano ✓</span>}
               {!saved && <span />}
               <div className="flex gap-2">
                 <Button variant="ghost" onClick={onClose}>Zamknij</Button>
                 <Button
                   onClick={handleSave}
                   disabled={bulkUpdate.isPending || data.length === 0}
-                  className="bg-violet-500 hover:bg-violet-600 text-white gap-2"
+                  className="text-white gap-2"
+                  style={{ background: 'linear-gradient(135deg, #8b5cf6, #6366f1)' }}
                 >
                   <Save className="w-4 h-4" />
                   {bulkUpdate.isPending ? 'Zapisywanie...' : 'Zapisz'}

@@ -68,18 +68,18 @@ export function PaymentFormModal({ open, onClose }: Props) {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* Mode toggle */}
-          <div className="flex rounded-xl border border-gray-200 overflow-hidden text-sm">
+          <div className="flex rounded-xl border border-border overflow-hidden text-sm">
             <button
               type="button"
               onClick={() => { setValue('mode', 'student'); setValue('targetId', ''); }}
-              className={`flex-1 py-2 transition-colors ${mode === 'student' ? 'bg-violet-500 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+              className={`flex-1 py-2 transition-colors ${mode === 'student' ? 'bg-violet-500 text-white' : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground'}`}
             >
               Dla ucznia
             </button>
             <button
               type="button"
               onClick={() => { setValue('mode', 'group'); setValue('targetId', ''); }}
-              className={`flex-1 py-2 transition-colors ${mode === 'group' ? 'bg-violet-500 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+              className={`flex-1 py-2 transition-colors ${mode === 'group' ? 'bg-violet-500 text-white' : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground'}`}
             >
               Dla grupy (bulk)
             </button>

@@ -27,7 +27,8 @@ export interface Class {
   status: ClassStatus;
   cancelReason: string | null;
   createdAt: string;
-  group: ClassGroup;
+  group: ClassGroup | null;
+  student: ClassTeacher | null;
   teacher: ClassTeacher | null;
   batchId: string | null;
   _count: { attendances: number };
@@ -51,6 +52,7 @@ export interface ClassesResponse {
 
 export interface ClassQuery {
   groupId?: string;
+  studentId?: string;
   status?: ClassStatus;
   from?: string;
   to?: string;
@@ -64,8 +66,10 @@ export interface CreateClassPayload {
   scheduledAt: string;
   durationMin?: number;
   meetLink?: string;
-  groupId: string;
+  groupId?: string;
+  studentId?: string;
   teacherId?: string;
+  pricePerClass?: string;
 }
 
 export interface UpdateClassPayload extends Partial<Omit<CreateClassPayload, 'groupId'>> {

@@ -206,6 +206,7 @@ export class UsersService {
       }
     >();
     for (const c of classes) {
+      if (!c.group) continue;
       if (!groupMap.has(c.group.id)) {
         groupMap.set(c.group.id, {
           group: c.group,

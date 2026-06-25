@@ -3,10 +3,10 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   GraduationCap,
-  Users,
-  BookOpen,
+  LayoutDashboard,
   Calendar,
   ClipboardList,
+  BookOpen,
   FolderOpen,
   CreditCard,
   LogOut,
@@ -18,16 +18,15 @@ import { useLogout } from '@/hooks/useAuth';
 import { useThemeStore } from '@/store/theme.store';
 
 const NAV_ITEMS = [
-  { to: '/admin/teachers', label: 'Nauczyciele', icon: Users },
-  { to: '/admin/students', label: 'Uczniowie', icon: GraduationCap },
-  { to: '/admin/groups', label: 'Grupy', icon: BookOpen },
-  { to: '/admin/classes', label: 'Zajęcia', icon: Calendar },
-  { to: '/admin/attendance', label: 'Frekwencja', icon: ClipboardList },
-  { to: '/admin/materials', label: 'Materiały', icon: FolderOpen },
-  { to: '/admin/payments', label: 'Płatności', icon: CreditCard },
+  { to: '/student/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/student/classes', label: 'Moje zajęcia', icon: Calendar },
+  { to: '/student/attendance', label: 'Frekwencja', icon: ClipboardList },
+  { to: '/student/groups', label: 'Moje grupy', icon: BookOpen },
+  { to: '/student/materials', label: 'Materiały', icon: FolderOpen },
+  { to: '/student/payments', label: 'Płatności', icon: CreditCard },
 ];
 
-export function AdminLayout() {
+export function StudentLayout() {
   const { user } = useAuthStore();
   const logout = useLogout();
   const location = useLocation();
@@ -46,8 +45,10 @@ export function AdminLayout() {
 
   return (
     <div className="min-h-screen flex bg-background">
-      {/* Sidebar */}
-      <aside className="w-[220px] flex-shrink-0 flex flex-col border-r border-border h-screen sticky top-0" style={{ background: 'var(--sidebar)' }}>
+      <aside
+        className="w-[220px] flex-shrink-0 flex flex-col border-r border-border h-screen sticky top-0"
+        style={{ background: 'var(--sidebar)' }}
+      >
         {/* Logo */}
         <div className="px-5 py-[18px] border-b border-border">
           <div className="flex items-center gap-3">
@@ -78,7 +79,7 @@ export function AdminLayout() {
                 >
                   {isActive && (
                     <motion.div
-                      layoutId="admin-nav-bg"
+                      layoutId="student-nav-bg"
                       className="absolute inset-0 rounded-xl"
                       style={{
                         background: isDark ? 'rgba(139,92,246,0.14)' : 'rgba(139,92,246,0.08)',
@@ -88,7 +89,7 @@ export function AdminLayout() {
                   )}
                   {isActive && (
                     <motion.div
-                      layoutId="admin-nav-bar"
+                      layoutId="student-nav-bar"
                       className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[18px] rounded-r-full"
                       style={{ background: 'linear-gradient(to bottom, #a78bfa, #818cf8)' }}
                       transition={{ type: 'spring', bounce: 0.15, duration: 0.38 }}
@@ -110,7 +111,6 @@ export function AdminLayout() {
 
         {/* Theme toggle + User + Logout */}
         <div className="px-3 py-4 border-t border-border space-y-1">
-          {/* Theme toggle */}
           <button
             onClick={toggle}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] text-muted-foreground hover:text-foreground hover:bg-accent transition-all"
@@ -143,7 +143,6 @@ export function AdminLayout() {
             {isDark ? 'Tryb jasny' : 'Tryb ciemny'}
           </button>
 
-          {/* User info */}
           <div className="flex items-center gap-3 px-3 py-2">
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 select-none"
@@ -160,7 +159,6 @@ export function AdminLayout() {
             </div>
           </div>
 
-          {/* Logout */}
           <button
             onClick={() => logout.mutate()}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all"
@@ -171,7 +169,6 @@ export function AdminLayout() {
         </div>
       </aside>
 
-      {/* Main */}
       <main className="flex-1 overflow-auto">
         <AnimatePresence initial={false}>
           <motion.div
@@ -179,7 +176,7 @@ export function AdminLayout() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="p-8 max-w-6xl mx-auto"
+            className="p-8 max-w-5xl mx-auto"
           >
             <Outlet />
           </motion.div>

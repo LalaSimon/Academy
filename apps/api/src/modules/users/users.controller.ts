@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -9,8 +10,10 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { IsOptional, IsString } from 'class-validator';
 import { Role } from '@prisma/client';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -46,7 +49,14 @@ export class UsersController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  @Roles(Role.ADMIN, Role.STUDENT)
+  findOne(
+    @Param('id') id: string,
+    @Req() req: Request & { user: { id: string; role: string } },
+  ) {
+    if (req.user.role === 'STUDENT' && req.user.id !== id) {
+      throw new ForbiddenException();
+    }
     return this.usersService.findOne(id);
   }
 

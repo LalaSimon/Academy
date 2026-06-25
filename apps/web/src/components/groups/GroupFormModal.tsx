@@ -170,11 +170,11 @@ export function GroupFormModal({ open, onClose, editGroup }: Props) {
 
           {/* Harmonogram — tylko przy tworzeniu */}
           {!isEdit && (
-            <div className="space-y-3 pt-2 border-t border-gray-100">
+            <div className="space-y-3 pt-2 border-t border-border">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-800">Harmonogram zajęć cyklicznych</p>
-                  <p className="text-xs text-gray-400">Zajęcia generowane automatycznie co miesiąc</p>
+                  <p className="text-sm font-medium text-foreground">Harmonogram zajęć cyklicznych</p>
+                  <p className="text-xs text-muted-foreground">Zajęcia generowane automatycznie co miesiąc</p>
                 </div>
                 <Button type="button" variant="ghost" size="sm" onClick={addSlot} className="gap-1.5 text-violet-600 hover:text-violet-700">
                   <Plus className="w-3.5 h-3.5" />
@@ -183,16 +183,16 @@ export function GroupFormModal({ open, onClose, editGroup }: Props) {
               </div>
 
               {slots.length === 0 && (
-                <p className="text-xs text-gray-400 text-center py-3 border border-dashed border-gray-200 rounded-xl">
+                <p className="text-xs text-muted-foreground text-center py-3 border border-dashed border-border rounded-xl">
                   Brak slotów — grupa bez zajęć cyklicznych
                 </p>
               )}
 
               {slots.map((slot, i) => (
-                <div key={i} className="border border-gray-100 rounded-xl p-3 space-y-2 bg-gray-50/50">
+                <div key={i} className="border border-border rounded-xl p-3 space-y-2 bg-muted/30">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-gray-500">Slot {i + 1}</span>
-                    <button type="button" onClick={() => removeSlot(i)} className="text-gray-400 hover:text-red-500 transition-colors">
+                    <span className="text-xs font-medium text-muted-foreground">Slot {i + 1}</span>
+                    <button type="button" onClick={() => removeSlot(i)} className="text-muted-foreground hover:text-red-500 transition-colors">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>

@@ -27,21 +27,21 @@ const TYPE_LABELS: Record<MaterialType, string> = {
 };
 
 const TYPE_ICONS: Record<MaterialType, React.ReactNode> = {
-  PDF: <FileText size={16} />,
-  VIDEO: <Video size={16} />,
-  AUDIO: <Music size={16} />,
-  IMAGE: <Image size={16} />,
-  LINK: <Link2 size={16} />,
-  OTHER: <File size={16} />,
+  PDF: <FileText size={14} />,
+  VIDEO: <Video size={14} />,
+  AUDIO: <Music size={14} />,
+  IMAGE: <Image size={14} />,
+  LINK: <Link2 size={14} />,
+  OTHER: <File size={14} />,
 };
 
 const TYPE_COLORS: Record<MaterialType, string> = {
-  PDF: 'bg-red-100 text-red-700',
-  VIDEO: 'bg-purple-100 text-purple-700',
-  AUDIO: 'bg-yellow-100 text-yellow-700',
-  IMAGE: 'bg-green-100 text-green-700',
-  LINK: 'bg-blue-100 text-blue-700',
-  OTHER: 'bg-gray-100 text-gray-700',
+  PDF: 'bg-red-500/15 text-red-400 border border-red-500/20',
+  VIDEO: 'bg-violet-500/15 text-violet-400 border border-violet-500/20',
+  AUDIO: 'bg-amber-500/15 text-amber-400 border border-amber-500/20',
+  IMAGE: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20',
+  LINK: 'bg-blue-500/15 text-blue-400 border border-blue-500/20',
+  OTHER: 'bg-muted/40 text-muted-foreground border border-border',
 };
 
 function LinkModal({ onClose }: { onClose: () => void }) {
@@ -57,50 +57,55 @@ function LinkModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Dodaj link zewnętrzny</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-card rounded-2xl border border-border shadow-2xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-base font-semibold text-foreground">Dodaj link zewnętrzny</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+            <X size={18} />
+          </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tytuł</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Tytuł</label>
             <input
               value={title}
               onChange={e => setTitle(e.target.value)}
               required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-violet-500/40"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">URL</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">URL</label>
             <input
               type="url"
               value={url}
               onChange={e => setUrl(e.target.value)}
               required
               placeholder="https://"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-violet-500/40"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Opis (opcjonalnie)</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Opis (opcjonalnie)</label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={2}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-violet-500/40 resize-none"
             />
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Anuluj</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Anuluj
+            </button>
             <button
               type="submit"
               disabled={createLink.isPending}
-              className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              className="px-4 py-2 text-sm text-white rounded-xl disabled:opacity-50 transition-opacity"
+              style={{ background: 'linear-gradient(135deg, #8b5cf6, #6366f1)' }}
             >
-              {createLink.isPending ? 'Dodawanie…' : 'Dodaj'}
+              {createLink.isPending ? 'Dodawanie...' : 'Dodaj'}
             </button>
           </div>
         </form>
@@ -168,24 +173,25 @@ export default function MaterialsPage() {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Materiały</h1>
-          <p className="text-sm text-gray-500 mt-1">Pliki, dokumenty i linki edukacyjne</p>
+          <h1 className="text-xl font-semibold text-foreground">Materiały</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Pliki, dokumenty i linki edukacyjne</p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => setShowLinkModal(true)}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+            className="flex items-center gap-2 px-4 py-2 border border-border rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all"
           >
-            <Link2 size={16} /> Dodaj link
+            <Link2 size={14} /> Dodaj link
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700"
+            className="flex items-center gap-2 px-4 py-2 text-sm text-white rounded-xl transition-opacity hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg, #8b5cf6, #6366f1)' }}
           >
-            <Plus size={16} /> Wgraj plik
+            <Plus size={14} /> Wgraj plik
           </button>
           <input
             ref={fileInputRef}
@@ -202,36 +208,43 @@ export default function MaterialsPage() {
         onDragOver={e => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-xl p-8 mb-6 text-center transition-colors ${
-          dragOver ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 bg-gray-50'
+        className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all ${
+          dragOver
+            ? 'border-violet-500/60 bg-violet-500/5'
+            : 'border-border hover:border-violet-500/30 hover:bg-accent/30'
         }`}
       >
         {uploading ? (
-          <p className="text-sm text-indigo-600 font-medium">Wgrywanie…</p>
+          <p className="text-sm text-violet-400 font-medium">Wgrywanie...</p>
         ) : (
           <>
-            <Upload size={32} className="mx-auto text-gray-400 mb-2" />
-            <p className="text-sm text-gray-500">Przeciągnij pliki tutaj lub <button onClick={() => fileInputRef.current?.click()} className="text-indigo-600 hover:underline">wybierz z dysku</button></p>
-            <p className="text-xs text-gray-400 mt-1">PDF, wideo, audio, obrazy — maks. 50 MB</p>
+            <Upload size={28} className="mx-auto text-muted-foreground/40 mb-2" />
+            <p className="text-sm text-muted-foreground">
+              Przeciagnij pliki tutaj lub{' '}
+              <button onClick={() => fileInputRef.current?.click()} className="text-violet-400 hover:text-violet-300 underline underline-offset-2">
+                wybierz z dysku
+              </button>
+            </p>
+            <p className="text-xs text-muted-foreground/60 mt-1">PDF, wideo, audio, obrazy - maks. 50 MB</p>
           </>
         )}
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3 mb-4">
+      <div className="flex gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
-            placeholder="Szukaj materiałów…"
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Szukaj materialow..."
+            className="w-full pl-9 pr-3 py-2 bg-card border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-violet-500/40"
           />
         </div>
         <select
           value={typeFilter}
           onChange={e => { setTypeFilter(e.target.value as MaterialType | ''); setPage(1); }}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="bg-card border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500/40"
         >
           <option value="">Wszystkie typy</option>
           {Object.entries(TYPE_LABELS).map(([k, v]) => (
@@ -242,45 +255,45 @@ export default function MaterialsPage() {
 
       {/* List */}
       {isLoading ? (
-        <div className="text-center py-12 text-gray-400">Ładowanie…</div>
+        <div className="text-center py-12 text-muted-foreground">Ladowanie...</div>
       ) : !data?.data.length ? (
-        <div className="text-center py-12 text-gray-400">
-          <File size={40} className="mx-auto mb-2 opacity-30" />
-          <p>Brak materiałów</p>
+        <div className="text-center py-12">
+          <File size={36} className="mx-auto mb-2 text-muted-foreground/30" />
+          <p className="text-muted-foreground text-sm">Brak materialow</p>
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+          <div className="bg-card rounded-2xl border border-border overflow-hidden divide-y divide-border/50">
             {data.data.map(m => (
-              <div key={m.id} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50">
-                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ${TYPE_COLORS[m.type]}`}>
+              <div key={m.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/20 transition-colors group">
+                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium shrink-0 ${TYPE_COLORS[m.type]}`}>
                   {TYPE_ICONS[m.type]}
                   {TYPE_LABELS[m.type]}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{m.title}</p>
-                  {m.description && <p className="text-xs text-gray-500 truncate">{m.description}</p>}
+                  <p className="text-[13px] font-medium text-foreground truncate">{m.title}</p>
+                  {m.description && <p className="text-xs text-muted-foreground truncate">{m.description}</p>}
                 </div>
-                <div className="text-xs text-gray-400 shrink-0">
+                <div className="text-xs text-muted-foreground shrink-0">
                   {m.uploader.firstName} {m.uploader.lastName}
                 </div>
-                <div className="text-xs text-gray-400 shrink-0">
+                <div className="text-xs text-muted-foreground shrink-0">
                   {new Date(m.createdAt).toLocaleDateString('pl-PL')}
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={() => handleDownload(m.id, m.url, m.fileKey, m.title)}
-                    className="p-1.5 text-gray-400 hover:text-indigo-600 rounded"
-                    title="Otwórz"
+                    className="p-1.5 text-muted-foreground hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all"
+                    title="Otworz"
                   >
-                    <ExternalLink size={15} />
+                    <ExternalLink size={14} />
                   </button>
                   <button
                     onClick={() => handleDelete(m.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-500 rounded"
-                    title="Usuń"
+                    className="p-1.5 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                    title="Usun"
                   >
-                    <Trash2 size={15} />
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </div>
@@ -288,21 +301,21 @@ export default function MaterialsPage() {
           </div>
 
           {data.totalPages > 1 && (
-            <div className="flex justify-center gap-2 mt-4">
+            <div className="flex justify-center gap-2">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+                className="px-3 py-1.5 text-xs border border-border rounded-lg text-muted-foreground disabled:opacity-40 hover:bg-accent hover:text-foreground transition-all"
               >
                 Poprzednia
               </button>
-              <span className="px-3 py-1.5 text-sm text-gray-600">{page} / {data.totalPages}</span>
+              <span className="px-3 py-1.5 text-xs text-muted-foreground">{page} / {data.totalPages}</span>
               <button
                 onClick={() => setPage(p => Math.min(data.totalPages, p + 1))}
                 disabled={page === data.totalPages}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+                className="px-3 py-1.5 text-xs border border-border rounded-lg text-muted-foreground disabled:opacity-40 hover:bg-accent hover:text-foreground transition-all"
               >
-                Następna
+                Nastepna
               </button>
             </div>
           )}

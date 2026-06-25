@@ -141,7 +141,7 @@ export function UserFormModal({ open, onClose, editUser, fixedRole }: Props) {
           {fixedRole && (
             <div className="space-y-1">
               <Label>Rola</Label>
-              <div className="h-8 px-2.5 flex items-center text-sm rounded-lg border border-input bg-gray-50 text-gray-500">
+              <div className="h-8 px-2.5 flex items-center text-sm rounded-lg border border-input bg-muted text-muted-foreground">
                 {ROLE_LABELS[fixedRole]}
               </div>
             </div>
@@ -153,12 +153,12 @@ export function UserFormModal({ open, onClose, editUser, fixedRole }: Props) {
           </div>
 
           {apiError && (
-            <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-lg">{apiError}</p>
+            <p className="text-sm text-red-500 bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20">{apiError}</p>
           )}
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={onClose}>Anuluj</Button>
-            <Button type="submit" disabled={isSubmitting} className="bg-violet-500 hover:bg-violet-600 text-white">
+            <Button type="submit" disabled={isSubmitting} className="text-white" style={{ background: 'linear-gradient(135deg, #8b5cf6, #6366f1)' }}>
               {isSubmitting ? 'Zapisywanie...' : isEdit ? 'Zapisz zmiany' : 'Utwórz'}
             </Button>
           </div>

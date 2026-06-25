@@ -37,6 +37,7 @@ const CLASS_SELECT = {
       teacher: { select: { id: true, firstName: true, lastName: true } },
     },
   },
+  student: { select: { id: true, firstName: true, lastName: true } },
   teacher: { select: { id: true, firstName: true, lastName: true } },
   _count: { select: { attendances: true } },
 } as const;
@@ -46,11 +47,20 @@ export class ClassesService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(query: ClassQueryDto) {
-    const { groupId, status, from, to, page = 1, limit = 50 } = query;
+    const {
+      groupId,
+      studentId,
+      status,
+      from,
+      to,
+      page = 1,
+      limit = 50,
+    } = query;
     const skip = (page - 1) * limit;
 
     const where = {
       ...(groupId && { groupId }),
+      ...(studentId && { studentId }),
       ...(status && { status }),
       ...((from || to) && {
         scheduledAt: {
@@ -95,41 +105,94 @@ export class ClassesService {
 
   async create(dto: CreateClassDto) {
     let { teacherId } = dto;
-    const group = await this.prisma.group.findUnique({
-      where: { id: dto.groupId },
-      select: {
-        teacherId: true,
-        students: { where: { isActive: true }, select: { studentId: true } },
-      },
-    });
-    if (!teacherId) teacherId = group?.teacherId;
 
+    // --- group class ---
+    if (dto.groupId) {
+      const group = await this.prisma.group.findUnique({
+        where: { id: dto.groupId },
+        select: {
+          teacherId: true,
+          students: { where: { isActive: true }, select: { studentId: true } },
+        },
+      });
+      if (!teacherId) teacherId = group?.teacherId;
+
+      const cls = await this.prisma.class.create({
+        data: {
+          title: dto.title,
+          description: dto.description,
+          scheduledAt: dto.scheduledAt,
+          durationMin: dto.durationMin,
+          meetLink: dto.meetLink,
+          pricePerClass: dto.pricePerClass,
+          groupId: dto.groupId,
+          teacherId,
+        },
+        select: CLASS_SELECT,
+      });
+
+      if (dto.pricePerClass && group?.students.length) {
+        const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        const date = new Date(dto.scheduledAt).toLocaleDateString('pl-PL', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        });
+        const description = `${dto.title} — ${date} (${Number(dto.pricePerClass).toFixed(0)} PLN)`;
+        await this.prisma.$transaction(
+          group.students.map((gs) =>
+            this.prisma.payment.create({
+              data: {
+                studentId: gs.studentId,
+                amount: dto.pricePerClass!,
+                currency: 'PLN',
+                description,
+                dueDate,
+              },
+            }),
+          ),
+        );
+      }
+      return cls;
+    }
+
+    // --- individual student class ---
     const cls = await this.prisma.class.create({
-      data: { ...dto, teacherId },
+      data: {
+        title: dto.title,
+        description: dto.description,
+        scheduledAt: dto.scheduledAt,
+        durationMin: dto.durationMin,
+        meetLink: dto.meetLink,
+        pricePerClass: dto.pricePerClass,
+        studentId: dto.studentId,
+        teacherId,
+      },
       select: CLASS_SELECT,
     });
 
-    if (dto.pricePerClass && group?.students.length) {
-      const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      const date = new Date(dto.scheduledAt).toLocaleDateString('pl-PL', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
+    if (dto.studentId) {
+      await this.prisma.attendance.create({
+        data: { classId: cls.id, studentId: dto.studentId, status: 'PRESENT' },
       });
-      const description = `${dto.title} — ${date} (${Number(dto.pricePerClass).toFixed(0)} PLN)`;
-      await this.prisma.$transaction(
-        group.students.map((gs) =>
-          this.prisma.payment.create({
-            data: {
-              studentId: gs.studentId,
-              amount: dto.pricePerClass!,
-              currency: 'PLN',
-              description,
-              dueDate,
-            },
-          }),
-        ),
-      );
+
+      if (dto.pricePerClass) {
+        const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        const date = new Date(dto.scheduledAt).toLocaleDateString('pl-PL', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        });
+        await this.prisma.payment.create({
+          data: {
+            studentId: dto.studentId,
+            amount: dto.pricePerClass,
+            currency: 'PLN',
+            description: `${dto.title} — ${date} (${Number(dto.pricePerClass).toFixed(0)} PLN)`,
+            dueDate,
+          },
+        });
+      }
     }
 
     return cls;
@@ -155,14 +218,25 @@ export class ClassesService {
     const prepared = await Promise.all(
       items.map(async (item) => {
         let { teacherId } = item;
-        if (!teacherId) {
+        if (!teacherId && item.groupId) {
           const group = await this.prisma.group.findUnique({
             where: { id: item.groupId },
             select: { teacherId: true },
           });
           teacherId = group?.teacherId;
         }
-        return { ...item, teacherId, batchId };
+        return {
+          title: item.title,
+          description: item.description,
+          scheduledAt: item.scheduledAt,
+          durationMin: item.durationMin,
+          meetLink: item.meetLink,
+          pricePerClass: item.pricePerClass,
+          groupId: item.groupId,
+          studentId: item.studentId,
+          teacherId,
+          batchId,
+        };
       }),
     );
 

@@ -15,6 +15,10 @@ export class ClassQueryDto {
   groupId?: string;
 
   @IsOptional()
+  @IsString()
+  studentId?: string;
+
+  @IsOptional()
   @IsEnum(ClassStatus)
   status?: ClassStatus;
 

@@ -72,6 +72,7 @@ model User {
 
   teacherGroups     Group[]         @relation("GroupTeacher")
   taughtClasses     Class[]         @relation("ClassTeacher")
+  individualClasses Class[]         @relation("ClassStudent")
   studentGroups     GroupStudent[]
   attendances       Attendance[]
   uploadedMaterials Material[]
@@ -145,8 +146,11 @@ model Class {
 
   createdAt DateTime @default(now())
 
-  groupId String
-  group   Group  @relation(fields: [groupId], references: [id])
+  groupId String?
+  group   Group?  @relation(fields: [groupId], references: [id])
+
+  studentId String?
+  student   User?   @relation("ClassStudent", fields: [studentId], references: [id])
 
   teacherId String?
   teacher   User?  @relation("ClassTeacher", fields: [teacherId], references: [id])

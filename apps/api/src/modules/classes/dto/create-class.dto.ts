@@ -34,9 +34,13 @@ export class CreateClassDto {
   @IsUrl()
   meetLink?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  groupId: string;
+  groupId?: string;
+
+  @IsOptional()
+  @IsString()
+  studentId?: string;
 
   @IsOptional()
   @IsString()

@@ -363,8 +363,8 @@ export class PaymentsService {
         byGroup.set(key, {
           totalAmount: 0,
           classCount: 0,
-          studentIds: cls.group.students.map((s) => s.studentId),
-          groupName: cls.group.name,
+          studentIds: cls.group!.students.map((s) => s.studentId),
+          groupName: cls.group!.name,
         });
       }
       const entry = byGroup.get(key)!;

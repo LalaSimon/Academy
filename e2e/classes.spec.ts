@@ -9,10 +9,9 @@ test.describe('Classes — list view', () => {
     if (await listBtn.isVisible()) await listBtn.click();
   });
 
-  test('shows classes page with add buttons', async ({ page }) => {
+  test('shows classes page with add button', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Zajęcia' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Dodaj zajęcia' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Cyklicznie' })).toBeVisible();
   });
 
   test('creates a single class and shows it in the list', async ({ page }) => {
@@ -88,14 +87,17 @@ test.describe('Attendance — marking', () => {
   });
 });
 
-test.describe('Recurring classes', () => {
-  test('opens recurring class modal', async ({ page }) => {
+test.describe('Classes — mode toggle', () => {
+  test('ClassFormModal switches between group and student mode', async ({ page }) => {
     await loginAsAdmin(page);
     await page.goto('/admin/classes');
-    await page.getByRole('button', { name: 'Cyklicznie' }).click();
+    await page.getByRole('button', { name: 'Dodaj zajęcia' }).click();
 
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
-    await expect(modal.getByLabel('Tytuł')).toBeVisible();
+    await expect(modal.getByRole('button', { name: 'Dla grupy' })).toBeVisible();
+
+    await modal.getByRole('button', { name: /Dla ucznia/ }).click();
+    await expect(modal.getByText('Uczeń')).toBeVisible();
   });
 });
