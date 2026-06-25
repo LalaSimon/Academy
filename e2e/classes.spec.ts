@@ -1,120 +1,100 @@
 import { test, expect } from '@playwright/test';
-
-test.use({ storageState: 'e2e/.auth/admin.json' });
+import { loginAsAdmin } from './helpers/auth';
 
 test.describe('Classes — list view', () => {
   test.beforeEach(async ({ page }) => {
+    await loginAsAdmin(page);
     await page.goto('/admin/classes');
-    // Switch to list view if calendar is default
-    const listBtn = page.getByRole('button', { name: /lista/i });
+    const listBtn = page.getByRole('button', { name: 'Lista' });
     if (await listBtn.isVisible()) await listBtn.click();
   });
 
-  test('shows classes page with list/calendar toggle', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /zajęcia/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /nowe zajęcia/i })).toBeVisible();
+  test('shows classes page with add buttons', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'Zajęcia' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Dodaj zajęcia' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Cyklicznie' })).toBeVisible();
   });
 
   test('creates a single class and shows it in the list', async ({ page }) => {
-    await page.getByRole('button', { name: /nowe zajęcia/i }).click();
+    await page.getByRole('button', { name: 'Dodaj zajęcia' }).click();
 
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
 
-    // Fill in the form
-    await modal.getByLabel(/tytuł/i).fill('E2E Test Class');
+    await modal.getByLabel('Tytuł').fill('E2E Nowe Zajęcia');
 
-    // Select group
-    await modal.getByRole('combobox').filter({ hasText: /wybierz grupę/i }).click();
+    // Select group (Radix UI Select trigger has role="combobox")
+    await modal.getByRole('combobox').first().click();
     await page.getByRole('option', { name: /E2E Angielski/i }).click();
 
-    // Set date (tomorrow at 10:00)
+    // Set date (tomorrow at 11:00)
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(10, 0, 0, 0);
     const pad = (n: number) => String(n).padStart(2, '0');
-    const dateStr = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}T10:00`;
-    await modal.getByLabel(/data i godzina/i).fill(dateStr);
+    const dateStr = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}T11:00`;
+    await modal.getByLabel('Data i godzina').fill(dateStr);
 
-    await modal.getByRole('button', { name: /utwórz/i }).click();
+    await modal.getByRole('button', { name: 'Utwórz zajęcia' }).click();
 
     await expect(modal).not.toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText('E2E Test Class')).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText('E2E Nowe Zajęcia')).toBeVisible({ timeout: 5_000 });
   });
 });
 
 test.describe('Classes — status transitions', () => {
   test.beforeEach(async ({ page }) => {
+    await loginAsAdmin(page);
     await page.goto('/admin/classes');
-    const listBtn = page.getByRole('button', { name: /lista/i });
+    const listBtn = page.getByRole('button', { name: 'Lista' });
     if (await listBtn.isVisible()) await listBtn.click();
   });
 
   test('can start a scheduled class', async ({ page }) => {
-    // Find a SCHEDULED class and click Rozpocznij
-    const startBtn = page.getByRole('button', { name: /rozpocznij/i }).first();
+    // Seeded class 'E2E Scheduled Class' has status SCHEDULED
+    const startBtn = page.getByRole('button', { name: 'Rozpocznij' }).first();
     await expect(startBtn).toBeVisible({ timeout: 5_000 });
     await startBtn.click();
 
-    // Should now show Zakończ button
-    await expect(page.getByRole('button', { name: /zakończ/i }).first()).toBeVisible({ timeout: 3_000 });
+    await expect(page.getByRole('button', { name: 'Zakończ' }).first()).toBeVisible({ timeout: 3_000 });
   });
 });
 
 test.describe('Attendance — marking', () => {
   test.beforeEach(async ({ page }) => {
+    await loginAsAdmin(page);
     await page.goto('/admin/classes');
-    const listBtn = page.getByRole('button', { name: /lista/i });
+    const listBtn = page.getByRole('button', { name: 'Lista' });
     if (await listBtn.isVisible()) await listBtn.click();
   });
 
-  test('opens attendance modal and marks all present', async ({ page }) => {
-    // Find attendance icon button (Users icon) for a class
-    const attendanceBtn = page
-      .getByRole('row')
-      .first()
-      .getByRole('button', { name: /frekwencja|obecność/i })
-      .or(page.locator('[title*="rekwencja"], [title*="becność"]').first());
-
-    // Fallback: find by icon class
-    const usersBtn = page.locator('button:has(.lucide-users)').first();
-    if (await usersBtn.isVisible()) {
-      await usersBtn.click();
-    } else if (await attendanceBtn.isVisible()) {
-      await attendanceBtn.click();
-    }
+  test('opens attendance modal and saves', async ({ page }) => {
+    const attendanceBtn = page.getByRole('button', { name: 'Obecność' }).first();
+    await expect(attendanceBtn).toBeVisible({ timeout: 5_000 });
+    await attendanceBtn.click();
 
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible({ timeout: 3_000 });
+    await expect(modal.getByText('Lista obecności')).toBeVisible();
 
-    // Click "Ustaw wszystkich obecnych" or similar bulk button
-    const allPresentBtn = modal.getByRole('button', { name: /wszyscy|obecni/i }).first();
-    if (await allPresentBtn.isVisible()) {
-      await allPresentBtn.click();
-    }
+    // Save changes (Zapisz saves without closing, Zamknij closes)
+    await modal.getByRole('button', { name: 'Zapisz' }).click();
+    // Verify save succeeded — button returns to non-pending state
+    await expect(modal.getByRole('button', { name: 'Zapisz' })).toBeEnabled({ timeout: 3_000 });
 
-    // Save
-    const saveBtn = modal.getByRole('button', { name: /zapisz/i });
-    await expect(saveBtn).toBeVisible();
-    await saveBtn.click();
-
+    // Close the modal
+    await modal.getByRole('button', { name: 'Zamknij' }).click();
     await expect(modal).not.toBeVisible({ timeout: 5_000 });
   });
 });
 
 test.describe('Recurring classes', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/admin/classes');
-    const listBtn = page.getByRole('button', { name: /lista/i });
-    if (await listBtn.isVisible()) await listBtn.click();
-  });
-
   test('opens recurring class modal', async ({ page }) => {
-    const recurringBtn = page.getByRole('button', { name: /cykliczne|seria/i });
-    await expect(recurringBtn).toBeVisible();
-    await recurringBtn.click();
+    await loginAsAdmin(page);
+    await page.goto('/admin/classes');
+    await page.getByRole('button', { name: 'Cyklicznie' }).click();
 
-    await expect(page.getByRole('dialog')).toBeVisible();
-    await expect(page.getByText(/dzień tygodnia|powtarzaj/i)).toBeVisible();
+    const modal = page.getByRole('dialog');
+    await expect(modal).toBeVisible();
+    await expect(modal.getByLabel('Tytuł')).toBeVisible();
   });
 });

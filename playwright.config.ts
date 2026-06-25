@@ -15,7 +15,7 @@ export default defineConfig({
   },
 
   projects: [
-    // Seeds DB + saves admin storageState before all tests
+    // Seeds DB before all tests
     {
       name: 'setup',
       testMatch: /global\.setup\.ts/,

@@ -29,8 +29,10 @@ api.interceptors.response.use(
 
     const config = error.config as (typeof error.config & { _retry?: boolean }) | undefined;
 
-    // Przepuszczamy błędy inne niż 401 oraz już ponowione requesty
-    if (error.response?.status !== 401 || config?._retry) {
+    // Przepuszczamy błędy inne niż 401, już ponowione requesty oraz endpointy auth
+    // (login/refresh same muszą propagować 401 bez próby odświeżenia tokenu)
+    const isAuthEndpoint = config?.url?.startsWith('/auth/');
+    if (error.response?.status !== 401 || config?._retry || isAuthEndpoint) {
       return Promise.reject(error);
     }
 

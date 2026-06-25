@@ -1,6 +1,7 @@
 /**
  * Seeds the test database with fixtures needed for e2e tests.
  * Run from apps/api directory so Prisma client and node_modules are available.
+ * Idempotent — safe to run multiple times.
  */
 const { PrismaClient } = require('@prisma/client');
 const argon2 = require('argon2');
@@ -50,7 +51,7 @@ async function seed() {
     }
 
     // Test group assigned to teacher
-    await prisma.group.upsert({
+    const group = await prisma.group.upsert({
       where: { id: 'e2e-group-1' },
       create: {
         id: 'e2e-group-1',
@@ -60,6 +61,32 @@ async function seed() {
         teacherId: users.teacher.id,
       },
       update: { teacherId: users.teacher.id },
+    });
+
+    // Enroll student in the group
+    await prisma.groupStudent.upsert({
+      where: { groupId_studentId: { groupId: group.id, studentId: users.student.id } },
+      create: { groupId: group.id, studentId: users.student.id, isActive: true },
+      update: { isActive: true },
+    });
+
+    // One SCHEDULED class for status transition + attendance tests
+    const scheduledAt = new Date();
+    scheduledAt.setDate(scheduledAt.getDate() + 1);
+    scheduledAt.setHours(10, 0, 0, 0);
+
+    await prisma.class.upsert({
+      where: { id: 'e2e-class-1' },
+      create: {
+        id: 'e2e-class-1',
+        title: 'E2E Scheduled Class',
+        groupId: group.id,
+        teacherId: users.teacher.id,
+        scheduledAt,
+        durationMin: 60,
+        status: 'SCHEDULED',
+      },
+      update: { status: 'SCHEDULED', scheduledAt },
     });
 
     console.log('[e2e seed] OK');
