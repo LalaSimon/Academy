@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { useAuthStore } from '@/store/auth.store';
 
@@ -8,6 +8,8 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<Status>(() =>
     useAuthStore.persist.hasHydrated() ? 'refreshing' : 'hydrating',
   );
+  // Prevent double-fire from React StrictMode: refs survive the fake unmount/remount cycle
+  const refreshInitiated = useRef(false);
 
   useEffect(() => {
     if (status === 'hydrating') {
@@ -15,6 +17,9 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
     }
 
     if (status === 'refreshing') {
+      if (refreshInitiated.current) return;
+      refreshInitiated.current = true;
+
       const { user, setAccessToken, logout } = useAuthStore.getState();
       if (!user) {
         setStatus('done');
