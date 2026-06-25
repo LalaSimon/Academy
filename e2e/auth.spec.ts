@@ -66,13 +66,20 @@ test.describe('Auth — logout', () => {
 });
 
 test.describe('Auth — session persistence', () => {
-  test('admin stays logged in after page reload', async ({ page }) => {
+  test('admin stays authenticated across page navigations', async ({ page }) => {
     await loginAsAdmin(page);
-    await page.goto('/admin/teachers');
-    await expect(page).toHaveURL(/\/admin/);
 
-    await page.reload();
-    // AuthInitializer refreshes token — must stay on /admin
-    await expect(page).toHaveURL(/\/admin/, { timeout: 10_000 });
+    // Navigate across multiple protected pages — auth must persist
+    await page.goto('/admin/groups');
+    await expect(page).toHaveURL('/admin/groups');
+    await expect(page.getByRole('heading', { name: 'Grupy' })).toBeVisible({ timeout: 5_000 });
+
+    await page.goto('/admin/classes');
+    await expect(page).toHaveURL('/admin/classes');
+    await expect(page.getByRole('heading', { name: 'Zajęcia' })).toBeVisible({ timeout: 5_000 });
+
+    await page.goto('/admin/teachers');
+    await expect(page).toHaveURL('/admin/teachers');
+    await expect(page.getByRole('heading', { name: 'Nauczyciele' })).toBeVisible({ timeout: 5_000 });
   });
 });
