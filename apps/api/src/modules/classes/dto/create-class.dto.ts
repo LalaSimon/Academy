@@ -7,6 +7,7 @@ import {
   Min,
   Max,
   IsNotEmpty,
+  IsDecimal,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -40,4 +41,8 @@ export class CreateClassDto {
   @IsOptional()
   @IsString()
   teacherId?: string;
+
+  @IsOptional()
+  @IsDecimal({ decimal_digits: '0,2' })
+  pricePerClass?: string;
 }

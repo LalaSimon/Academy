@@ -23,6 +23,7 @@ interface FormValues {
   meetLink: string;
   dateFrom: string;
   dateTo: string;
+  pricePerClass: string;
 }
 
 interface Props {
@@ -90,6 +91,7 @@ export function RecurringClassModal({ open, onClose }: Props) {
         meetLink: data.meetLink || undefined,
         groupId: data.groupId,
         teacherId: data.teacherId || undefined,
+        pricePerClass: data.pricePerClass || undefined,
       }));
       await createBulk.mutateAsync(items);
       reset();
@@ -189,11 +191,16 @@ export function RecurringClassModal({ open, onClose }: Props) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1">
               <Label htmlFor="r-duration">Czas trwania (min)</Label>
               <Input id="r-duration" type="number" min={15} max={480} step={15}
                 {...register('durationMin', { valueAsNumber: true })} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="r-price">Cena/lekcję (PLN)</Label>
+              <Input id="r-price" type="number" step="0.01" min="0.01" placeholder="120.00"
+                {...register('pricePerClass')} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="r-meet">Link Meet (opcjonalnie)</Label>

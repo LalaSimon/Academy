@@ -138,11 +138,41 @@ export class ClassesService {
         return { ...item, teacherId, batchId };
       }),
     );
-    return this.prisma.$transaction(
+
+    const created = await this.prisma.$transaction(
       prepared.map((data) =>
         this.prisma.class.create({ data, select: CLASS_SELECT }),
       ),
     );
+
+    // Auto-payment for manually added classes that have a price
+    const pricePerClass = items[0]?.pricePerClass;
+    const groupId = items[0]?.groupId;
+    if (pricePerClass && groupId) {
+      const total = (Number(pricePerClass) * items.length).toFixed(2);
+      const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const first = new Date(items[0].scheduledAt);
+      const last = new Date(items[items.length - 1].scheduledAt);
+      const fmt = (d: Date) => d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
+      const description = `${items[0].title} — ${fmt(first)}${items.length > 1 ? ` – ${fmt(last)}` : ''} (${items.length} lekcji × ${Number(pricePerClass).toFixed(0)} PLN)`;
+
+      const group = await this.prisma.group.findUnique({
+        where: { id: groupId },
+        include: { students: { where: { isActive: true }, select: { studentId: true } } },
+      });
+
+      if (group?.students.length) {
+        await this.prisma.$transaction(
+          group.students.map((gs) =>
+            this.prisma.payment.create({
+              data: { studentId: gs.studentId, amount: total, currency: 'PLN', description, dueDate },
+            }),
+          ),
+        );
+      }
+    }
+
+    return created;
   }
 
   async updateBatch(batchId: string, dto: UpdateBatchDto) {
