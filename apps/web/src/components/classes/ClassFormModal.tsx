@@ -17,6 +17,7 @@ interface FormValues {
   meetLink: string;
   groupId: string;
   teacherId: string;
+  pricePerClass: string;
 }
 
 interface Props {
@@ -80,6 +81,7 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
         description: data.description || undefined,
         meetLink: data.meetLink || undefined,
         teacherId: data.teacherId || undefined,
+        pricePerClass: data.pricePerClass || undefined,
         scheduledAt: new Date(data.scheduledAt).toISOString(),
       };
       if (isEdit) {
@@ -194,6 +196,13 @@ export function ClassFormModal({ open, onClose, editClass, defaultGroupId, defau
               <Input id="durationMin" type="number" min={15} max={480} step={15}
                 {...register('durationMin', { valueAsNumber: true })} />
             </div>
+            {!isEdit && (
+              <div className="space-y-1">
+                <Label htmlFor="pricePerClass">Cena za lekcję (PLN)</Label>
+                <Input id="pricePerClass" type="number" step="0.01" min="0.01" placeholder="120.00"
+                  {...register('pricePerClass')} />
+              </div>
+            )}
             <div className="space-y-1">
               <Label htmlFor="meetLink">Link Meet (opcjonalnie)</Label>
               <Input id="meetLink" {...register('meetLink')} placeholder="https://meet.google.com/..." />

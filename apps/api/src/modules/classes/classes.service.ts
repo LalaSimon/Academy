@@ -95,17 +95,40 @@ export class ClassesService {
 
   async create(dto: CreateClassDto) {
     let { teacherId } = dto;
-    if (!teacherId) {
-      const group = await this.prisma.group.findUnique({
-        where: { id: dto.groupId },
-        select: { teacherId: true },
-      });
-      teacherId = group?.teacherId;
-    }
-    return this.prisma.class.create({
+    const group = await this.prisma.group.findUnique({
+      where: { id: dto.groupId },
+      select: {
+        teacherId: true,
+        students: { where: { isActive: true }, select: { studentId: true } },
+      },
+    });
+    if (!teacherId) teacherId = group?.teacherId;
+
+    const cls = await this.prisma.class.create({
       data: { ...dto, teacherId },
       select: CLASS_SELECT,
     });
+
+    if (dto.pricePerClass && group?.students.length) {
+      const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const date = new Date(dto.scheduledAt).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' });
+      const description = `${dto.title} — ${date} (${Number(dto.pricePerClass).toFixed(0)} PLN)`;
+      await this.prisma.$transaction(
+        group.students.map((gs) =>
+          this.prisma.payment.create({
+            data: {
+              studentId: gs.studentId,
+              amount: dto.pricePerClass!,
+              currency: 'PLN',
+              description,
+              dueDate,
+            },
+          }),
+        ),
+      );
+    }
+
+    return cls;
   }
 
   async update(id: string, dto: UpdateClassDto) {
