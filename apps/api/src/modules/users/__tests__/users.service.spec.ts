@@ -32,6 +32,9 @@ const mockPrisma = {
     upsert: jest.fn(),
     delete: jest.fn(),
   },
+  class: {
+    findMany: jest.fn(),
+  },
 };
 
 describe('UsersService', () => {
@@ -207,6 +210,133 @@ describe('UsersService', () => {
 
       await service.linkParentStudent('p1', 's1');
       expect(mockPrisma.parentStudent.upsert).toHaveBeenCalled();
+    });
+  });
+
+  describe('getTeacherStats', () => {
+    const group = {
+      id: 'g1',
+      name: 'Angielski A1',
+      language: 'EN',
+      level: 'A1',
+    };
+
+    const makeClass = (status: string, durationMin = 60, month = 1) => ({
+      id: `cls-${Math.random()}`,
+      title: 'Zajęcia',
+      scheduledAt: new Date(`2026-0${month}-15T10:00:00Z`),
+      durationMin,
+      status,
+      group,
+    });
+
+    beforeEach(() => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...mockUser,
+        studentGroups: [],
+        asParent: [],
+        asStudent: [],
+      });
+    });
+
+    it('should throw NotFoundException for unknown teacher', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      await expect(service.getTeacherStats('bad-id')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should count only COMPLETED classes for hours', async () => {
+      mockPrisma.class.findMany.mockResolvedValue([
+        makeClass('COMPLETED', 60),
+        makeClass('COMPLETED', 90),
+        makeClass('SCHEDULED', 60),
+        makeClass('CANCELLED', 60),
+      ]);
+
+      const result = await service.getTeacherStats('teacher-1');
+
+      expect(result.overall.total).toBe(4);
+      expect(result.overall.completed).toBe(2);
+      // (60 + 90) / 60 = 2.5
+      expect(result.overall.hours).toBe(2.5);
+    });
+
+    it('should group classes by calendar month', async () => {
+      mockPrisma.class.findMany.mockResolvedValue([
+        makeClass('COMPLETED', 60, 1),
+        makeClass('COMPLETED', 60, 1),
+        makeClass('COMPLETED', 60, 2),
+      ]);
+
+      const result = await service.getTeacherStats('teacher-1');
+
+      expect(result.byMonth).toHaveLength(2);
+      const jan = result.byMonth.find((m) => m.month === 1);
+      const feb = result.byMonth.find((m) => m.month === 2);
+      expect(jan?.completed).toBe(2);
+      expect(feb?.completed).toBe(1);
+    });
+
+    it('should sort months chronologically', async () => {
+      mockPrisma.class.findMany.mockResolvedValue([
+        makeClass('COMPLETED', 60, 3),
+        makeClass('COMPLETED', 60, 1),
+        makeClass('COMPLETED', 60, 2),
+      ]);
+
+      const result = await service.getTeacherStats('teacher-1');
+
+      expect(result.byMonth.map((m) => m.month)).toEqual([1, 2, 3]);
+    });
+
+    it('should group classes by group and sort by completed desc', async () => {
+      const group2 = {
+        id: 'g2',
+        name: 'Angielski B2',
+        language: 'EN',
+        level: 'B2',
+      };
+      mockPrisma.class.findMany.mockResolvedValue([
+        { ...makeClass('COMPLETED', 60), group },
+        { ...makeClass('COMPLETED', 60), group },
+        { ...makeClass('COMPLETED', 60), group: group2 },
+      ]);
+
+      const result = await service.getTeacherStats('teacher-1');
+
+      expect(result.byGroup).toHaveLength(2);
+      expect(result.byGroup[0].group.id).toBe('g1');
+      expect(result.byGroup[0].completed).toBe(2);
+      expect(result.byGroup[1].completed).toBe(1);
+    });
+
+    it('should apply date filter to class query', async () => {
+      mockPrisma.class.findMany.mockResolvedValue([]);
+
+      const from = new Date('2026-01-01');
+      const to = new Date('2026-03-31');
+      await service.getTeacherStats('teacher-1', { from, to });
+
+      expect(mockPrisma.class.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            scheduledAt: { gte: from, lte: to },
+          }),
+        }),
+      );
+    });
+
+    it('should return empty stats when teacher has no classes', async () => {
+      mockPrisma.class.findMany.mockResolvedValue([]);
+
+      const result = await service.getTeacherStats('teacher-1');
+
+      expect(result.overall.total).toBe(0);
+      expect(result.overall.completed).toBe(0);
+      expect(result.overall.hours).toBe(0);
+      expect(result.byMonth).toHaveLength(0);
+      expect(result.byGroup).toHaveLength(0);
     });
   });
 });
