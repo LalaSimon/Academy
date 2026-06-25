@@ -104,7 +104,12 @@ export function useUpdateClass() {
   return useMutation({
     mutationFn: ({ id, ...payload }: UpdateClassPayload & { id: string }) =>
       api.patch<Class>(`/classes/${id}`, payload).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [CLASSES_KEY] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [CLASSES_KEY] });
+      // Class title/scheduledAt appear in teacher stats and attendance history
+      void qc.invalidateQueries({ queryKey: ['users'] });
+      void qc.invalidateQueries({ queryKey: ['attendance', 'student'] });
+    },
   });
 }
 
@@ -113,7 +118,11 @@ export function useUpdateClassStatus() {
   return useMutation({
     mutationFn: ({ id, status, cancelReason }: { id: string; status: ClassStatus; cancelReason?: string }) =>
       api.patch<Class>(`/classes/${id}/status`, { status, cancelReason }).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [CLASSES_KEY] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [CLASSES_KEY] });
+      // COMPLETED status change directly affects teacher stats (hours, completed count)
+      void qc.invalidateQueries({ queryKey: ['users'] });
+    },
   });
 }
 
@@ -131,7 +140,11 @@ export function useUpdateBatch() {
   return useMutation({
     mutationFn: ({ batchId, ...payload }: UpdateBatchPayload & { batchId: string }) =>
       api.patch<Class[]>(`/classes/batch/${batchId}`, payload).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [CLASSES_KEY] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [CLASSES_KEY] });
+      void qc.invalidateQueries({ queryKey: ['users'] });
+      void qc.invalidateQueries({ queryKey: ['attendance', 'student'] });
+    },
   });
 }
 
@@ -139,7 +152,10 @@ export function useDeleteBatch() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (batchId: string) => api.delete(`/classes/batch/${batchId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [CLASSES_KEY] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [CLASSES_KEY] });
+      void qc.invalidateQueries({ queryKey: ['users'] });
+    },
   });
 }
 
@@ -156,6 +172,9 @@ export function useDeleteClass() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/classes/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [CLASSES_KEY] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [CLASSES_KEY] });
+      void qc.invalidateQueries({ queryKey: ['users'] });
+    },
   });
 }

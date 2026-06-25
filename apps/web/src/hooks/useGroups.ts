@@ -92,7 +92,11 @@ export function useUpdateGroup() {
   return useMutation({
     mutationFn: ({ id, ...payload }: UpdateGroupPayload & { id: string }) =>
       api.patch<Group>(`/groups/${id}`, payload).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [GROUPS_KEY] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [GROUPS_KEY] });
+      // Classes embed group name and teacher — stale without this
+      void qc.invalidateQueries({ queryKey: ['classes'] });
+    },
   });
 }
 
@@ -109,7 +113,11 @@ export function useAddStudentToGroup() {
   return useMutation({
     mutationFn: ({ groupId, studentId }: { groupId: string; studentId: string }) =>
       api.post(`/groups/${groupId}/students/${studentId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [GROUPS_KEY] }),
+    onSuccess: (_d, vars) => {
+      void qc.invalidateQueries({ queryKey: [GROUPS_KEY] });
+      // Student's profile includes studentGroups — must refresh after membership change
+      void qc.invalidateQueries({ queryKey: ['users', vars.studentId] });
+    },
   });
 }
 
@@ -118,6 +126,9 @@ export function useRemoveStudentFromGroup() {
   return useMutation({
     mutationFn: ({ groupId, studentId }: { groupId: string; studentId: string }) =>
       api.delete(`/groups/${groupId}/students/${studentId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [GROUPS_KEY] }),
+    onSuccess: (_d, vars) => {
+      void qc.invalidateQueries({ queryKey: [GROUPS_KEY] });
+      void qc.invalidateQueries({ queryKey: ['users', vars.studentId] });
+    },
   });
 }

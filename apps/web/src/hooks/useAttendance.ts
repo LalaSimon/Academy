@@ -59,6 +59,8 @@ export function useBulkUpdateAttendance() {
       api.patch<AttendanceRecord[]>('/attendance/bulk', { classId, items }).then((r) => r.data),
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: [ATTENDANCE_KEY, vars.classId] });
+      // Student stats depend on attendance records — invalidate all cached student stats
+      void qc.invalidateQueries({ queryKey: [ATTENDANCE_KEY, 'student'] });
     },
   });
 }

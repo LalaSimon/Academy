@@ -118,6 +118,8 @@ export function useAssignMaterialToClass() {
     },
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ['materials', 'class', vars.classId] });
+      // assignToClass also creates a GroupMaterial (cascade) — invalidate all group material caches
+      queryClient.invalidateQueries({ queryKey: ['materials', 'group'] });
       queryClient.invalidateQueries({ queryKey: ['materials'] });
       toast.success('Materiał przypisany do zajęć');
     },
@@ -133,6 +135,7 @@ export function useUnassignMaterialFromClass() {
     },
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ['materials', 'class', vars.classId] });
+      queryClient.invalidateQueries({ queryKey: ['materials'] });
     },
     onError: (e) => toast.error(`Błąd: ${e.message}`),
   });
@@ -161,6 +164,7 @@ export function useUnassignMaterialFromGroup() {
     },
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ['materials', 'group', vars.groupId] });
+      queryClient.invalidateQueries({ queryKey: ['materials'] });
     },
     onError: (e) => toast.error(`Błąd: ${e.message}`),
   });
