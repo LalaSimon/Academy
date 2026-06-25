@@ -14,7 +14,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { useMaterials, useUploadMaterial, useCreateLinkMaterial, useDeleteMaterial, type MaterialType } from '../../hooks/useMaterials';
-import axios from 'axios';
+import { api } from '@/lib/api';
 
 const TYPE_LABELS: Record<MaterialType, string> = {
   PDF: 'PDF',
@@ -150,7 +150,7 @@ export default function MaterialsPage() {
 
   const handleDownload = async (id: string, url: string, fileKey: string | null) => {
     if (!fileKey) { window.open(url, '_blank'); return; }
-    const { data } = await axios.get<{ url: string }>(`/api/v1/materials/${id}/download`);
+    const { data } = await api.get<{ url: string }>(`/api/v1/materials/${id}/download`);
     window.open(data.url, '_blank');
   };
 
