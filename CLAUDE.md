@@ -27,7 +27,10 @@ cd apps/web && npm run lint
 # 5. Web — build
 cd apps/web && npm run build
 
-# 6. Commit i push
+# 6. E2E — testy Playwright (wymaga docker compose up -d)
+npx playwright test
+
+# 7. Commit i push
 git add ... && git commit ... && git push
 ```
 
