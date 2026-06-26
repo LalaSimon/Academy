@@ -120,6 +120,8 @@ jobs:
       PLAYWRIGHT_BASE_URL: http://localhost:5173
       TEST_ADMIN_EMAIL: admin@test.academy
       TEST_ADMIN_PASSWORD: Admin1234!
+      STRIPE_SECRET_KEY: sk_test_ci_dummy
+      STRIPE_WEBHOOK_SECRET: whsec_ci_dummy
 
     steps:
       - uses: actions/checkout@v4
