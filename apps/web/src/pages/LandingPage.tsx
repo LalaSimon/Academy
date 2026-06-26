@@ -674,49 +674,69 @@ function StatsSection() {
 
 function HowItWorksSection() {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.25 });
+  const inView = useInView(ref, { once: true, amount: 0.2 });
   const shouldReduce = useReducedMotion();
 
   return (
-    <section id="jak-to-dziala" ref={ref} className="bg-zinc-950 py-24 lg:py-32">
+    <section id="jak-to-dziala" ref={ref} className="bg-zinc-900 py-24 lg:py-32 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={shouldReduce ? false : { opacity: 0, y: 24 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-16"
+          transition={{ duration: 0.6, ease: EASE }}
+          className="mb-14"
         >
-          <p className="text-violet-400 text-xs font-semibold uppercase tracking-[0.18em] mb-3">
+          <h2 className="text-4xl lg:text-5xl font-bold tracking-tighter text-white">
             Jak to dziala
-          </p>
-          <h2 className="text-4xl lg:text-5xl font-bold tracking-tighter text-white max-w-xl">
-            Od zerowego poziomu do pewnej rozmowy
           </h2>
+          <p className="text-zinc-500 text-base mt-3 max-w-md">
+            Trzy kroki dzielace Cie od pewnej rozmowy w obcym jezyku.
+          </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-zinc-800 border border-zinc-800 rounded-2xl overflow-hidden">
           {STEPS.map((step, i) => {
             const Icon = step.icon;
             return (
               <motion.div
                 key={step.n}
-                initial={shouldReduce ? false : { opacity: 0, y: 32 }}
+                initial={shouldReduce ? false : { opacity: 0, y: 28 }}
                 animate={inView ? { opacity: 1, y: 0 } : {}}
-                transition={{ duration: 0.6, delay: 0.15 + i * 0.12, ease: [0.16, 1, 0.3, 1] }}
-                className="relative"
+                transition={{ duration: 0.65, delay: 0.1 + i * 0.13, ease: EASE }}
+                className="relative p-8 lg:p-10 overflow-hidden group"
               >
-                {i < STEPS.length - 1 && (
-                  <div className="hidden md:block absolute top-6 left-[calc(100%-8px)] w-full h-px bg-gradient-to-r from-zinc-700 to-transparent z-0" />
-                )}
-                <div className="relative flex flex-col gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-violet-600/15 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-                      <Icon className="w-5 h-5 text-violet-400" strokeWidth={1.5} />
+                {/* Hover fill */}
+                <div className="absolute inset-0 bg-zinc-800/0 group-hover:bg-zinc-800/40 transition-colors duration-300" />
+
+                {/* Giant ghost number */}
+                <div
+                  className="absolute -bottom-4 -right-2 text-[9rem] leading-none font-black select-none pointer-events-none text-white/[0.04]"
+                  aria-hidden
+                >
+                  {step.n}
+                </div>
+
+                {/* Violet top accent */}
+                <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-violet-600/0 via-violet-500/60 to-violet-600/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                <div className="relative z-10 flex flex-col gap-6">
+                  {/* Step badge */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono font-bold text-violet-500/70 tracking-widest">
+                      KROK {step.n}
+                    </span>
+                    <div className="w-9 h-9 rounded-xl bg-violet-600/15 border border-violet-500/20 flex items-center justify-center">
+                      <Icon className="w-4 h-4 text-violet-400" strokeWidth={1.5} />
                     </div>
-                    <span className="text-zinc-600 font-mono text-sm font-bold">{step.n}</span>
                   </div>
-                  <h3 className="text-lg font-semibold text-white">{step.title}</h3>
-                  <p className="text-zinc-400 text-sm leading-relaxed">{step.body}</p>
+
+                  {/* Content */}
+                  <div>
+                    <h3 className="text-xl font-bold text-white mb-2.5 leading-snug">
+                      {step.title}
+                    </h3>
+                    <p className="text-zinc-400 text-sm leading-relaxed">{step.body}</p>
+                  </div>
                 </div>
               </motion.div>
             );
