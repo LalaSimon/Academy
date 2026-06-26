@@ -2,6 +2,19 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PaymentsService } from '../payments.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
+
+jest.mock('stripe', () => {
+  return jest.fn().mockImplementation(() => ({
+    checkout: {
+      sessions: {
+        create: jest.fn().mockResolvedValue({ url: 'https://stripe.test/pay', id: 'cs_test_123' }),
+      },
+    },
+    webhooks: {
+      constructEvent: jest.fn(),
+    },
+  }));
+});
 const mockPayment = {
   id: 'pay1',
   studentId: 'stu1',
@@ -258,6 +271,81 @@ describe('PaymentsService', () => {
         where: { status: 'PENDING', dueDate: { lt: expect.any(Date) } },
         data: { status: 'OVERDUE' },
       });
+    });
+  });
+
+  describe('createCheckout', () => {
+    it('throws NotFoundException when payment missing', async () => {
+      prismaMock.payment.findUnique.mockResolvedValue(null);
+      await expect(
+        service.createCheckout('missing', 'https://example.com/return'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws BadRequestException when payment already PAID', async () => {
+      prismaMock.payment.findUnique.mockResolvedValue({
+        ...mockPayment,
+        status: 'PAID',
+      });
+      await expect(
+        service.createCheckout('pay1', 'https://example.com/return'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('returns checkoutUrl for PENDING payment', async () => {
+      prismaMock.payment.findUnique.mockResolvedValue(mockPayment);
+
+      const result = await service.createCheckout(
+        'pay1',
+        'https://example.com/return',
+      );
+
+      expect(result.checkoutUrl).toBe('https://stripe.test/pay');
+    });
+  });
+
+  describe('update', () => {
+    it('updates payment fields', async () => {
+      prismaMock.payment.findUnique.mockResolvedValue(mockPayment);
+      prismaMock.payment.update.mockResolvedValue({
+        ...mockPayment,
+        description: 'Updated desc',
+      });
+
+      const result = await service.update('pay1', { description: 'Updated desc' });
+
+      expect(prismaMock.payment.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'pay1' },
+          data: { description: 'Updated desc' },
+        }),
+      );
+      expect(result.description).toBe('Updated desc');
+    });
+
+    it('throws NotFoundException for missing payment', async () => {
+      prismaMock.payment.findUnique.mockResolvedValue(null);
+      await expect(service.update('missing', {})).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('remove', () => {
+    it('deletes existing payment', async () => {
+      prismaMock.payment.findUnique.mockResolvedValue(mockPayment);
+      prismaMock.payment.delete.mockResolvedValue(mockPayment);
+
+      await service.remove('pay1');
+
+      expect(prismaMock.payment.delete).toHaveBeenCalledWith({
+        where: { id: 'pay1' },
+      });
+    });
+
+    it('throws NotFoundException for missing payment', async () => {
+      prismaMock.payment.findUnique.mockResolvedValue(null);
+      await expect(service.remove('missing')).rejects.toThrow(NotFoundException);
     });
   });
 });

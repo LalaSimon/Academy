@@ -14,6 +14,7 @@ const mockUser = {
   lastName: 'Kowalski',
   phone: null,
   role: Role.STUDENT,
+  isMinor: false,
   isActive: true,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -145,6 +146,145 @@ describe('UsersService', () => {
           role: Role.STUDENT,
         }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('should set isMinor=true on created user', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      (argon2.hash as jest.Mock).mockResolvedValue('hashed');
+      mockPrisma.user.create.mockResolvedValue({
+        ...mockUser,
+        isMinor: true,
+      });
+
+      const result = await service.create({
+        email: 'minor@test.com',
+        password: 'Pass1234!',
+        firstName: 'Maly',
+        lastName: 'Jan',
+        role: Role.STUDENT,
+        isMinor: true,
+      });
+
+      expect(mockPrisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ isMinor: true }),
+        }),
+      );
+      expect(result.isMinor).toBe(true);
+    });
+
+    it('should link existing parent when isMinor + existingParentId provided', async () => {
+      // findUnique: first call = check email unique, subsequent = findOne for linkParentStudent
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null) // email check
+        .mockResolvedValue({ ...mockUser, studentGroups: [], asParent: [], asStudent: [] });
+      (argon2.hash as jest.Mock).mockResolvedValue('hashed');
+      mockPrisma.user.create.mockResolvedValue({ ...mockUser, id: 'stu-new', isMinor: true });
+      mockPrisma.parentStudent.upsert.mockResolvedValue({ parentId: 'par-1', studentId: 'stu-new' });
+
+      await service.create({
+        email: 'minor2@test.com',
+        password: 'Pass1234!',
+        firstName: 'Maly',
+        lastName: 'Jan',
+        role: Role.STUDENT,
+        isMinor: true,
+        existingParentId: 'par-1',
+      });
+
+      expect(mockPrisma.parentStudent.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { parentId_studentId: { parentId: 'par-1', studentId: 'stu-new' } },
+        }),
+      );
+    });
+
+    it('should create new parent account and link when isMinor + parentData provided', async () => {
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null) // student email check
+        .mockResolvedValueOnce(null) // parent email check
+        .mockResolvedValue({ ...mockUser, studentGroups: [], asParent: [], asStudent: [] });
+      (argon2.hash as jest.Mock).mockResolvedValue('hashed');
+      mockPrisma.user.create
+        .mockResolvedValueOnce({ ...mockUser, id: 'stu-new', isMinor: true })
+        .mockResolvedValueOnce({ id: 'par-new' });
+      mockPrisma.parentStudent.upsert.mockResolvedValue({});
+
+      await service.create({
+        email: 'minor3@test.com',
+        password: 'Pass1234!',
+        firstName: 'Maly',
+        lastName: 'Jan',
+        role: Role.STUDENT,
+        isMinor: true,
+        parentData: {
+          email: 'rodzic@test.com',
+          password: 'Parent1234!',
+          firstName: 'Tomasz',
+          lastName: 'Rodzic',
+        },
+      });
+
+      // Two user.create calls: student + parent
+      expect(mockPrisma.user.create).toHaveBeenCalledTimes(2);
+      // Parent created with PARENT role
+      expect(mockPrisma.user.create).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          data: expect.objectContaining({ role: 'PARENT', email: 'rodzic@test.com' }),
+        }),
+      );
+      expect(mockPrisma.parentStudent.upsert).toHaveBeenCalled();
+    });
+
+    it('should throw ConflictException if parent email already taken', async () => {
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null) // student email ok
+        .mockResolvedValueOnce(mockUser); // parent email taken
+      (argon2.hash as jest.Mock).mockResolvedValue('hashed');
+      mockPrisma.user.create.mockResolvedValue({ ...mockUser, id: 'stu-new', isMinor: true });
+
+      await expect(
+        service.create({
+          email: 'minor4@test.com',
+          password: 'Pass1234!',
+          firstName: 'Maly',
+          lastName: 'Jan',
+          role: Role.STUDENT,
+          isMinor: true,
+          parentData: {
+            email: 'zajety@test.com',
+            password: 'Parent1234!',
+            firstName: 'Tomasz',
+            lastName: 'Rodzic',
+          },
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should not link parent when isMinor=false even if parentData provided', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      (argon2.hash as jest.Mock).mockResolvedValue('hashed');
+      mockPrisma.user.create.mockResolvedValue(mockUser);
+
+      await service.create({
+        email: 'adult@test.com',
+        password: 'Pass1234!',
+        firstName: 'Anna',
+        lastName: 'Nowak',
+        role: Role.STUDENT,
+        isMinor: false,
+        parentData: {
+          email: 'ignored@test.com',
+          password: 'Parent1234!',
+          firstName: 'Ignored',
+          lastName: 'Parent',
+        },
+      });
+
+      // Only one user.create call — parent was not created
+      expect(mockPrisma.user.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.parentStudent.upsert).not.toHaveBeenCalled();
     });
   });
 
