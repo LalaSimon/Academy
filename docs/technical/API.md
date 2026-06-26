@@ -12,14 +12,38 @@
 
 ### Auth
 ```
-POST   /api/v1/auth/register          → rejestracja (admin tworzy konta)
-POST   /api/v1/auth/login             → logowanie → { accessToken, refreshToken }
-POST   /api/v1/auth/refresh           → nowy access token
-POST   /api/v1/auth/logout            → unieważnienie refresh tokena
-POST   /api/v1/auth/forgot-password   → reset hasła (email)
-POST   /api/v1/auth/reset-password    → ustawienie nowego hasła
-GET    /api/v1/auth/me                → aktualny użytkownik
+POST   /api/v1/auth/login                    → logowanie → { accessToken, user }; cookie refresh_token
+POST   /api/v1/auth/logout                   → unieważnienie refresh tokena + wyczyszczenie cookie
+POST   /api/v1/auth/refresh                  → nowy access token (wymaga cookie refresh_token)
+GET    /api/v1/auth/me                       → aktualny użytkownik [JWT]
+
+POST   /api/v1/auth/register                 → publiczna rejestracja ucznia/rodzica; wysyła email weryfikacyjny
+GET    /api/v1/auth/verify-email?token=<hex> → weryfikacja adresu email przez link
+POST   /api/v1/auth/resend-verification      → ponowne wysłanie emaila weryfikacyjnego { email }
+POST   /api/v1/auth/setup-child              → rodzic ustawia konto dziecka [JWT, PARENT]
+                                               body: { firstName, lastName, password }
+                                               → tworzy konto STUDENT z emailem imie.nazwisko@academy.pl
 ```
+
+**Kody błędów specyficzne dla auth:**
+
+| Kod HTTP | `code` w body | Znaczenie |
+|----------|--------------|-----------|
+| 401 | `EMAIL_NOT_VERIFIED` | Email nie potwierdzony; wymagany verify-email flow |
+| 409 | `CHILD_ALREADY_SET` | Rodzic ma już skonfigurowane konto dziecka |
+
+**Login response z flagą `needsChildSetup`:**
+```json
+{
+  "accessToken": "eyJ...",
+  "user": {
+    "id": "...", "email": "...", "role": "PARENT",
+    "firstName": "Anna", "lastName": "Nowak",
+    "isMinor": false, "needsChildSetup": true
+  }
+}
+```
+Gdy `needsChildSetup: true`, frontend przekierowuje na `/parent/setup`.
 
 ### Users
 ```

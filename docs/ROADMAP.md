@@ -251,13 +251,27 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ## Faza 4 — Powiadomienia i Rozszerzenia
 
-### 4.1 — Email sender ← **teraz**
+### 4.1 — Email sender ✅
 
-- [ ] Wybor i konfiguracja dostawcy SMTP (Resend / Mailgun / SendGrid)
-- [ ] `MailModule` + `MailService` w NestJS (Nodemailer lub SDK dostawcy)
-- [ ] Zmienne srodowiskowe dla konfiguracji maila (`.env` + Docker Compose)
-- [ ] Bazowy template email (HTML + text fallback)
-- [ ] Wysylanie testowego emaila z poziomu CLI / endpointu dev
+- [x] Wybor i konfiguracja dostawcy: **Resend SDK** (https://resend.com)
+- [x] `MailModule` + `MailService` — NestJS, wstrzykiwany globalnie
+- [x] Zmienne srodowiskowe: `RESEND_API_KEY`, `MAIL_FROM`, `ADMIN_EMAIL`
+- [x] Szablony HTML dla wszystkich emaili (weryfikacja, rejestracja, zajecia, nieobecnosc, platnosc)
+- [x] Dev/test error handling: bledy Resend logowane, nie propagowane
+
+### 4.1.1 — Rejestracja publiczna + weryfikacja email ✅
+
+- [x] `POST /auth/register` — publiczna rejestracja (student / rodzic), email weryfikacyjny
+- [x] `GET /auth/verify-email?token=` — weryfikacja linkiem
+- [x] `POST /auth/resend-verification` — ponowne wysylanie
+- [x] `POST /auth/setup-child` — rodzic konfiguruje konto dziecka (@academy.pl, isMinor=true)
+- [x] `RegisterPage` — formularz z AccountType selector (student/rodzic), Framer Motion
+- [x] `VerifyEmailPage` — stany: no-token (resend), pending, success (auto-redirect 2.5s), error
+- [x] `ParentSetupPage` — pierwszy login rodzica → formularz konta dziecka
+- [x] LoginPage: banner EMAIL_NOT_VERIFIED z linkiem resend
+- [x] Auth store: `needsChildSetup` → auto-redirect `/parent/setup`
+- [x] Prisma migracja: `emailVerificationToken`, `emailVerified`
+- [x] 167 testow (27 backend unit, 42 frontend unit, 6 E2E Playwright)
 
 ### 4.2 — Kolejkowanie emaili (BullMQ)
 
@@ -292,8 +306,11 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ## ▶ Co robimy teraz?
 
-**Faza 3 ukonczona. Landing page gotowy.** Nastepne kroki:
+**Faza 4.1 + 4.1.1 ukonczona.** Nastepne kroki:
 1. ~~Portal rodzica (3.2)~~ ✅
 2. ~~Landing page (3.4)~~ ✅
-3. Konfiguracja email sendera (4.1) ← **teraz**
-4. Powiazania rodzic-dziecko w panelu admina (3.3) — do zrobienia rowolegle lub po 4.1
+3. ~~Email sender + szablony (4.1)~~ ✅
+4. ~~Rejestracja publiczna + weryfikacja email (4.1.1)~~ ✅
+5. Kolejkowanie emaili — BullMQ (4.2) ← **nastepne**
+6. Triggery emaili — przypomnienia zajecia/platnosci (4.3)
+7. Powiazania rodzic-dziecko w panelu admina (3.3) — rowolegle
