@@ -29,6 +29,7 @@ import StudentAttendancePage2 from '@/pages/student/StudentAttendancePage';
 import StudentGroupsPage from '@/pages/student/StudentGroupsPage';
 import StudentMaterialsPage from '@/pages/student/StudentMaterialsPage';
 import StudentPaymentsPage from '@/pages/student/StudentPaymentsPage';
+import LandingPage from '@/pages/LandingPage';
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
       <Toaster position="top-right" richColors />
       <AuthInitializer>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
 
           <Route element={<PrivateRoute allowedRoles={['ADMIN']} />}>

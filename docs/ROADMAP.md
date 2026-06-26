@@ -209,23 +209,41 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [x] Testy jednostkowe: isMinor flag, linkowanie przez existingParentId, tworzenie nowego rodzica, konflikt emaila rodzica (99 testów łącznie)
 - [x] CI fix: dummy `STRIPE_SECRET_KEY` w E2E job + `jest.mock('stripe')` w unit testach
 
-### 3.2 — Portal rodzica
+### 3.2 — Portal rodzica ✅
 
-- [ ] `ParentLayout` — sidebar z nawigacją: Moje dzieci → per-dziecko: Zajęcia / Frekwencja / Grupy / Materiały / Płatności
-- [ ] `ParentDashboardPage` — lista dzieci, podsumowanie płatności (pending per dziecko), nadchodzące zajęcia
-- [ ] `ParentChildPage` — widok per-dziecko z zakładkami (reużywa komponentów ze StudentLayout)
-- [ ] `ParentPaymentsPage` — tabela płatności dziecka + Stripe Checkout (rodzic płaci za dziecko)
-- [ ] API: endpointy dla PARENT z self-check — rodzic czyta tylko dane swoich dzieci:
-  - `GET /payments?studentId=:childId` — guard weryfikuje powiązanie rodzic↔dziecko
-  - `POST /payments/:id/checkout` — rozszerzony ownership check: płatność należy do dziecka rodzica
-  - `GET /classes`, `GET /attendance/student/:id`, `GET /groups/:id` — self-check dla PARENT
-- [ ] Routing: `PrivateRoute allowedRoles=['PARENT']` → `ParentLayout` → `/parent/*`
+- [x] `ParentLayout` — sidebar z listą dzieci, rozwijana nawigacja per-dziecko (Zajęcia/Frekwencja/Grupy/Materiały/Płatności)
+- [x] `ParentDashboardPage` — karty dzieci z miniaturą płatności + nadchodzące zajęcia, klik przechodzi do widoku dziecka
+- [x] `ParentChildClassesPage`, `ParentChildAttendancePage`, `ParentChildGroupsPage`, `ParentChildMaterialsPage`, `ParentChildPaymentsPage` — widoki per-dziecko
+- [x] `ParentChildPaymentsPage` — Stripe Checkout z returnUrl `/parent/children/:id/payments?status=...`
+- [x] API: PARENT role dodana do GET /users/:id, /classes, /groups/:id, /attendance/student/:id z weryfikacją parent-child
+- [x] GET /payments dla PARENT — wymaga `studentId` dziecka w query, backend weryfikuje powiązanie
+- [x] POST /payments/:id/checkout dla PARENT — weryfikacja przez powiązanie płatność→dziecko→rodzic
+- [x] useParentProfile hook + useChildProfile hook
+- [x] Fix: dashboard ucznia ukrywa sekcję płatności gdy `user.isMinor = true` (query disabled + sekcja ukryta)
 
 ### 3.3 — Administracja powiązań rodzic-dziecko
 
 - [ ] `StudentProfilePage` (admin) — sekcja "Rodzic": wyświetla powiązanego rodzica, przycisk linkowania/odlinkowania
 - [ ] `UsersTable` — kolumna "Rodzic" dla uczniów niepełnoletnich (badge)
 - [ ] `StudentsPage` — filtr "Tylko niepełnoletni"
+
+---
+
+### 3.4 — Strona glowna (Landing Page) ✅
+
+- [x] `LandingPage.tsx` — nowoczesny, ciemny landing page dla prywatnej szkoly jezykowej online
+- [x] Hero z animowanym naglowkiem (rotating language + blur reveal) i floating bubbles
+- [x] Sekcja statystyk (500+ uczniow, 8 językow, 4 lata, 97% poleca)
+- [x] "Jak to dziala" — 3 kroki z ikonami i stagger reveal
+- [x] Bento features — 4 kafle (male grupy z obrazem, elastyczne godziny, nagrania, materialy z obrazem)
+- [x] Marquee z jezykami (jeden na strone)
+- [x] Opinie uczniow — 3 karty z awatarami i ocenami
+- [x] FAQ — accordion z AnimatePresence
+- [x] CTA section z linkiem do `/login`
+- [x] Footer z nawigacja i danymi kontaktowymi
+- [x] Route `/` → `LandingPage` w `App.tsx`
+- [x] Responsywnosc (hamburger menu, mobile collapse dla wszystkich sekcji)
+- [x] prefers-reduced-motion support przez `useReducedMotion`
 
 ---
 
@@ -245,7 +263,8 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ## ▶ Co robimy teraz?
 
-**Faza 3.1 ukończona.** Budujemy Fazę 3.2 — Portal Rodzica:
-1. ~~Migracja `User.isMinor` + rozszerzenie formularza tworzenia użytkownika (3.1)~~ ✅
-2. Portal rodzica z widokiem per-dziecko (3.2) ← **teraz**
-3. Powiązania w panelu admina (3.3)
+**Faza 3.2 ukonczona. Strona glowna (3.4) ukonczona.** Nastepne kroki:
+1. ~~Portal rodzica z widokiem per-dziecko (3.2)~~ ✅
+2. ~~Landing page szkoly jezykowej (3.4)~~ ✅
+3. Powiazania rodzic-dziecko w panelu admina (3.3) ← **nastepne**
+4. Powiadomienia email i rozszerzenia (Faza 4)
