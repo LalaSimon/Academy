@@ -8,6 +8,7 @@ import {
   useMotionValue,
   useTransform,
   useSpring,
+  animate,
 } from 'framer-motion';
 import {
   Users,
@@ -29,10 +30,10 @@ import {
 const ROTATING_LANGUAGES = ['Angielskiego', 'Niemieckiego', 'Hiszpańskiego', 'Włoskiego', 'Francuskiego'];
 
 const STATS = [
-  { value: '500+', label: 'Aktywnych uczniów' },
-  { value: '8', label: 'Języków w ofercie' },
-  { value: '4', label: 'Lata na rynku' },
-  { value: '97%', label: 'Poleca nas znajomym' },
+  { num: 500, suffix: '+', label: 'Aktywnych uczniów' },
+  { num: 8,   suffix: '',  label: 'Języków w ofercie' },
+  { num: 4,   suffix: '',  label: 'Lata na rynku' },
+  { num: 97,  suffix: '%', label: 'Poleca nas znajomym' },
 ];
 
 const STEPS = [
@@ -599,27 +600,68 @@ function HeroSection() {
   );
 }
 
+// ── Animated counter ─────────────────────────────────────────────────────────
+
+function AnimatedNumber({ target, suffix }: { target: number; suffix: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [val, setVal] = useState(0);
+  const reduce = useReducedMotion();
+  const inView = useInView(ref, { once: true, amount: 0.5 });
+
+  useEffect(() => {
+    if (reduce) { setVal(target); return; }
+    if (!inView) return;
+    const controls = animate(0, target, {
+      duration: 1.8,
+      ease: [0, 0.55, 0.85, 1],
+      onUpdate: (v) => setVal(Math.round(v)),
+    });
+    return () => controls.stop();
+  }, [inView, reduce, target]);
+
+  return (
+    <span ref={ref} className="tabular-nums">
+      {val}{suffix}
+    </span>
+  );
+}
+
 // ── Stats ─────────────────────────────────────────────────────────────────────
 
 function StatsSection() {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.4 });
+  const inView = useInView(ref, { once: true, amount: 0.3 });
   const shouldReduce = useReducedMotion();
 
   return (
-    <section ref={ref} className="bg-zinc-900 border-y border-zinc-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+    <section ref={ref} className="relative bg-zinc-950 py-20 overflow-hidden">
+      {/* Top neon line */}
+      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
+      {/* Bottom neon line */}
+      <div className="absolute bottom-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-violet-500/20 to-transparent" />
+      {/* Radial glow */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse 70% 100% at 50% 50%, rgba(124,58,237,0.07) 0%, transparent 70%)',
+        }}
+      />
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-2 md:grid-cols-4">
           {STATS.map((s, i) => (
             <motion.div
               key={s.label}
-              initial={shouldReduce ? false : { opacity: 0, y: 20 }}
+              initial={shouldReduce ? false : { opacity: 0, y: 24 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.5, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
-              className="text-center"
+              transition={{ duration: 0.6, delay: i * 0.12, ease: EASE }}
+              className={`text-center py-6 px-4 ${i < 3 ? 'md:border-r border-zinc-800' : ''} ${i >= 2 ? 'border-t md:border-t-0 border-zinc-800' : ''}`}
             >
-              <p className="text-4xl font-bold text-white tracking-tighter">{s.value}</p>
-              <p className="text-zinc-400 text-sm mt-1">{s.label}</p>
+              <p className="text-5xl lg:text-6xl font-bold tracking-tighter text-white mb-2">
+                <AnimatedNumber target={s.num} suffix={s.suffix} />
+              </p>
+              <p className="text-zinc-500 text-sm">{s.label}</p>
             </motion.div>
           ))}
         </div>
