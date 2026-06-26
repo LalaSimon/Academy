@@ -8,6 +8,7 @@ export interface User {
   lastName: string;
   phone: string | null;
   role: 'ADMIN' | 'TEACHER' | 'STUDENT' | 'PARENT';
+  isMinor: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -34,13 +35,24 @@ export interface UserQuery {
   limit?: number;
 }
 
+export interface ParentData {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+}
+
 export interface CreateUserPayload {
   email: string;
   password: string;
   firstName: string;
   lastName: string;
   role: User['role'];
+  isMinor?: boolean;
   phone?: string;
+  parentData?: ParentData;
+  existingParentId?: string;
 }
 
 export interface UpdateUserPayload {
@@ -48,6 +60,7 @@ export interface UpdateUserPayload {
   lastName?: string;
   email?: string;
   role?: User['role'];
+  isMinor?: boolean;
   phone?: string;
   isActive?: boolean;
 }

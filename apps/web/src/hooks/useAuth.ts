@@ -6,7 +6,7 @@ import type { Role } from '@academy/shared';
 
 interface LoginResponse {
   accessToken: string;
-  user: { id: string; email: string; role: Role; firstName: string; lastName: string };
+  user: { id: string; email: string; role: Role; isMinor: boolean; firstName: string; lastName: string };
 }
 
 export function useLogin() {

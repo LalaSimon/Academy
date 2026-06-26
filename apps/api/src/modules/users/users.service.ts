@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreateUserDto } from './dto/create-user.dto';
+import { CreateUserDto, ParentDataDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
 
@@ -16,6 +16,7 @@ const USER_SELECT = {
   lastName: true,
   phone: true,
   role: true,
+  isMinor: true,
   isActive: true,
   createdAt: true,
   updatedAt: true,
@@ -86,12 +87,44 @@ export class UsersService {
     });
     if (exists) throw new ConflictException('Email already in use');
 
-    const passwordHash = await argon2.hash(dto.password);
-    const { password: _password, ...rest } = dto;
-    return this.prisma.user.create({
+    const { password, parentData, existingParentId, ...rest } = dto;
+    const passwordHash = await argon2.hash(password);
+
+    const student = await this.prisma.user.create({
       data: { ...rest, passwordHash },
       select: USER_SELECT,
     });
+
+    if (dto.isMinor) {
+      if (existingParentId) {
+        await this.linkParentStudent(existingParentId, student.id);
+      } else if (parentData) {
+        await this.createAndLinkParent(parentData, student.id);
+      }
+    }
+
+    return student;
+  }
+
+  private async createAndLinkParent(
+    parentData: ParentDataDto,
+    studentId: string,
+  ) {
+    const exists = await this.prisma.user.findUnique({
+      where: { email: parentData.email },
+    });
+    if (exists)
+      throw new ConflictException(
+        `Email rodzica jest już zajęty: ${parentData.email}`,
+      );
+
+    const { password, ...parentRest } = parentData;
+    const passwordHash = await argon2.hash(password);
+    const parent = await this.prisma.user.create({
+      data: { ...parentRest, passwordHash, role: 'PARENT' },
+      select: { id: true },
+    });
+    await this.linkParentStudent(parent.id, studentId);
   }
 
   async update(id: string, dto: UpdateUserDto) {

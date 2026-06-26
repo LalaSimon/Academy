@@ -17,17 +17,18 @@ import { useAuthStore } from '@/store/auth.store';
 import { useLogout } from '@/hooks/useAuth';
 import { useThemeStore } from '@/store/theme.store';
 
-const NAV_ITEMS = [
+const BASE_NAV = [
   { to: '/student/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/student/classes', label: 'Moje zajęcia', icon: Calendar },
   { to: '/student/attendance', label: 'Frekwencja', icon: ClipboardList },
   { to: '/student/groups', label: 'Moje grupy', icon: BookOpen },
   { to: '/student/materials', label: 'Materiały', icon: FolderOpen },
-  { to: '/student/payments', label: 'Płatności', icon: CreditCard },
+  { to: '/student/payments', label: 'Płatności', icon: CreditCard, minorHidden: true },
 ];
 
 export function StudentLayout() {
   const { user } = useAuthStore();
+  const NAV_ITEMS = BASE_NAV.filter((item) => !(item.minorHidden && user?.isMinor));
   const logout = useLogout();
   const location = useLocation();
   const { isDark, toggle } = useThemeStore();

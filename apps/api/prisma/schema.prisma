@@ -65,6 +65,7 @@ model User {
   lastName     String
   phone        String?
   role         Role    @default(STUDENT)
+  isMinor      Boolean @default(false)
   isActive     Boolean @default(true)
 
   createdAt DateTime @default(now())

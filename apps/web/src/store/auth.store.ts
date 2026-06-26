@@ -8,6 +8,7 @@ interface AuthUser {
   role: Role;
   firstName: string;
   lastName: string;
+  isMinor: boolean;
 }
 
 interface AuthState {
