@@ -36,17 +36,19 @@ interface PaymentsQuery {
   to?: string;
   page?: number;
   limit?: number;
+  enabled?: boolean;
 }
 
 const PAYMENTS_KEY = 'payments';
 
-export function usePayments(query: PaymentsQuery = {}) {
+export function usePayments({ enabled = true, ...query }: PaymentsQuery = {}) {
   return useQuery({
     queryKey: [PAYMENTS_KEY, query],
     queryFn: () =>
       api
         .get<{ data: Payment[]; total: number; page: number; limit: number }>('/payments', { params: query })
         .then((r) => r.data),
+    enabled,
   });
 }
 

@@ -68,7 +68,7 @@ export default function StudentDashboardPage() {
     .slice(0, 3);
 
   const { data: stats } = useStudentStats(user?.id ?? '');
-  const { data: payments } = usePayments({ studentId: user?.id, status: 'PENDING', limit: 100 });
+  const { data: payments } = usePayments({ studentId: user?.id, status: 'PENDING', limit: 100, enabled: !user?.isMinor });
 
   const pendingCount = payments?.total ?? 0;
   const pendingAmount = (payments?.data ?? []).reduce((s, p) => s + Number(p.amount), 0);
@@ -193,47 +193,49 @@ export default function StudentDashboardPage() {
           </div>
         </motion.section>
 
-        {/* Payments */}
-        <motion.section variants={item}>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-foreground">Płatności</h2>
-            <Link to="/student/payments" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">
-              Zapłać →
-            </Link>
-          </div>
-          <div className="bg-card rounded-2xl border border-border p-5">
-            {pendingCount === 0 ? (
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-emerald-500/15">
-                  <CreditCard className="w-4 h-4 text-emerald-400" />
+        {/* Payments — hidden for minor students */}
+        {!user?.isMinor && (
+          <motion.section variants={item}>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-foreground">Płatności</h2>
+              <Link to="/student/payments" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">
+                Zapłać →
+              </Link>
+            </div>
+            <div className="bg-card rounded-2xl border border-border p-5">
+              {pendingCount === 0 ? (
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-emerald-500/15">
+                    <CreditCard className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Brak zaległości</p>
+                    <p className="text-xs text-muted-foreground">Wszystkie płatności uregulowane</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">Brak zaległości</p>
-                  <p className="text-xs text-muted-foreground">Wszystkie płatności uregulowane</p>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-amber-500/15">
+                    <AlertCircle className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {pendingCount} {pendingCount === 1 ? 'płatność' : 'płatności'} do opłacenia
+                    </p>
+                    <p className="text-xs text-muted-foreground">Łącznie: {fmt(pendingAmount)}</p>
+                  </div>
+                  <Link
+                    to="/student/payments"
+                    className="ml-auto px-3 py-1.5 text-xs text-white rounded-xl"
+                    style={{ background: 'linear-gradient(135deg, #8b5cf6, #6366f1)' }}
+                  >
+                    Zapłać
+                  </Link>
                 </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-amber-500/15">
-                  <AlertCircle className="w-4 h-4 text-amber-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    {pendingCount} {pendingCount === 1 ? 'płatność' : 'płatności'} do opłacenia
-                  </p>
-                  <p className="text-xs text-muted-foreground">Łącznie: {fmt(pendingAmount)}</p>
-                </div>
-                <Link
-                  to="/student/payments"
-                  className="ml-auto px-3 py-1.5 text-xs text-white rounded-xl"
-                  style={{ background: 'linear-gradient(135deg, #8b5cf6, #6366f1)' }}
-                >
-                  Zapłać
-                </Link>
-              </div>
-            )}
-          </div>
-        </motion.section>
+              )}
+            </div>
+          </motion.section>
+        )}
       </div>
 
       {/* Groups overview */}
