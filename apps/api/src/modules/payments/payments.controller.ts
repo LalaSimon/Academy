@@ -12,6 +12,7 @@ import {
   HttpStatus,
   Headers,
   Req,
+  ForbiddenException,
 } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
 import { Request } from 'express';
@@ -31,7 +32,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { IsUrl } from 'class-validator';
 
 class CheckoutDto {
-  @IsUrl()
+  @IsUrl({ require_tld: false })
   returnUrl: string;
 }
 
@@ -53,7 +54,13 @@ export class PaymentsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get()
   @Roles('ADMIN', 'TEACHER', 'STUDENT', 'PARENT')
-  findAll(@Query() query: QueryPaymentsDto) {
+  findAll(
+    @Query() query: QueryPaymentsDto,
+    @Req() req: Request & { user: { id: string; role: string } },
+  ) {
+    if (req.user.role === 'STUDENT' || req.user.role === 'PARENT') {
+      query.studentId = req.user.id;
+    }
     return this.paymentsService.findAll(query);
   }
 
@@ -95,7 +102,15 @@ export class PaymentsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Post(':id/checkout')
   @Roles('ADMIN', 'STUDENT', 'PARENT')
-  checkout(@Param('id') id: string, @Body() body: CheckoutDto) {
+  async checkout(
+    @Param('id') id: string,
+    @Body() body: CheckoutDto,
+    @Req() req: Request & { user: { id: string; role: string } },
+  ) {
+    if (req.user.role === 'STUDENT' || req.user.role === 'PARENT') {
+      const payment = await this.paymentsService.findOne(id);
+      if (payment.student?.id !== req.user.id) throw new ForbiddenException();
+    }
     return this.paymentsService.createCheckout(id, body.returnUrl);
   }
 
