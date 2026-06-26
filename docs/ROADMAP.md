@@ -235,36 +235,65 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [x] Hero z animowanym naglowkiem (rotating language + blur reveal) i floating bubbles
 - [x] Sekcja statystyk (500+ uczniow, 8 językow, 4 lata, 97% poleca)
 - [x] "Jak to dziala" — 3 kroki z ikonami i stagger reveal
-- [x] Bento features — 4 kafle (male grupy z obrazem, elastyczne godziny, nagrania, materialy z obrazem)
-- [x] Marquee z jezykami (jeden na strone)
-- [x] Opinie uczniow — 3 karty z awatarami i ocenami
+- [x] FeaturesSection bento — animowana sekcja: speaking ring (aktywny mowca), real-time progress bar (42:17), waveform, harmonogram, materialy
+- [x] LanguagesSection — siatka 4x2 z flagami CDN jako tlo + narozne flagi + greeting + hover lift
+- [x] PlatformSection — animowany mockup przegladarki z 6 zakladkami ucznia (Dashboard/Zajecia/Grupy/Materialy/Frekwencja/Platnosci), screenshoty z prawdziwymi danymi
+- [x] TeachersSection — 3 karty lektorow z certyfikatami, miniflagi jezykow, statystyki
 - [x] FAQ — accordion z AnimatePresence
-- [x] CTA section z linkiem do `/login`
+- [x] CTA section — split layout: duza typografia + interaktywny widget rezerwacji probnej lekcji (wybor jezyka + sloty godzinowe); zero gradientow
 - [x] Footer z nawigacja i danymi kontaktowymi
 - [x] Route `/` → `LandingPage` w `App.tsx`
 - [x] Responsywnosc (hamburger menu, mobile collapse dla wszystkich sekcji)
 - [x] prefers-reduced-motion support przez `useReducedMotion`
+- [x] Screenshoty aplikacji w `src/assets/screenshots/` — importowane przez Vite (nie public/); dane seedowane przez API
 
 ---
 
-## Faza 4 — Rozszerzenia (przyszłość)
+## Faza 4 — Powiadomienia i Rozszerzenia
 
-- [ ] Powiadomienia email (BullMQ + Nodemailer) — nieobecności, przypomnienia o płatnościach, 30 min przed zajęciami
-- [ ] In-app powiadomienia (bell icon w navbarze)
+### 4.1 — Email sender ← **teraz**
+
+- [ ] Wybor i konfiguracja dostawcy SMTP (Resend / Mailgun / SendGrid)
+- [ ] `MailModule` + `MailService` w NestJS (Nodemailer lub SDK dostawcy)
+- [ ] Zmienne srodowiskowe dla konfiguracji maila (`.env` + Docker Compose)
+- [ ] Bazowy template email (HTML + text fallback)
+- [ ] Wysylanie testowego emaila z poziomu CLI / endpointu dev
+
+### 4.2 — Kolejkowanie emaili (BullMQ)
+
+- [ ] BullMQ + Redis queue `mail-queue`
+- [ ] `MailProcessor` — worker pobierajacy zadania z kolejki
+- [ ] Retry policy (3 proby, exponential backoff)
+
+### 4.3 — Triggery emaili
+
+- [ ] Przypomnienie o zajeciach — 30 min przed `scheduledAt` (cron BullMQ delayed job)
+- [ ] Powiadomienie o nieobecnosci — po zapisaniu `ABSENT` w frekwencji
+- [ ] Przypomnienie o platnosci — gdy status `PENDING` i `dueDate` za 3 dni
+- [ ] Potwierdzenie platnosci — po zmianie statusu na `PAID` (webhook Stripe lub reczna zmiana)
+
+### 4.4 — In-app powiadomienia
+
+- [ ] `Notification` model w Prisma (userId, type, title, body, read, createdAt)
+- [ ] Bell icon w navbarze z licznikiem nieprzeczytanych
+- [ ] Panel powiadomien (dropdown lub strona)
+
+### 4.5 — Pozostale rozszerzenia (backlog)
+
 - [ ] Zadania domowe (upload, ocenianie)
-- [ ] Testy poziomujące (quiz builder)
-- [ ] Tracking postępów ucznia
+- [ ] Testy poziomujace (quiz builder)
+- [ ] Tracking postepu ucznia
 - [ ] Google Calendar API (automatyczne Meet linki)
 - [ ] Raporty i eksport CSV/PDF
 - [ ] Aplikacja mobilna (React Native lub PWA)
-- [ ] Czat wewnętrzny (nauczyciel ↔ uczeń)
+- [ ] Czat wewnetrzny (nauczyciel ↔ uczen)
 
 ---
 
 ## ▶ Co robimy teraz?
 
-**Faza 3.2 ukonczona. Strona glowna (3.4) ukonczona.** Nastepne kroki:
-1. ~~Portal rodzica z widokiem per-dziecko (3.2)~~ ✅
-2. ~~Landing page szkoly jezykowej (3.4)~~ ✅
-3. Powiazania rodzic-dziecko w panelu admina (3.3) ← **nastepne**
-4. Powiadomienia email i rozszerzenia (Faza 4)
+**Faza 3 ukonczona. Landing page gotowy.** Nastepne kroki:
+1. ~~Portal rodzica (3.2)~~ ✅
+2. ~~Landing page (3.4)~~ ✅
+3. Konfiguracja email sendera (4.1) ← **teraz**
+4. Powiazania rodzic-dziecko w panelu admina (3.3) — do zrobienia rowolegle lub po 4.1

@@ -61,7 +61,9 @@ export class AttendanceController {
       throw new ForbiddenException();
     }
     if (req.user.role === 'PARENT') {
-      const childIds = await this.attendanceService.getParentChildIds(req.user.id);
+      const childIds = await this.attendanceService.getParentChildIds(
+        req.user.id,
+      );
       if (!childIds.includes(studentId)) throw new ForbiddenException();
     }
     return this.attendanceService.getStudentStats(studentId, {

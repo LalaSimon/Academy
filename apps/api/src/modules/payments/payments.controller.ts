@@ -62,7 +62,9 @@ export class PaymentsController {
       query.studentId = req.user.id;
     }
     if (req.user.role === 'PARENT') {
-      const childIds = await this.paymentsService.getParentChildIds(req.user.id);
+      const childIds = await this.paymentsService.getParentChildIds(
+        req.user.id,
+      );
       if (!query.studentId || !childIds.includes(query.studentId)) {
         throw new ForbiddenException();
       }
@@ -119,7 +121,9 @@ export class PaymentsController {
     }
     if (req.user.role === 'PARENT') {
       const payment = await this.paymentsService.findOne(id);
-      const childIds = await this.paymentsService.getParentChildIds(req.user.id);
+      const childIds = await this.paymentsService.getParentChildIds(
+        req.user.id,
+      );
       if (!payment.student?.id || !childIds.includes(payment.student.id)) {
         throw new ForbiddenException();
       }

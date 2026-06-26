@@ -68,6 +68,10 @@ model User {
   isMinor      Boolean @default(false)
   isActive     Boolean @default(true)
 
+  emailVerified           Boolean   @default(false)
+  emailVerificationToken  String?   @unique
+  emailVerificationExpiry DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -6,7 +6,15 @@ import type { Role } from '@academy/shared';
 
 interface LoginResponse {
   accessToken: string;
-  user: { id: string; email: string; role: Role; isMinor: boolean; firstName: string; lastName: string };
+  user: {
+    id: string;
+    email: string;
+    role: Role;
+    isMinor: boolean;
+    firstName: string;
+    lastName: string;
+    needsChildSetup?: boolean;
+  };
 }
 
 export function useLogin() {
@@ -18,7 +26,11 @@ export function useLogin() {
       api.post<LoginResponse>('/auth/login', credentials).then((r) => r.data),
     onSuccess: ({ accessToken, user }) => {
       login(accessToken, user);
-      navigate(getDashboardPath(user.role));
+      if (user.needsChildSetup) {
+        navigate('/parent/setup');
+      } else {
+        navigate(getDashboardPath(user.role));
+      }
     },
   });
 }

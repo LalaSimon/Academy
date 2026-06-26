@@ -1,4 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import screenshotStudentDashboard from '@/assets/screenshots/student-dashboard.png';
+import screenshotStudentClasses from '@/assets/screenshots/student-classes.png';
+import screenshotStudentAttendance from '@/assets/screenshots/student-attendance.png';
+import screenshotStudentMaterials from '@/assets/screenshots/student-materials.png';
+import screenshotStudentPayments from '@/assets/screenshots/student-payments.png';
+import screenshotStudentGroups from '@/assets/screenshots/student-groups.png';
 import { Link } from 'react-router-dom';
 import {
   motion,
@@ -18,7 +24,6 @@ import {
   Star,
   ArrowRight,
   ChevronDown,
-  Globe,
   GraduationCap,
   CheckCircle,
   Menu,
@@ -57,35 +62,56 @@ const STEPS = [
   },
 ];
 
-const LANGUAGES_MARQUEE = [
-  'Angielski', 'Niemiecki', 'Hiszpański', 'Włoski', 'Francuski',
-  'Portugalski', 'Rosyjski', 'Niderlandzki', 'Szwedzki', 'Japoński',
+const LANGUAGES = [
+  { name: 'Angielski',   greeting: 'Hello',      flagCode: 'gb', border: 'rgba(56,189,248,0.25)'  },
+  { name: 'Niemecki',    greeting: 'Hallo',       flagCode: 'de', border: 'rgba(251,191,36,0.25)'  },
+  { name: 'Hiszpanski',  greeting: 'Hola',        flagCode: 'es', border: 'rgba(239,68,68,0.25)'   },
+  { name: 'Wloski',      greeting: 'Ciao',        flagCode: 'it', border: 'rgba(74,222,128,0.25)'  },
+  { name: 'Francuski',   greeting: 'Bonjour',     flagCode: 'fr', border: 'rgba(96,165,250,0.25)'  },
+  { name: 'Portugalski', greeting: 'Olá',         flagCode: 'pt', border: 'rgba(52,211,153,0.25)'  },
+  { name: 'Rosyjski',    greeting: 'Привет',      flagCode: 'ru', border: 'rgba(248,113,113,0.25)' },
+  { name: 'Japonski',    greeting: 'こんにちは',  flagCode: 'jp', border: 'rgba(251,113,133,0.25)' },
 ];
 
-const TESTIMONIALS = [
+const TEACHERS = [
   {
-    name: 'Joanna Marek',
-    role: 'Mama Anki, 15 lat',
-    quote:
-      'Ania zdała egzamin FCE po roku nauki w Academy. Poprzednia szkoła nie dała takich efektów przez trzy lata nauki.',
-    avatar: 'https://picsum.photos/seed/joanna-language-parent/64/64',
-    stars: 5,
+    name: 'Sarah K.',
+    title: 'Lektor angielskiego',
+    photo: 'https://picsum.photos/seed/teacher-sarah-british-woman/400/500',
+    languages: [{ name: 'Angielski', flagCode: 'gb' }],
+    levels: 'B1 – C2',
+    experience: '9 lat',
+    students: 134,
+    cert: 'Cambridge CELTA',
+    bio: 'Absolwentka Oxfordu. Specjalizuje sie w przygotowaniu do egzaminow Cambridge i IELTS.',
   },
   {
-    name: 'Tomasz Nowakowski',
-    role: 'Inzynier, Orange Polska',
-    quote:
-      'Potrzebowalem angielskiego do pracy z klientami z UK. Po 8 miesiacach prowadze spotkania bez zadnych problemow.',
-    avatar: 'https://picsum.photos/seed/tomasz-engineer-student/64/64',
-    stars: 5,
+    name: 'Klaus M.',
+    title: 'Lektor niemieckiego i hiszpanskiego',
+    photo: 'https://picsum.photos/seed/teacher-klaus-german-male/400/500',
+    languages: [
+      { name: 'Niemecki', flagCode: 'de' },
+      { name: 'Hiszpanski', flagCode: 'es' },
+    ],
+    levels: 'A1 – C1',
+    experience: '11 lat',
+    students: 89,
+    cert: 'DSH / DELE B2',
+    bio: 'Doktor lingwistyki z Berlina. Specjalizuje sie w jezyku biznesowym i konwersacjach.',
   },
   {
-    name: 'Zuzanna Wieczorek',
-    role: 'Studentka, Politechnika Warszawska',
-    quote:
-      'Zdalam egzamin B2 z Niemieckiego na pierwszym podejsciu. Lektorzy sa naprawde zaangazowani i cierpliwi.',
-    avatar: 'https://picsum.photos/seed/zuzanna-university-student/64/64',
-    stars: 5,
+    name: 'Yuki T.',
+    title: 'Lektor japonskiego',
+    photo: 'https://picsum.photos/seed/teacher-yuki-japanese-woman/400/500',
+    languages: [
+      { name: 'Japonski', flagCode: 'jp' },
+      { name: 'Angielski', flagCode: 'gb' },
+    ],
+    levels: 'A1 – B2',
+    experience: '6 lat',
+    students: 67,
+    cert: 'JLPT N1',
+    bio: 'Pochodzi z Tokio. Uczy jezyka mowionego, pisma i kultury japonskiej w naturalny sposob.',
   },
 ];
 
@@ -123,41 +149,6 @@ const stagger = {
   show: { transition: { staggerChildren: 0.1 } },
 };
 
-// ── Marquee ─────────────────────────────────────────────────────────────────
-
-function LanguageMarquee() {
-  const shouldReduce = useReducedMotion();
-  const items = [...LANGUAGES_MARQUEE, ...LANGUAGES_MARQUEE];
-
-  if (shouldReduce) {
-    return (
-      <div className="flex flex-wrap gap-4 justify-center">
-        {LANGUAGES_MARQUEE.map((lang) => (
-          <span key={lang} className="text-zinc-300 font-medium text-lg">
-            {lang}
-          </span>
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <div className="overflow-hidden">
-      <motion.div
-        className="flex gap-12 w-max"
-        animate={{ x: '-50%' }}
-        transition={{ duration: 30, repeat: Infinity, ease: 'linear', repeatType: 'loop' }}
-      >
-        {items.map((lang, i) => (
-          <span key={i} className="flex items-center gap-3 text-zinc-300 font-medium text-xl whitespace-nowrap">
-            <Globe className="w-4 h-4 text-violet-400 flex-shrink-0" strokeWidth={1.5} />
-            {lang}
-          </span>
-        ))}
-      </motion.div>
-    </div>
-  );
-}
 
 // ── Nav ─────────────────────────────────────────────────────────────────────
 
@@ -749,191 +740,679 @@ function HowItWorksSection() {
 
 // ── Features bento ────────────────────────────────────────────────────────────
 
+const VIDEO_AVATARS = [
+  { seed: 'teacher-sarah-english-online', name: 'Sarah K.', isTeacher: true },
+  { seed: 'student-piotr-language-class', name: 'Piotr W.', isTeacher: false },
+  { seed: 'student-anna-online-lesson',   name: 'Anna M.',  isTeacher: false },
+  { seed: 'student-tomek-video-call',     name: 'Tomek L.', isTeacher: false },
+];
+
+const SCHEDULE_SLOTS = [
+  { time: '16:00', lang: 'Hiszpanski A2', active: false },
+  { time: '18:00', lang: 'Angielski B2',  active: true  },
+  { time: '19:30', lang: 'Niemicki A1',   active: false },
+  { time: '21:00', lang: 'Wloski B1',     active: false },
+];
+
+const WAVE_BARS = [22, 48, 72, 38, 85, 58, 32, 68, 52, 78, 42, 62, 28, 74, 44];
+
 function FeaturesSection() {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.2 });
+  const inView = useInView(ref, { once: true, amount: 0.15 });
   const shouldReduce = useReducedMotion();
+  const [speakingIdx, setSpeakingIdx] = useState(0);
+
+  useEffect(() => {
+    if (shouldReduce) return;
+    const t = setInterval(() => setSpeakingIdx((i) => (i + 1) % VIDEO_AVATARS.length), 2600);
+    return () => clearInterval(t);
+  }, [shouldReduce]);
+
+  // Recording playback loop
+  const playProgress = useMotionValue(0);
+  const barWidth = useTransform(playProgress, [0, 100], ['0%', '100%']);
+  const [playTime, setPlayTime] = useState('0:00');
+
+  useEffect(() => {
+    if (shouldReduce) return;
+    const totalSecs = 42 * 60 + 17;
+    let alive = true;
+
+    const run = () => {
+      playProgress.set(0);
+      setPlayTime('0:00');
+      let lastSecond = -1;
+      const ctrl = animate(playProgress, 100, {
+        duration: totalSecs,
+        ease: 'linear',
+        onUpdate: (v) => {
+          const s = Math.floor((v / 100) * totalSecs);
+          if (s !== lastSecond) {
+            lastSecond = s;
+            setPlayTime(`${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`);
+          }
+        },
+        onComplete: () => { if (alive) run(); },
+      });
+      return ctrl;
+    };
+
+    const ctrl = run();
+    return () => { alive = false; ctrl.stop(); };
+  }, [shouldReduce]);
 
   return (
-    <section id="oferta" ref={ref} className="bg-zinc-900 py-24 lg:py-32">
+    <section id="oferta" ref={ref} className="bg-zinc-900 pt-12 pb-24 lg:pt-16 lg:pb-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.h2
           initial={shouldReduce ? false : { opacity: 0, y: 24 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.6, ease: EASE }}
           className="text-4xl lg:text-5xl font-bold tracking-tighter text-white mb-12 max-w-lg"
         >
           Wszystko, czego potrzebujesz do nauki
         </motion.h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <motion.div
-            initial={shouldReduce ? false : { opacity: 0, y: 32 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-            className="md:col-span-2 relative rounded-2xl overflow-hidden min-h-[280px] group"
-          >
-            <img
-              src="https://picsum.photos/seed/small-group-video-call-learning/800/500"
-              alt="Zajecia w malej grupie"
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/90 via-zinc-950/40 to-transparent" />
-            <div className="absolute bottom-0 left-0 p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="w-4 h-4 text-violet-400" strokeWidth={1.5} />
-                <span className="text-violet-300 text-xs font-semibold uppercase tracking-wider">Male grupy</span>
-              </div>
-              <h3 className="text-xl font-bold text-white">Maksymalnie 6 osob</h3>
-              <p className="text-zinc-400 text-sm mt-1 max-w-xs">Kazdy uczen dostaje uwage lektora. Zero anonimowosci w 30-osobowej klasie.</p>
-            </div>
-          </motion.div>
 
+          {/* CELL A: Live video classroom */}
           <motion.div
             initial={shouldReduce ? false : { opacity: 0, y: 32 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="rounded-2xl bg-zinc-800 border border-zinc-700 p-6 flex flex-col justify-between min-h-[280px]"
+            transition={{ duration: 0.6, delay: 0.08, ease: EASE }}
+            className="md:col-span-2 bg-zinc-950 rounded-2xl border border-zinc-800 overflow-hidden flex flex-col"
           >
-            <div className="w-11 h-11 rounded-2xl bg-violet-600/15 border border-violet-500/20 flex items-center justify-center">
-              <Clock className="w-5 h-5 text-violet-400" strokeWidth={1.5} />
+            {/* Topbar */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-800 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <motion.span
+                  className="block w-2 h-2 rounded-full bg-emerald-400"
+                  animate={shouldReduce ? {} : { opacity: [1, 0.35, 1] }}
+                  transition={{ duration: 1.3, repeat: Infinity }}
+                />
+                <span className="text-sm font-semibold text-white">Angielski B2</span>
+                <span className="text-xs text-zinc-500 hidden sm:inline">Lekcja w toku</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
+                <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
+                <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
+              </div>
             </div>
-            <div>
-              <h3 className="text-xl font-bold text-white">Elastyczne godziny</h3>
-              <p className="text-zinc-400 text-sm mt-2 leading-relaxed">Zajecia rano, po poludniu lub wieczorem. Wybierasz termin, ktory pasuje do Twojego zycia.</p>
-            </div>
-            <div className="flex flex-wrap gap-2 mt-4">
-              {['Rano', 'Po poludniu', 'Wieczor', 'Weekend'].map((t) => (
-                <span key={t} className="text-xs text-zinc-300 bg-zinc-700 rounded-full px-3 py-1">
-                  {t}
-                </span>
+
+            {/* 2×2 avatar grid */}
+            <div className="grid grid-cols-2 gap-2 p-3 flex-1 min-h-[240px]">
+              {VIDEO_AVATARS.map((av, i) => (
+                <div key={i} className="relative rounded-xl overflow-hidden bg-zinc-800 aspect-video">
+                  <img
+                    src={`https://picsum.photos/seed/${av.seed}/320/200`}
+                    alt={av.name}
+                    className="w-full h-full object-cover"
+                  />
+                  {/* Dim non-speakers so only the active speaker pops */}
+                  <motion.div
+                    className="absolute inset-0"
+                    animate={{ backgroundColor: speakingIdx === i ? 'rgba(9,9,11,0.2)' : 'rgba(9,9,11,0.55)' }}
+                    transition={{ duration: 0.5 }}
+                  />
+
+                  {/* Speaking border ring — always mounted, opacity drives show/hide */}
+                  <motion.div
+                    className="absolute inset-0 rounded-xl border-2 border-emerald-400 pointer-events-none"
+                    animate={
+                      speakingIdx === i
+                        ? { opacity: [0.5, 1, 0.5] }
+                        : { opacity: 0 }
+                    }
+                    transition={
+                      speakingIdx === i
+                        ? { duration: 0.9, repeat: Infinity, ease: 'easeInOut' }
+                        : { duration: 0.25 }
+                    }
+                  />
+
+                  {/* Mic bars (active speaker) */}
+                  {speakingIdx === i && !shouldReduce && (
+                    <div className="absolute top-2 right-2 flex items-end gap-[2px]">
+                      {[...Array(4)].map((_, b) => (
+                        <motion.div
+                          key={b}
+                          className="w-[3px] bg-emerald-400 rounded-full"
+                          animate={{ height: ['3px', `${8 + b * 4}px`, '3px'] }}
+                          transition={{ duration: 0.3 + b * 0.09, repeat: Infinity, ease: 'easeInOut', delay: b * 0.07 }}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Name tag */}
+                  <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 bg-black/65 backdrop-blur-sm rounded-md px-1.5 py-0.5">
+                    <span className="text-[10px] text-white font-medium leading-none">{av.name}</span>
+                    {av.isTeacher && (
+                      <span className="text-[9px] text-violet-300 leading-none">lektor</span>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
+
+            {/* Bottom bar */}
+            <div className="px-5 py-3 border-t border-zinc-800 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-zinc-500" strokeWidth={1.5} />
+                <span className="text-xs text-zinc-500">4 z 6 uczestnikow</span>
+              </div>
+              <span className="text-xs font-medium text-violet-400">Maks. 6 osob w grupie</span>
+            </div>
           </motion.div>
 
+          {/* CELL B: Flexible schedule */}
           <motion.div
             initial={shouldReduce ? false : { opacity: 0, y: 32 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.24, ease: [0.16, 1, 0.3, 1] }}
-            className="rounded-2xl bg-violet-950 border border-violet-800/40 p-6 flex flex-col justify-between min-h-[220px]"
+            transition={{ duration: 0.6, delay: 0.16, ease: EASE }}
+            className="bg-zinc-800 border border-zinc-700 rounded-2xl p-5 flex flex-col gap-3"
           >
-            <div className="w-11 h-11 rounded-2xl bg-violet-600/25 flex items-center justify-center">
-              <Video className="w-5 h-5 text-violet-300" strokeWidth={1.5} />
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm font-semibold text-white">Plan na dzis</p>
+              <Clock className="w-4 h-4 text-zinc-500" strokeWidth={1.5} />
             </div>
-            <div>
-              <h3 className="text-xl font-bold text-white">Nagrania z zajec</h3>
-              <p className="text-violet-200/70 text-sm mt-2 leading-relaxed">Kazda lekcja jest nagrywana. Wracaj do materialow kiedy chcesz.</p>
+
+            <div className="flex flex-col gap-2 flex-1">
+              {SCHEDULE_SLOTS.map((slot) => (
+                <div
+                  key={slot.time}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl ${
+                    slot.active
+                      ? 'bg-violet-600/20 border border-violet-500/30'
+                      : 'border border-zinc-700/60 opacity-55'
+                  }`}
+                >
+                  {slot.active ? (
+                    <motion.div
+                      className="w-1.5 h-1.5 rounded-full bg-violet-400 flex-shrink-0"
+                      animate={shouldReduce ? {} : { opacity: [1, 0.2, 1] }}
+                      transition={{ duration: 1.3, repeat: Infinity }}
+                    />
+                  ) : (
+                    <div className="w-1.5 h-1.5 rounded-full bg-zinc-600 flex-shrink-0" />
+                  )}
+                  <span className={`text-xs font-mono flex-shrink-0 ${slot.active ? 'text-violet-300 font-bold' : 'text-zinc-500'}`}>
+                    {slot.time}
+                  </span>
+                  <span className={`text-xs truncate ${slot.active ? 'text-white font-medium' : 'text-zinc-500'}`}>
+                    {slot.lang}
+                  </span>
+                </div>
+              ))}
             </div>
+
+            <p className="text-xs text-zinc-500 pt-1">
+              Rano, po poludniu lub wieczorem. Twoj wybor.
+            </p>
           </motion.div>
 
+          {/* CELL C: Recording / audio player */}
           <motion.div
             initial={shouldReduce ? false : { opacity: 0, y: 32 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.6, delay: 0.22, ease: EASE }}
+            className="bg-violet-950 border border-violet-800/40 rounded-2xl p-6 flex flex-col gap-4"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-white">Nagranie z lekcji</p>
+              <Video className="w-4 h-4 text-violet-400" strokeWidth={1.5} />
+            </div>
+
+            <div>
+              <p className="text-base font-bold text-white leading-snug">Lekcja 14 - Present Perfect</p>
+              <p className="text-xs text-violet-300/80 mt-0.5">Sarah K. - Angielski B2</p>
+            </div>
+
+            {/* Animated waveform */}
+            <div className="flex items-center gap-[3px] h-10">
+              {WAVE_BARS.map((h, i) => (
+                <motion.div
+                  key={i}
+                  className={`flex-1 rounded-full ${i < 8 ? 'bg-violet-400' : 'bg-violet-800/50'}`}
+                  style={{ height: h }}
+                  animate={!shouldReduce && i < 8 ? { scaleY: [1, 0.4 + (i % 3) * 0.3, 1] } : {}}
+                  transition={{
+                    duration: 0.38 + (i % 5) * 0.09,
+                    repeat: Infinity,
+                    ease: 'easeInOut',
+                    delay: i * 0.045,
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Progress */}
+            <div className="space-y-1.5 mt-2">
+              <div className="h-1 bg-violet-900 rounded-full overflow-hidden">
+                <motion.div className="h-full bg-violet-400 rounded-full" style={{ width: barWidth }} />
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-violet-400 font-mono tabular-nums">{playTime}</span>
+                <span className="text-xs text-violet-700 font-mono">42:17</span>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* CELL D: Photo + achievement unlock */}
+          <motion.div
+            initial={shouldReduce ? false : { opacity: 0, y: 32 }}
+            animate={inView ? { opacity: 1, y: 0 } : {}}
+            transition={{ duration: 0.6, delay: 0.28, ease: EASE }}
             className="md:col-span-2 relative rounded-2xl overflow-hidden min-h-[220px] group"
           >
             <img
-              src="https://picsum.photos/seed/study-materials-books-laptop/800/400"
-              alt="Materialy do nauki"
+              src="https://picsum.photos/seed/woman-studying-coffee-laptop/800/420"
+              alt="Nauka z materialami"
               className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/90 via-zinc-950/50 to-transparent" />
-            <div className="absolute left-0 top-0 h-full flex flex-col justify-center p-6 max-w-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <BookOpen className="w-4 h-4 text-violet-400" strokeWidth={1.5} />
-                <span className="text-violet-300 text-xs font-semibold uppercase tracking-wider">Materialy</span>
+            <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/90 via-zinc-950/55 to-zinc-950/10" />
+
+            <div className="relative h-full min-h-[220px] flex flex-col justify-between p-6">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <BookOpen className="w-4 h-4 text-violet-400" strokeWidth={1.5} />
+                  <span className="text-violet-300 text-xs font-semibold uppercase tracking-wider">Materialy</span>
+                </div>
+                <h3 className="text-xl font-bold text-white max-w-xs leading-snug">
+                  Certyfikowane materialy do kazdego poziomu
+                </h3>
               </div>
-              <h3 className="text-xl font-bold text-white">Certyfikowane materialy</h3>
-              <p className="text-zinc-400 text-sm mt-1">Pracujemy na sprawdzonych podrecznikach dostosowanych do Twojego poziomu i celu nauki.</p>
+
+              {/* Achievement card — animates in when section visible */}
+              <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={inView ? { opacity: 1, y: 0 } : {}}
+                transition={{ delay: 0.65, duration: 0.5, ease: EASE }}
+                className="self-start"
+              >
+                <div className="bg-zinc-900/90 backdrop-blur-sm border border-violet-500/25 rounded-xl px-4 py-3 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center flex-shrink-0">
+                    <CheckCircle className="w-[18px] h-[18px] text-white" strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] text-zinc-400 leading-none mb-1">Osiagnieto poziom</p>
+                    <p className="text-sm font-bold text-white leading-none">Cambridge B2</p>
+                  </div>
+                  <div className="w-14 flex-shrink-0">
+                    <div className="h-1 bg-zinc-700 rounded-full overflow-hidden">
+                      <motion.div
+                        className="h-full bg-violet-500 rounded-full"
+                        initial={{ width: '0%' }}
+                        animate={inView ? { width: '100%' } : {}}
+                        transition={{ delay: 0.95, duration: 1.3, ease: EASE }}
+                      />
+                    </div>
+                    <p className="text-[9px] text-zinc-500 mt-0.5 text-right font-mono">100%</p>
+                  </div>
+                </div>
+              </motion.div>
             </div>
           </motion.div>
+
         </div>
       </div>
     </section>
   );
 }
 
-// ── Languages marquee ─────────────────────────────────────────────────────────
+// ── Languages grid ────────────────────────────────────────────────────────────
 
 function LanguagesSection() {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.3 });
-  const shouldReduce = useReducedMotion();
-
-  return (
-    <section ref={ref} className="bg-zinc-950 py-20 border-y border-zinc-800">
-      <motion.div
-        initial={shouldReduce ? false : { opacity: 0 }}
-        animate={inView ? { opacity: 1 } : {}}
-        transition={{ duration: 0.6 }}
-        className="mb-8 text-center"
-      >
-        <p className="text-zinc-500 text-sm">Oferujemy nauke jezykow z calego swiata</p>
-      </motion.div>
-      <motion.div
-        initial={shouldReduce ? false : { opacity: 0 }}
-        animate={inView ? { opacity: 1 } : {}}
-        transition={{ duration: 0.6, delay: 0.15 }}
-      >
-        <LanguageMarquee />
-      </motion.div>
-    </section>
-  );
-}
-
-// ── Testimonials ──────────────────────────────────────────────────────────────
-
-function TestimonialsSection() {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, amount: 0.2 });
   const shouldReduce = useReducedMotion();
 
   return (
-    <section id="opinie" ref={ref} className="bg-zinc-900 py-24 lg:py-32">
+    <section ref={ref} className="bg-zinc-950 py-24 lg:py-32 border-y border-zinc-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
         <motion.div
           initial={shouldReduce ? false : { opacity: 0, y: 24 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.6 }}
-          className="mb-14"
+          transition={{ duration: 0.6, ease: EASE }}
+          className="mb-12"
         >
           <p className="text-violet-400 text-xs font-semibold uppercase tracking-[0.18em] mb-3">
-            Opinie uczniow
+            8 jezykow w ofercie
           </p>
           <h2 className="text-4xl lg:text-5xl font-bold tracking-tighter text-white">
-            Co mowia nasi uczniowie
+            Ktory chcesz opanowac?
           </h2>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {TESTIMONIALS.map((t, i) => (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {LANGUAGES.map((lang, i) => (
             <motion.div
-              key={t.name}
-              initial={shouldReduce ? false : { opacity: 0, y: 32 }}
+              key={lang.name}
+              initial={shouldReduce ? false : { opacity: 0, y: 28 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.6, delay: 0.1 + i * 0.12, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6 flex flex-col gap-4"
+              transition={{ duration: 0.5, delay: 0.06 + i * 0.07, ease: EASE }}
+              whileHover={shouldReduce ? {} : { y: -4, transition: { duration: 0.2 } }}
+              style={{ borderColor: lang.border }}
+              className="border rounded-2xl overflow-hidden relative cursor-default group bg-zinc-950"
             >
-              <div className="flex gap-0.5">
-                {Array.from({ length: t.stars }).map((_, s) => (
-                  <Star key={s} className="w-4 h-4 text-amber-400 fill-amber-400" strokeWidth={0} />
-                ))}
-              </div>
-              <p className="text-zinc-300 text-sm leading-relaxed flex-1">"{t.quote}"</p>
-              <div className="flex items-center gap-3 pt-2 border-t border-zinc-700">
-                <img
-                  src={t.avatar}
-                  alt={t.name}
-                  className="w-10 h-10 rounded-full object-cover bg-zinc-700"
-                />
-                <div>
-                  <p className="text-white text-sm font-semibold">{t.name}</p>
-                  <p className="text-zinc-500 text-xs">{t.role}</p>
+              {/* Flag as full-card background */}
+              <img
+                src={`https://flagcdn.com/w320/${lang.flagCode}.png`}
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 w-full h-full object-cover opacity-[0.30] group-hover:opacity-[0.45] transition-opacity duration-500 select-none pointer-events-none"
+              />
+              {/* Dark gradient so text stays readable */}
+              <div className="absolute inset-0 bg-gradient-to-br from-zinc-950/70 via-zinc-950/40 to-zinc-950/20 pointer-events-none" />
+
+              {/* Content */}
+              <div className="relative z-10 p-5 lg:p-6 flex flex-col min-h-[140px]">
+                {/* Corner flag */}
+                <div className="self-end mb-3">
+                  <img
+                    src={`https://flagcdn.com/w40/${lang.flagCode}.png`}
+                    alt={lang.name}
+                    className="w-8 h-auto rounded-sm shadow-md opacity-90"
+                  />
+                </div>
+
+                <p className="text-3xl lg:text-4xl font-bold text-white tracking-tight leading-none mt-auto">
+                  {lang.greeting}
+                </p>
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
+                  <p className="text-xs text-zinc-400 font-medium">{lang.name}</p>
+                  <p className="text-[10px] text-zinc-600 font-mono">A1 → C2</p>
                 </div>
               </div>
             </motion.div>
           ))}
         </div>
+
+      </div>
+    </section>
+  );
+}
+
+// ── Platform showcase ─────────────────────────────────────────────────────────
+
+const PLATFORM_FEATURES = [
+  'Nadchodzace zajecia i pelna historia lekcji',
+  'Nagrania z kazdej lekcji dostepne o kazdej porze',
+  'Frekwencja i platnosci zawsze aktualne',
+  'Oddzielny panel dla rodzica z wgladem w postepy',
+];
+
+const PLATFORM_SLIDES = [
+  { label: 'Dashboard',     url: 'student',            screenshot: screenshotStudentDashboard  },
+  { label: 'Moje zajecia',  url: 'student/classes',    screenshot: screenshotStudentClasses    },
+  { label: 'Moje grupy',    url: 'student/groups',     screenshot: screenshotStudentGroups     },
+  { label: 'Materialy',     url: 'student/materials',  screenshot: screenshotStudentMaterials  },
+  { label: 'Frekwencja',    url: 'student/attendance', screenshot: screenshotStudentAttendance },
+  { label: 'Platnosci',     url: 'student/payments',   screenshot: screenshotStudentPayments   },
+];
+
+const SLIDE_INTERVAL = 3500;
+
+function PlatformSection() {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, amount: 0.2 });
+  const shouldReduce = useReducedMotion();
+  const [slide, setSlide] = useState(0);
+  const [direction, setDirection] = useState(1);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const goTo = (idx: number) => {
+    setDirection(idx > slide ? 1 : -1);
+    setSlide(idx);
+  };
+
+  // Auto-advance
+  useEffect(() => {
+    if (shouldReduce) return;
+    timerRef.current = setTimeout(() => {
+      const next = (slide + 1) % PLATFORM_SLIDES.length;
+      setDirection(1);
+      setSlide(next);
+    }, SLIDE_INTERVAL);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [slide, shouldReduce]);
+
+  const variants = {
+    enter: (d: number) => ({ x: d * 40, opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit:  (d: number) => ({ x: d * -40, opacity: 0 }),
+  };
+
+  return (
+    <section ref={ref} className="bg-zinc-900 py-24 lg:py-32 overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+
+          {/* Left: text */}
+          <motion.div
+            initial={shouldReduce ? false : { opacity: 0, x: -32 }}
+            animate={inView ? { opacity: 1, x: 0 } : {}}
+            transition={{ duration: 0.7, ease: EASE }}
+          >
+            <p className="text-violet-400 text-xs font-semibold uppercase tracking-[0.18em] mb-4">
+              Platforma Academy
+            </p>
+            <h2 className="text-4xl lg:text-5xl font-bold tracking-tighter text-white leading-[1.05] mb-5">
+              Wszystko w jednym miejscu
+            </h2>
+            <p className="text-zinc-400 text-base leading-relaxed mb-10 max-w-md">
+              Jeden panel dla ucznia, lektora i rodzica. Zajecia, materialy, frekwencja i platnosci — poukladane, jasne i zawsze aktualne.
+            </p>
+            <ul className="flex flex-col gap-4">
+              {PLATFORM_FEATURES.map((feat, i) => (
+                <motion.li
+                  key={i}
+                  initial={shouldReduce ? false : { opacity: 0, x: -16 }}
+                  animate={inView ? { opacity: 1, x: 0 } : {}}
+                  transition={{ duration: 0.5, delay: 0.25 + i * 0.09, ease: EASE }}
+                  className="flex items-start gap-3"
+                >
+                  <CheckCircle className="w-4 h-4 text-violet-400 flex-shrink-0 mt-0.5" strokeWidth={2} />
+                  <span className="text-zinc-300 text-sm">{feat}</span>
+                </motion.li>
+              ))}
+            </ul>
+          </motion.div>
+
+          {/* Right: animated browser */}
+          <motion.div
+            initial={shouldReduce ? false : { opacity: 0, x: 32 }}
+            animate={inView ? { opacity: 1, x: 0 } : {}}
+            transition={{ duration: 0.7, delay: 0.1, ease: EASE }}
+            className="relative"
+          >
+            {/* Glow */}
+            <div className="absolute -inset-6 bg-violet-600/10 rounded-3xl blur-2xl pointer-events-none" />
+
+            {/* Browser frame */}
+            <div className="relative rounded-xl overflow-hidden border border-zinc-700 shadow-2xl shadow-black/70 ring-1 ring-white/[0.04]">
+
+              {/* Chrome bar */}
+              <div className="bg-zinc-800 px-4 py-2.5 flex items-center gap-3 border-b border-zinc-700">
+                <div className="flex gap-1.5 flex-shrink-0">
+                  <div className="w-3 h-3 rounded-full bg-zinc-600" />
+                  <div className="w-3 h-3 rounded-full bg-zinc-600" />
+                  <div className="w-3 h-3 rounded-full bg-zinc-600" />
+                </div>
+                <div className="flex-1 flex justify-center overflow-hidden">
+                  <div className="bg-zinc-700/70 rounded-md px-3 py-1 flex items-center gap-1.5 min-w-0">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+                    <AnimatePresence mode="wait">
+                      <motion.span
+                        key={slide}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.2 }}
+                        className="text-[11px] text-zinc-400 font-mono truncate"
+                      >
+                        app.academy.pl/{PLATFORM_SLIDES[slide].url}
+                      </motion.span>
+                    </AnimatePresence>
+                  </div>
+                </div>
+              </div>
+
+              {/* Screenshot area */}
+              <div className="relative overflow-hidden bg-zinc-950" style={{ aspectRatio: '1440/900' }}>
+                <AnimatePresence mode="wait" custom={direction}>
+                  <motion.img
+                    key={slide}
+                    custom={direction}
+                    variants={variants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    transition={{ duration: 0.35, ease: EASE }}
+                    src={PLATFORM_SLIDES[slide].screenshot}
+                    alt={PLATFORM_SLIDES[slide].label}
+                    className="absolute inset-0 w-full h-full object-cover object-top"
+                    draggable={false}
+                  />
+                </AnimatePresence>
+              </div>
+
+              {/* Progress bar */}
+              <div className="h-[2px] bg-zinc-800 overflow-hidden">
+                <motion.div
+                  key={slide}
+                  className="h-full bg-violet-500"
+                  initial={{ width: '0%' }}
+                  animate={{ width: '100%' }}
+                  transition={{ duration: SLIDE_INTERVAL / 1000, ease: 'linear' }}
+                />
+              </div>
+
+              {/* Tab nav */}
+              <div className="bg-zinc-800/80 px-4 py-2.5 flex items-center gap-1 border-t border-zinc-700 overflow-x-auto">
+                {PLATFORM_SLIDES.map((s, i) => (
+                  <button
+                    key={i}
+                    onClick={() => goTo(i)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all duration-200 ${
+                      i === slide
+                        ? 'bg-violet-600 text-white'
+                        : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/50'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+
+            </div>
+          </motion.div>
+
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Teachers ──────────────────────────────────────────────────────────────────
+
+function TeachersSection() {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, amount: 0.15 });
+  const shouldReduce = useReducedMotion();
+
+  return (
+    <section id="lektorzy" ref={ref} className="bg-zinc-900 py-24 lg:py-32">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <motion.div
+          initial={shouldReduce ? false : { opacity: 0, y: 24 }}
+          animate={inView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.6, ease: EASE }}
+          className="mb-14"
+        >
+          <p className="text-violet-400 text-xs font-semibold uppercase tracking-[0.18em] mb-3">
+            Nasz zespol
+          </p>
+          <h2 className="text-4xl lg:text-5xl font-bold tracking-tighter text-white">
+            Poznaj swoich lektorow
+          </h2>
+        </motion.div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {TEACHERS.map((t, i) => (
+            <motion.div
+              key={t.name}
+              initial={shouldReduce ? false : { opacity: 0, y: 32 }}
+              animate={inView ? { opacity: 1, y: 0 } : {}}
+              transition={{ duration: 0.6, delay: 0.08 + i * 0.12, ease: EASE }}
+              className="bg-zinc-800 border border-zinc-700 rounded-2xl overflow-hidden flex flex-col group"
+            >
+              {/* Photo */}
+              <div className="relative overflow-hidden aspect-[4/3]">
+                <img
+                  src={t.photo}
+                  alt={t.name}
+                  className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-zinc-800 via-transparent to-transparent" />
+
+                {/* Cert badge */}
+                <div className="absolute top-3 left-3 bg-zinc-900/85 backdrop-blur-sm border border-zinc-700 rounded-lg px-2.5 py-1">
+                  <span className="text-[10px] text-violet-300 font-semibold">{t.cert}</span>
+                </div>
+              </div>
+
+              {/* Info */}
+              <div className="p-5 flex flex-col gap-4 flex-1">
+                <div>
+                  <h3 className="text-lg font-bold text-white">{t.name}</h3>
+                  <p className="text-xs text-zinc-400 mt-0.5">{t.title}</p>
+                </div>
+
+                {/* Languages */}
+                <div className="flex flex-wrap gap-2">
+                  {t.languages.map((lang) => (
+                    <div
+                      key={lang.name}
+                      className="flex items-center gap-1.5 bg-zinc-700/60 border border-zinc-600/50 rounded-full px-2.5 py-1"
+                    >
+                      <img
+                        src={`https://flagcdn.com/w20/${lang.flagCode}.png`}
+                        alt={lang.name}
+                        className="w-4 h-auto rounded-sm"
+                      />
+                      <span className="text-[11px] text-zinc-300 font-medium">{lang.name}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="text-sm text-zinc-400 leading-relaxed flex-1">{t.bio}</p>
+
+                {/* Stats */}
+                <div className="flex items-center gap-4 pt-3 border-t border-zinc-700">
+                  <div>
+                    <p className="text-base font-bold text-white">{t.experience}</p>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide">doswiadczenia</p>
+                  </div>
+                  <div className="w-px h-8 bg-zinc-700" />
+                  <div>
+                    <p className="text-base font-bold text-white">{t.students}</p>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide">uczniow</p>
+                  </div>
+                  <div className="w-px h-8 bg-zinc-700" />
+                  <div>
+                    <p className="text-base font-bold text-white">{t.levels}</p>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide">poziomy</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
       </div>
     </section>
   );
@@ -1004,45 +1483,150 @@ function FAQSection() {
 
 // ── CTA ───────────────────────────────────────────────────────────────────────
 
+const TRIAL_LANGS = ['Angielski', 'Niemecki', 'Hiszpanski'];
+
+const TRIAL_SLOTS = [
+  { time: '16:00', taken: false },
+  { time: '17:00', taken: true  },
+  { time: '18:00', taken: false },
+  { time: '19:00', taken: false },
+  { time: '20:00', taken: true  },
+  { time: '21:00', taken: false },
+];
+
 function CTASection() {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.4 });
+  const inView = useInView(ref, { once: true, amount: 0.2 });
   const shouldReduce = useReducedMotion();
+  const [lang, setLang] = useState(0);
+  const [slot, setSlot] = useState(2);
 
   return (
-    <section ref={ref} className="bg-zinc-900 py-24">
+    <section ref={ref} className="bg-zinc-950 py-24 lg:py-32 border-t border-zinc-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={shouldReduce ? false : { opacity: 0, y: 32 }}
-          animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="relative rounded-2xl overflow-hidden bg-violet-600 px-8 py-16 text-center"
-          style={{
-            background: 'linear-gradient(135deg, #5b21b6 0%, #7c3aed 50%, #6d28d9 100%)',
-          }}
-        >
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background: 'radial-gradient(ellipse 60% 80% at 50% -10%, rgba(255,255,255,0.12) 0%, transparent 70%)',
-            }}
-          />
-          <div className="relative">
-            <h2 className="text-3xl lg:text-5xl font-bold tracking-tighter text-white mb-4 max-w-2xl mx-auto">
-              Gotowy na pierwsza lekcje?
-            </h2>
-            <p className="text-violet-200 text-lg mb-8 max-w-md mx-auto">
-              Dolacz do ponad 500 uczniow, ktorzy juz ucza sie z Academy.
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+
+          {/* Left — headline */}
+          <motion.div
+            initial={shouldReduce ? false : { opacity: 0, x: -32 }}
+            animate={inView ? { opacity: 1, x: 0 } : {}}
+            transition={{ duration: 0.7, ease: EASE }}
+          >
+            <p className="text-zinc-500 text-xs font-semibold uppercase tracking-[0.18em] mb-6">
+              Prywatna szkola jezykowa online
             </p>
-            <Link
-              to="/login"
-              className="inline-flex items-center gap-2 px-8 py-3.5 bg-white text-violet-700 font-bold rounded-xl hover:bg-violet-50 transition-colors duration-200 active:scale-[0.98] text-base"
-            >
-              Zaloguj sie i zacznij
-              <ArrowRight className="w-4 h-4" strokeWidth={2.5} />
-            </Link>
-          </div>
-        </motion.div>
+            <h2 className="text-5xl lg:text-7xl font-bold tracking-tighter text-white leading-[0.95] mb-6">
+              Zacznij<br />
+              mowic.<br />
+              <span className="text-violet-400">Dzisiaj.</span>
+            </h2>
+            <p className="text-zinc-400 text-base leading-relaxed mb-10 max-w-sm">
+              Male grupy, certyfikowani lektorzy, elastyczne godziny. Pierwsza lekcja probna bezplatna.
+            </p>
+            <div className="flex flex-col sm:flex-row items-start gap-4">
+              <Link
+                to="/login"
+                className="inline-flex items-center gap-2 px-7 py-3.5 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-xl transition-colors duration-200 active:scale-[0.98] text-sm"
+              >
+                Zaloguj sie i zacznij
+                <ArrowRight className="w-4 h-4" strokeWidth={2.5} />
+              </Link>
+              <a
+                href="mailto:kontakt@academy.pl"
+                className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors py-3.5"
+              >
+                Masz pytania? Napisz do nas
+              </a>
+            </div>
+          </motion.div>
+
+          {/* Right — trial booking widget */}
+          <motion.div
+            initial={shouldReduce ? false : { opacity: 0, x: 32 }}
+            animate={inView ? { opacity: 1, x: 0 } : {}}
+            transition={{ duration: 0.7, delay: 0.1, ease: EASE }}
+          >
+            <div className="border border-zinc-700 rounded-2xl p-6 bg-zinc-900">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <p className="text-white font-semibold text-base">Lekcja probna</p>
+                  <p className="text-zinc-500 text-xs mt-0.5">Bezplatna · 45 minut · Online</p>
+                </div>
+                <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 rounded-full px-2.5 py-1">
+                  0 zl
+                </span>
+              </div>
+
+              {/* Language picker */}
+              <div className="mb-5">
+                <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2.5">Jezyk</p>
+                <div className="flex gap-2 flex-wrap">
+                  {TRIAL_LANGS.map((l, i) => (
+                    <button
+                      key={l}
+                      onClick={() => setLang(i)}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+                        lang === i
+                          ? 'bg-violet-600 text-white'
+                          : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-500 hover:text-zinc-200'
+                      }`}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Time slots */}
+              <div className="mb-6">
+                <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2.5">Godzina — najblizszy wtorek</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {TRIAL_SLOTS.map((s, i) => (
+                    <button
+                      key={s.time}
+                      disabled={s.taken}
+                      onClick={() => !s.taken && setSlot(i)}
+                      className={`py-2.5 rounded-xl text-sm font-mono font-medium transition-all duration-150 ${
+                        s.taken
+                          ? 'bg-zinc-800/40 text-zinc-700 cursor-not-allowed border border-zinc-800/40'
+                          : slot === i
+                          ? 'bg-violet-600 text-white border border-violet-600'
+                          : 'bg-zinc-800 text-zinc-300 border border-zinc-700 hover:border-zinc-500'
+                      }`}
+                    >
+                      {s.taken ? <span className="text-[10px] text-zinc-700">zajete</span> : s.time}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-zinc-800 mb-5" />
+
+              {/* Summary + CTA */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-xs text-zinc-500 leading-relaxed">
+                  <p className="text-white text-sm font-medium">
+                    {TRIAL_LANGS[lang]} · {TRIAL_SLOTS[slot]?.time}
+                  </p>
+                  <p className="mt-0.5">Wtorek, 8 lipca 2025</p>
+                </div>
+              </div>
+
+              <Link
+                to="/login"
+                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-white text-zinc-900 font-semibold rounded-xl hover:bg-zinc-100 transition-colors duration-150 active:scale-[0.99] text-sm"
+              >
+                Zarezerwuj lekcje probna
+                <ArrowRight className="w-4 h-4" strokeWidth={2.5} />
+              </Link>
+              <p className="text-center text-[11px] text-zinc-600 mt-3">
+                Bez zobowiazan. Mozesz odwolac w dowolnej chwili.
+              </p>
+            </div>
+          </motion.div>
+
+        </div>
       </div>
     </section>
   );
@@ -1119,9 +1703,10 @@ export default function LandingPage() {
       <HeroSection />
       <StatsSection />
       <HowItWorksSection />
-      <FeaturesSection />
       <LanguagesSection />
-      <TestimonialsSection />
+      <PlatformSection />
+      <FeaturesSection />
+      <TeachersSection />
       <FAQSection />
       <CTASection />
       <LandingFooter />

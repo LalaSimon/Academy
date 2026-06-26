@@ -7,7 +7,10 @@ jest.mock('stripe', () => {
   return jest.fn().mockImplementation(() => ({
     checkout: {
       sessions: {
-        create: jest.fn().mockResolvedValue({ url: 'https://stripe.test/pay', id: 'cs_test_123' }),
+        create: jest.fn().mockResolvedValue({
+          url: 'https://stripe.test/pay',
+          id: 'cs_test_123',
+        }),
       },
     },
     webhooks: {
@@ -312,7 +315,9 @@ describe('PaymentsService', () => {
         description: 'Updated desc',
       });
 
-      const result = await service.update('pay1', { description: 'Updated desc' });
+      const result = await service.update('pay1', {
+        description: 'Updated desc',
+      });
 
       expect(prismaMock.payment.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -345,7 +350,9 @@ describe('PaymentsService', () => {
 
     it('throws NotFoundException for missing payment', async () => {
       prismaMock.payment.findUnique.mockResolvedValue(null);
-      await expect(service.remove('missing')).rejects.toThrow(NotFoundException);
+      await expect(service.remove('missing')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

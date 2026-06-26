@@ -2,6 +2,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthInitializer } from '@/components/AuthInitializer';
 import { LoginPage } from '@/pages/auth/LoginPage';
+import { RegisterPage } from '@/pages/auth/RegisterPage';
+import { VerifyEmailPage } from '@/pages/auth/VerifyEmailPage';
+import { ParentSetupPage } from '@/pages/parent/ParentSetupPage';
 import { TeachersPage } from '@/pages/admin/TeachersPage';
 import { StudentsPage } from '@/pages/admin/StudentsPage';
 import { GroupsPage } from '@/pages/admin/GroupsPage';
@@ -39,6 +42,9 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/parent/setup" element={<ParentSetupPage />} />
 
           <Route element={<PrivateRoute allowedRoles={['ADMIN']} />}>
             <Route element={<AdminLayout />}>

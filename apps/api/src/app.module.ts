@@ -9,12 +9,14 @@ import { ClassesModule } from './modules/classes/classes.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { MaterialsModule } from './modules/materials/materials.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { MailModule } from './modules/mail/mail.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     PrismaModule,
+    MailModule,
     AuthModule,
     UsersModule,
     GroupsModule,

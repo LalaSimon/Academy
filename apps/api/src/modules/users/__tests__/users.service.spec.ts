@@ -177,10 +177,22 @@ describe('UsersService', () => {
       // findUnique: first call = check email unique, subsequent = findOne for linkParentStudent
       mockPrisma.user.findUnique
         .mockResolvedValueOnce(null) // email check
-        .mockResolvedValue({ ...mockUser, studentGroups: [], asParent: [], asStudent: [] });
+        .mockResolvedValue({
+          ...mockUser,
+          studentGroups: [],
+          asParent: [],
+          asStudent: [],
+        });
       (argon2.hash as jest.Mock).mockResolvedValue('hashed');
-      mockPrisma.user.create.mockResolvedValue({ ...mockUser, id: 'stu-new', isMinor: true });
-      mockPrisma.parentStudent.upsert.mockResolvedValue({ parentId: 'par-1', studentId: 'stu-new' });
+      mockPrisma.user.create.mockResolvedValue({
+        ...mockUser,
+        id: 'stu-new',
+        isMinor: true,
+      });
+      mockPrisma.parentStudent.upsert.mockResolvedValue({
+        parentId: 'par-1',
+        studentId: 'stu-new',
+      });
 
       await service.create({
         email: 'minor2@test.com',
@@ -194,7 +206,9 @@ describe('UsersService', () => {
 
       expect(mockPrisma.parentStudent.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { parentId_studentId: { parentId: 'par-1', studentId: 'stu-new' } },
+          where: {
+            parentId_studentId: { parentId: 'par-1', studentId: 'stu-new' },
+          },
         }),
       );
     });
@@ -203,7 +217,12 @@ describe('UsersService', () => {
       mockPrisma.user.findUnique
         .mockResolvedValueOnce(null) // student email check
         .mockResolvedValueOnce(null) // parent email check
-        .mockResolvedValue({ ...mockUser, studentGroups: [], asParent: [], asStudent: [] });
+        .mockResolvedValue({
+          ...mockUser,
+          studentGroups: [],
+          asParent: [],
+          asStudent: [],
+        });
       (argon2.hash as jest.Mock).mockResolvedValue('hashed');
       mockPrisma.user.create
         .mockResolvedValueOnce({ ...mockUser, id: 'stu-new', isMinor: true })
@@ -231,7 +250,10 @@ describe('UsersService', () => {
       expect(mockPrisma.user.create).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({
-          data: expect.objectContaining({ role: 'PARENT', email: 'rodzic@test.com' }),
+          data: expect.objectContaining({
+            role: 'PARENT',
+            email: 'rodzic@test.com',
+          }),
         }),
       );
       expect(mockPrisma.parentStudent.upsert).toHaveBeenCalled();
@@ -242,7 +264,11 @@ describe('UsersService', () => {
         .mockResolvedValueOnce(null) // student email ok
         .mockResolvedValueOnce(mockUser); // parent email taken
       (argon2.hash as jest.Mock).mockResolvedValue('hashed');
-      mockPrisma.user.create.mockResolvedValue({ ...mockUser, id: 'stu-new', isMinor: true });
+      mockPrisma.user.create.mockResolvedValue({
+        ...mockUser,
+        id: 'stu-new',
+        isMinor: true,
+      });
 
       await expect(
         service.create({

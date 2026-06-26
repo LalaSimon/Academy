@@ -9,6 +9,7 @@ interface AuthUser {
   firstName: string;
   lastName: string;
   isMinor: boolean;
+  needsChildSetup?: boolean;
 }
 
 interface AuthState {
