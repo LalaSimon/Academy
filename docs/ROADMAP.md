@@ -154,6 +154,10 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [x] Strona płatności ucznia (`StudentPaymentsPage`) — podsumowanie pending/paid, tabela, przycisk Stripe Checkout
 - [x] `PaymentFormModal` — tryb "dla ucznia" i "dla grupy (bulk)"
 - [x] Hooki — `usePayments`, `usePaymentStats`, `useCreatePayment`, `useCreateBulkPayments`, `useUpdatePaymentStatus`, `useDeletePayment`, `useCheckoutPayment`
+- [x] Fix bramki: `@IsUrl({ require_tld: false })` — localhost URL przechodzi walidację
+- [x] Fix autoryzacji: `GET /payments` auto-filtruje po `req.user.id` dla STUDENT/PARENT; checkout sprawdza ownership
+- [x] UX przepływu Stripe: redirect w tej samej zakładce (`window.location.href`), toast przed redirect, obsługa `?status=success|cancelled` po powrocie, `invalidateQueries` po 3s
+- [x] Stripe CLI w Docker Compose (`stripe` service) — automatyczne forwarding webhooków na `http://api:3000/api/v1/payments/webhook/stripe`; `docker compose up -d` startuje cały stack w tym listener
 
 ### 2.2 — Portal ucznia ✅
 
@@ -191,9 +195,40 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ---
 
-## Faza 3 — Rozszerzenia (przyszłość)
+## Faza 3 — Portal Rodzica + Typy Uczniów
 
-- [ ] Portal rodzica — widok frekwencji i płatności dziecka
+### 3.1 — Model danych: uczeń pełnoletni vs. niepełnoletni
+
+- [ ] Migracja: `User.isMinor: Boolean @default(false)`
+- [ ] Admin `UserFormModal` — typ konta przy tworzeniu:
+  - Nauczyciel / Uczeń pełnoletni / Uczeń niepełnoletni / Rodzic
+  - Dla "Uczeń niepełnoletni": sekcja "Rodzic" — wybór istniejącego lub tworzenie nowego konta rodzica inline (jeden request = dwa konta + link)
+- [ ] `StudentLayout` ukrywa zakładkę "Płatności" gdy `user.isMinor = true`
+- [ ] `StudentPaymentsPage` guard: redirect 403 jeśli `isMinor` (defence in depth)
+- [ ] API `POST /users` obsługuje `isMinor` + opcjonalne `parentData` (tworzy i linkuje rodzica w jednej transakcji)
+
+### 3.2 — Portal rodzica
+
+- [ ] `ParentLayout` — sidebar z nawigacją: Moje dzieci → per-dziecko: Zajęcia / Frekwencja / Grupy / Materiały / Płatności
+- [ ] `ParentDashboardPage` — lista dzieci, podsumowanie płatności (pending per dziecko), nadchodzące zajęcia
+- [ ] `ParentChildPage` — widok per-dziecko z zakładkami (reużywa komponentów ze StudentLayout)
+- [ ] `ParentPaymentsPage` — tabela płatności dziecka + Stripe Checkout (rodzic płaci za dziecko)
+- [ ] API: endpointy dla PARENT z self-check — rodzic czyta tylko dane swoich dzieci:
+  - `GET /payments?studentId=:childId` — guard weryfikuje powiązanie rodzic↔dziecko
+  - `POST /payments/:id/checkout` — rozszerzony ownership check: płatność należy do dziecka rodzica
+  - `GET /classes`, `GET /attendance/student/:id`, `GET /groups/:id` — self-check dla PARENT
+- [ ] Routing: `PrivateRoute allowedRoles=['PARENT']` → `ParentLayout` → `/parent/*`
+
+### 3.3 — Administracja powiązań rodzic-dziecko
+
+- [ ] `StudentProfilePage` (admin) — sekcja "Rodzic": wyświetla powiązanego rodzica, przycisk linkowania/odlinkowania
+- [ ] `UsersTable` — kolumna "Rodzic" dla uczniów niepełnoletnich (badge)
+- [ ] `StudentsPage` — filtr "Tylko niepełnoletni"
+
+---
+
+## Faza 4 — Rozszerzenia (przyszłość)
+
 - [ ] Powiadomienia email (BullMQ + Nodemailer) — nieobecności, przypomnienia o płatnościach, 30 min przed zajęciami
 - [ ] In-app powiadomienia (bell icon w navbarze)
 - [ ] Zadania domowe (upload, ocenianie)
@@ -208,7 +243,7 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ## ▶ Co robimy teraz?
 
-**Faza 2 ukończona w całości.** Następna: Faza 3 — wybór priorytetu:
-- Portal rodzica (2.2-spec → 3.x)
-- Powiadomienia email
-- Inne rozszerzenia
+**Faza 2 ukończona w całości.** Zaczynamy Fazę 3 — Portal Rodzica + Typy Uczniów:
+1. Migracja `User.isMinor` + rozszerzenie formularza tworzenia użytkownika (3.1)
+2. Portal rodzica z widokiem per-dziecko (3.2)
+3. Powiązania w panelu admina (3.3)
