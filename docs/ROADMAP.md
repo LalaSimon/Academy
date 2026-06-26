@@ -69,10 +69,11 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [x] `GroupsModule` — findAll, findOne, create, update, remove, addStudent (upsert), removeStudent (soft-delete)
 - [x] 12 testów jednostkowych — `groups.service.spec.ts`
 - [x] 10 testów integracyjnych — `test/groups.e2e-spec.ts`
-- [x] Hooki — `useGroups`, `useGroup`, `useCreateGroup`, `useUpdateGroup`, `useDeleteGroup`, `useAddStudentToGroup`, `useRemoveStudentFromGroup`
+- [x] Hooki — `useGroups`, `useGroup`, `useCreateGroup`, `useUpdateGroup`, `useDeleteGroup`, `useAddStudentToGroup`, `useRemoveStudentFromGroup`, `useAddGroupSchedule`, `useRemoveGroupSchedule`, `useGenerateClasses`
 - [x] `GroupsPage` — siatka kart, wyszukiwarka, paginacja
-- [x] `GroupDetailPage` — lista uczniów, sekcja materiałów grupy
+- [x] `GroupDetailPage` — lista uczniów; sekcja "Zajęcia w kalendarzu" (rzeczywiste Class records); sekcja "Szablon harmonogramu" (GroupSchedule slots + generowanie zajęć na miesiąc)
 - [x] `GroupFormModal`
+- [x] `GroupSchedule` model — wzorce cykliczne (dayOfWeek, startTime, durationMin, pricePerClass); wiele slotów = wiele dni w tygodniu
 
 ### 1.4 — Zajęcia ✅
 
@@ -80,12 +81,13 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
   - CRUD + `updateStatus` + bulk create (`POST /classes/bulk`) + bulk delete (`DELETE /classes/batch/:batchId`)
   - `PATCH /classes/batch/:batchId` — bulk edit serii: title, description, teacherId, durationMin, meetLink; `scheduledAtTemplate` przesuwa wszystkie daty proporcjonalnie (dayShift + nowa godzina)
   - Auto-fallback: `Class.teacherId` null → nauczyciel dziedziczony z grupy (spójność z listą i statystykami)
+  - `Class.groupId` nullable — zajęcia mogą być grupowe lub indywidualne (1:1)
+  - `Class.studentId` — nowe pole dla zajęć 1:1; auto-tworzy attendance + payment przy tworzeniu
 - [x] 12 testów jednostkowych — `classes.service.spec.ts`
 - [x] 12 testów integracyjnych — `test/classes.e2e-spec.ts`
 - [x] Hooki — `useClasses`, `useClass`, `useCreateClass`, `useUpdateClass`, `useUpdateClassStatus`, `useDeleteClass`, `useCreateBulkClasses`, `useDeleteBatch`, `useUpdateBatch`
-- [x] `ClassesPage` — przełącznik Kalendarz/Lista; zajęcia cykliczne grupowane w sekcje batchId z bulk-delete
-- [x] `ClassFormModal` — toggle "Tylko te zajęcia / Całą serię" dla zajęć z batchId; w trybie serii pole daty działa jako wzorzec przesunięcia
-- [x] `RecurringClassModal` — wybór dni tygodnia, zakres dat, podgląd listy przed zapisem
+- [x] `ClassesPage` — przełącznik Kalendarz/Lista; zajęcia cykliczne grupowane w sekcje batchId z bulk-delete; usunięty przycisk "Cyklicznie" (zastąpiony przez GroupSchedule workflow)
+- [x] `ClassFormModal` — toggle "Dla grupy / Dla ucznia (1:1)" przy tworzeniu; toggle "Tylko te zajęcia / Całą serię" dla edycji zajęć z batchId
 - [x] Przyciski statusu w liście: Zaplanowane → "Rozpocznij" → W trakcie → "Zakończ" → Zakończone
 
 ### 1.5 — Frekwencja ✅
@@ -138,35 +140,62 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [x] `global.setup.ts` — seed DB (admin/teacher/student/group) + zapis storageState admina
 - [x] `e2e/helpers/seed.js` — fixture'y przez Prisma (upsert, idempotentne)
 - [x] `auth.spec.ts` — formularz logowania, błędne dane, redirect do /admin, ochrona tras, wylogowanie, sesja po reload
-- [x] `classes.spec.ts` — lista zajęć, tworzenie klasy, zmiana statusu, modal obecności, zajęcia cykliczne
+- [x] `classes.spec.ts` — lista zajęć, tworzenie klasy, zmiana statusu, modal obecności, toggle trybu grupowego/1:1
 - [x] CI e2e job — postgres service, build API + start, build web + serve, wait-on, run Playwright, upload HTML report jako artifact
 - [ ] Testy E2E: proces płatności (mock bramki) — do dodania po Fazie 2.1
 
-### 2.1 — Płatności
-- [ ] `PaymentsModule` — CRUD opłat, statusy, bulk tworzenie dla grupy
-- [ ] Integracja Przelewy24 (checkout + webhook z weryfikacją podpisu)
-- [ ] Ręczna zmiana statusu przez admina
-- [ ] Cron: automatyczne oznaczanie OVERDUE
-- [ ] Dashboard finansowy admina (Recharts)
-- [ ] Strona płatności ucznia/rodzica
+### 2.1 — Płatności ✅
 
-### 2.2 — Portal rodzica
-- [ ] Widok frekwencji dziecka
-- [ ] Widok płatności dziecka
-- [ ] Powiadomienia email o nieobecności
+- [x] `PaymentsModule` — CRUD opłat (tworzenie pojedyncze + bulk dla grupy), statusy (PENDING/PAID/OVERDUE/REFUNDED/CANCELLED), paginacja, filtrowanie
+- [x] Integracja Stripe Checkout — `POST /payments/:id/checkout` generuje sesję Stripe; webhook weryfikuje podpis i oznacza PAID
+- [x] Ręczna zmiana statusu przez admina (Select w tabeli)
+- [x] Auto-tworzenie płatności przy tworzeniu zajęć z ceną (dla grupy: wszyscy uczniowie; dla 1:1: pojedynczy uczeń)
+- [x] Dashboard finansowy admina — karty statystyk (łącznie/zapłacone/zaległe/oczekujące), wykres słupkowy Recharts, tabela z paginacją, filtry
+- [x] Strona płatności ucznia (`StudentPaymentsPage`) — podsumowanie pending/paid, tabela, przycisk Stripe Checkout
+- [x] `PaymentFormModal` — tryb "dla ucznia" i "dla grupy (bulk)"
+- [x] Hooki — `usePayments`, `usePaymentStats`, `useCreatePayment`, `useCreateBulkPayments`, `useUpdatePaymentStatus`, `useDeletePayment`, `useCheckoutPayment`
 
-### 2.3 — Powiadomienia email
-- [ ] BullMQ kolejka + szablony HTML (Nodemailer)
-- [ ] Cron: reminder 30 min przed zajęciami
-- [ ] Cron: reminder o zalegających płatnościach
-- [ ] In-app powiadomienia (bell icon w navbarze)
+### 2.2 — Portal ucznia ✅
 
-**Cel Fazy 2:** Właściciel ma pełny wgląd w finanse. Rodzice są informowani.
+- [x] `StudentLayout` — dedykowany sidebar z nawigacją ucznia (dashboard/zajęcia/frekwencja/grupy/materiały/płatności)
+- [x] Dark/light mode toggle wspólny z AdminLayout (Zustand persist)
+- [x] `StudentDashboardPage` — nadchodzące zajęcia (useQueries dla wielu grup), ring frekwencji SVG, stan płatności, przegląd grup
+- [x] `StudentClassesPage` — zakładki Nadchodzące/Poprzednie/Wszystkie; multi-group fetch; link "Dołącz" do Meet
+- [x] `StudentAttendancePage` — 4 karty statystyk, wykres per-grupę, historia
+- [x] `StudentGroupsPage` — karty grup z language/level badge, nauczyciel, pojemność
+- [x] `StudentMaterialsPage` — sekcje per-grupę, badge typu, download przez blob
+- [x] `StudentPaymentsPage` — Stripe Checkout z poziomu portalu ucznia
+- [x] `useStudentProfile` hook — `GET /users/:id` z danymi grup (reused across student pages)
+- [x] Routing: `PrivateRoute allowedRoles=['STUDENT']` → StudentLayout → `/student/*`
+- [x] API: `GET /users/:id`, `GET /classes`, `GET /attendance/student/:id`, `GET /groups/:id` otwarte dla STUDENT (z self-check)
+- [x] Fix: zajęcia ucznia w wielu grupach — `useQueries` zamiast `useClasses({ groupId: groupIds[0] })`
+
+### 2.3 — UX / Design ✅
+
+- [x] Ciemny motyw (dark mode) — Tailwind `dark:` variant, klasa `dark` na `document.documentElement`; naprawia React portale (Dialog/Select/Popover)
+- [x] Premium light mode — nowe `:root` CSS vars (oklch, violet-500 accent, off-white background)
+- [x] Sun/Moon toggle w sidebarze z animacją obrotu (AnimatePresence)
+- [x] Animacje przejść między stronami — `AnimatePresence initial={false}` + `key={location.key}`; brak migotania
+- [x] Sidebar footer zawsze widoczny — `h-screen sticky top-0` na `<aside>`
+- [x] Wszystkie modale zamienione z hardcoded `bg-gray-*` na semantyczne tokeny (`bg-muted`, `bg-card`, `border-border`)
+
+### 2.4 — Uproszczenie modelu zajęć ✅
+
+- [x] Usunięto przycisk "Cyklicznie" z ClassesPage — jeden spójny workflow: GroupSchedule → "Generuj zajęcia"
+- [x] `GroupDetailPage` — "Zajęcia w kalendarzu" (Class records) oddzielone od "Szablon harmonogramu" (GroupSchedule)
+- [x] Wskazówka UI: "Dwa terminy = 2x w tygodniu" przy pustym szablonie
+- [x] Zajęcia 1:1 (`Class.groupId` nullable, `Class.studentId`) — migracja `add_individual_class_student`
+- [x] `ClassFormModal` toggle "Dla grupy / Dla ucznia (1:1)" przy tworzeniu
+
+**Cel Fazy 2:** Szkoła może działać operacyjnie finansowo. Uczniowie mają własny portal. Właściciel ma pełny wgląd.
 
 ---
 
 ## Faza 3 — Rozszerzenia (przyszłość)
 
+- [ ] Portal rodzica — widok frekwencji i płatności dziecka
+- [ ] Powiadomienia email (BullMQ + Nodemailer) — nieobecności, przypomnienia o płatnościach, 30 min przed zajęciami
+- [ ] In-app powiadomienia (bell icon w navbarze)
 - [ ] Zadania domowe (upload, ocenianie)
 - [ ] Testy poziomujące (quiz builder)
 - [ ] Tracking postępów ucznia
@@ -179,6 +208,7 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ## ▶ Co robimy teraz?
 
-**Faza 2.0 (E2E) ukończona. Następna: Faza 2.1 — Płatności.**
-
-Czekamy na potwierdzenie od użytkownika, czy przechodzimy do 2.1 (PaymentsModule + Przelewy24) czy 2.2 (Portal rodzica).
+**Faza 2 ukończona w całości.** Następna: Faza 3 — wybór priorytetu:
+- Portal rodzica (2.2-spec → 3.x)
+- Powiadomienia email
+- Inne rozszerzenia
