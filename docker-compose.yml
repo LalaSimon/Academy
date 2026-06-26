@@ -92,6 +92,16 @@ services:
     depends_on:
       - api
 
+  stripe:
+    image: stripe/stripe-cli:latest
+    container_name: academy_stripe
+    restart: unless-stopped
+    command: listen --api-key ${STRIPE_SECRET_KEY} --forward-to http://api:3000/api/v1/payments/webhook/stripe --skip-verify
+    volumes:
+      - ${HOME}/.config/stripe:/root/.config/stripe
+    depends_on:
+      - api
+
 volumes:
   postgres_data:
   redis_data:
