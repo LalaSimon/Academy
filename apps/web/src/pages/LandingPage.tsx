@@ -5,6 +5,9 @@ import {
   AnimatePresence,
   useInView,
   useReducedMotion,
+  useMotionValue,
+  useTransform,
+  useSpring,
 } from 'framer-motion';
 import {
   Users,
@@ -253,6 +256,236 @@ function LandingNav() {
   );
 }
 
+// ── Orbital visual ───────────────────────────────────────────────────────────
+
+type OrbitConfig = {
+  code: string;
+  label: string;
+  initialAngle: number;
+  radius: number;
+  duration: number;
+  direction: 1 | -1;
+};
+
+const INNER_RING: OrbitConfig[] = [
+  { code: 'EN', label: 'English', initialAngle: 0, radius: 110, duration: 16, direction: 1 },
+  { code: 'DE', label: 'Deutsch', initialAngle: 90, radius: 110, duration: 16, direction: 1 },
+  { code: 'FR', label: 'Francais', initialAngle: 180, radius: 110, duration: 16, direction: 1 },
+  { code: 'IT', label: 'Italiano', initialAngle: 270, radius: 110, duration: 16, direction: 1 },
+];
+
+const OUTER_RING: OrbitConfig[] = [
+  { code: 'ES', label: 'Espanol', initialAngle: 45, radius: 168, duration: 26, direction: -1 },
+  { code: 'JP', label: '日本語', initialAngle: 165, radius: 168, duration: 26, direction: -1 },
+  { code: 'PT', label: 'Portugues', initialAngle: 285, radius: 168, duration: 26, direction: -1 },
+];
+
+function buildOrbitKeyframes(initialAngle: number, radius: number, direction: 1 | -1, steps = 72) {
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const angle = ((initialAngle + direction * (i / steps) * 360) * Math.PI) / 180;
+    xs.push(Math.cos(angle) * radius);
+    ys.push(Math.sin(angle) * radius * 0.55); // compress Y → elliptical orbit
+  }
+  return { xs, ys };
+}
+
+function OrbitPill({ cfg, reduce }: { cfg: OrbitConfig; reduce: boolean }) {
+  const { xs, ys } = buildOrbitKeyframes(cfg.initialAngle, cfg.radius, cfg.direction);
+  return (
+    <motion.div
+      className="absolute left-1/2 top-1/2"
+      style={{ translateX: '-50%', translateY: '-50%' }}
+      animate={reduce ? {} : { x: xs, y: ys }}
+      transition={{
+        duration: cfg.duration,
+        repeat: Infinity,
+        ease: 'linear',
+        repeatType: 'loop',
+      }}
+    >
+      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 border border-zinc-700 shadow-lg shadow-zinc-950/60 select-none whitespace-nowrap">
+        <span className="text-xs font-bold text-violet-300">{cfg.code}</span>
+        <span className="text-[10px] text-zinc-500 hidden sm:inline">{cfg.label}</span>
+      </div>
+    </motion.div>
+  );
+}
+
+function AudioWave({ reduce }: { reduce: boolean }) {
+  const bars = [0.4, 0.7, 1, 0.6, 0.85, 0.5, 0.9, 0.65, 0.45, 0.8];
+  return (
+    <div className="flex items-center gap-[3px] h-5">
+      {bars.map((h, i) => (
+        <motion.div
+          key={i}
+          className="w-[3px] bg-violet-400 rounded-full"
+          style={{ height: `${h * 20}px` }}
+          animate={reduce ? {} : { scaleY: [1, 0.3 + Math.random() * 0.7, 1] }}
+          transition={{
+            duration: 0.6 + i * 0.07,
+            repeat: Infinity,
+            ease: 'easeInOut',
+            delay: i * 0.06,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function AnimatedHeroVisual() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const reduce = useReducedMotion() ?? false;
+
+  const rawX = useMotionValue(0);
+  const rawY = useMotionValue(0);
+  const springX = useSpring(rawX, { stiffness: 80, damping: 20 });
+  const springY = useSpring(rawY, { stiffness: 80, damping: 20 });
+
+  const layer1X = useTransform(springX, [-0.5, 0.5], [-18, 18]);
+  const layer1Y = useTransform(springY, [-0.5, 0.5], [-18, 18]);
+  const layer2X = useTransform(springX, [-0.5, 0.5], [-8, 8]);
+  const layer2Y = useTransform(springY, [-0.5, 0.5], [-8, 8]);
+  const layer3X = useTransform(springX, [-0.5, 0.5], [-30, 30]);
+  const layer3Y = useTransform(springY, [-0.5, 0.5], [-30, 30]);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (reduce || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    rawX.set((e.clientX - rect.left - rect.width / 2) / rect.width);
+    rawY.set((e.clientY - rect.top - rect.height / 2) / rect.height);
+  };
+
+  const handleMouseLeave = () => {
+    rawX.set(0);
+    rawY.set(0);
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className="relative w-full aspect-square max-w-[460px] mx-auto select-none"
+    >
+      {/* Outer glow */}
+      <div
+        className="pointer-events-none absolute inset-0 rounded-full"
+        style={{
+          background: 'radial-gradient(ellipse 55% 40% at 50% 50%, rgba(124,58,237,0.18) 0%, transparent 70%)',
+        }}
+      />
+
+      {/* Orbit ring paths (decorative SVG) */}
+      <motion.div
+        className="absolute inset-0 flex items-center justify-center"
+        style={{ x: layer2X, y: layer2Y }}
+      >
+        <svg width="100%" height="100%" viewBox="-200 -200 400 400" className="absolute inset-0 w-full h-full">
+          <ellipse cx="0" cy="0" rx="110" ry="61" fill="none" stroke="rgba(139,92,246,0.12)" strokeWidth="1" strokeDasharray="4 6" />
+          <ellipse cx="0" cy="0" rx="168" ry="92" fill="none" stroke="rgba(139,92,246,0.08)" strokeWidth="1" strokeDasharray="3 8" />
+        </svg>
+
+        {/* Orbiting pills — inner ring */}
+        {INNER_RING.map((cfg) => (
+          <OrbitPill key={cfg.code} cfg={cfg} reduce={reduce} />
+        ))}
+
+        {/* Orbiting pills — outer ring */}
+        {OUTER_RING.map((cfg) => (
+          <OrbitPill key={cfg.code} cfg={cfg} reduce={reduce} />
+        ))}
+      </motion.div>
+
+      {/* Center orb with parallax (slower layer) */}
+      <motion.div
+        className="absolute inset-0 flex items-center justify-center"
+        style={{ x: layer2X, y: layer2Y }}
+      >
+        <motion.div
+          className="relative w-28 h-28 rounded-full"
+          animate={reduce ? {} : { scale: [1, 1.06, 1] }}
+          transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <div
+            className="absolute inset-0 rounded-full"
+            style={{
+              background: 'radial-gradient(circle at 40% 35%, #a78bfa 0%, #7c3aed 45%, #4c1d95 100%)',
+              boxShadow: '0 0 40px rgba(124,58,237,0.5), 0 0 80px rgba(124,58,237,0.25)',
+            }}
+          />
+          <div
+            className="absolute inset-[3px] rounded-full"
+            style={{
+              background: 'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.25) 0%, transparent 55%)',
+            }}
+          />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <GraduationCap className="w-10 h-10 text-white/90" strokeWidth={1.5} />
+          </div>
+        </motion.div>
+      </motion.div>
+
+      {/* Floating card: active lesson (top-right parallax layer) */}
+      <motion.div
+        className="absolute top-[8%] right-[2%]"
+        style={{ x: layer3X, y: layer3Y }}
+        animate={reduce ? {} : { y: [0, -10, 0] }}
+        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+      >
+        <div className="bg-zinc-900/95 backdrop-blur-sm border border-zinc-700 rounded-2xl px-4 py-3 shadow-2xl min-w-[160px]">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[11px] text-zinc-400 font-medium">Zajecia w toku</span>
+          </div>
+          <p className="text-xs font-semibold text-white mb-2">Angielski B2</p>
+          <AudioWave reduce={reduce} />
+        </div>
+      </motion.div>
+
+      {/* Floating card: group size (bottom-left parallax layer) */}
+      <motion.div
+        className="absolute bottom-[12%] left-[0%]"
+        style={{ x: layer1X, y: layer1Y }}
+        animate={reduce ? {} : { y: [0, 8, 0] }}
+        transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 1.2 }}
+      >
+        <div className="bg-zinc-900/95 backdrop-blur-sm border border-zinc-700 rounded-2xl px-4 py-3 shadow-2xl">
+          <p className="text-[11px] text-zinc-400 mb-1.5">Miejsca w grupie</p>
+          <div className="flex items-center gap-1.5">
+            {[...Array(6)].map((_, i) => (
+              <div
+                key={i}
+                className={`w-5 h-5 rounded-full border ${i < 4 ? 'bg-violet-600 border-violet-500' : 'bg-zinc-800 border-zinc-600'}`}
+              />
+            ))}
+            <span className="text-[11px] text-zinc-400 ml-1">4/6</span>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Floating rating card (bottom-right) */}
+      <motion.div
+        className="absolute bottom-[5%] right-[5%]"
+        style={{ x: layer3X, y: layer3Y }}
+        animate={reduce ? {} : { y: [0, -7, 0] }}
+        transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+      >
+        <div className="bg-violet-700/80 backdrop-blur-sm border border-violet-500/30 rounded-xl px-3 py-2 shadow-xl">
+          <div className="flex items-center gap-1.5">
+            <Star className="w-3.5 h-3.5 text-amber-300 fill-amber-300" strokeWidth={0} />
+            <span className="text-white text-xs font-bold">4.9</span>
+            <span className="text-violet-300 text-[10px]">/ 5.0</span>
+          </div>
+          <p className="text-violet-200 text-[10px] mt-0.5">Srednia ocena lektorow</p>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // ── Hero ─────────────────────────────────────────────────────────────────────
 
 function HeroSection() {
@@ -265,38 +498,17 @@ function HeroSection() {
     return () => clearInterval(t);
   }, [shouldReduce]);
 
-  const floatingBubbles = [
-    { lang: 'EN', top: '18%', left: '8%', delay: 0 },
-    { lang: 'DE', top: '62%', left: '5%', delay: 0.8 },
-    { lang: 'ES', top: '28%', right: '6%', delay: 0.4 },
-    { lang: 'FR', top: '72%', right: '8%', delay: 1.2 },
-    { lang: 'IT', top: '50%', left: '12%', delay: 0.6 },
-  ];
-
   return (
     <section className="relative min-h-[100dvh] flex items-center overflow-hidden bg-zinc-950">
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse 70% 55% at 55% 40%, rgba(124,58,237,0.12) 0%, transparent 70%)',
+            'radial-gradient(ellipse 60% 50% at 65% 45%, rgba(124,58,237,0.1) 0%, transparent 70%)',
         }}
       />
 
-      {!shouldReduce &&
-        floatingBubbles.map((b, i) => (
-          <motion.div
-            key={i}
-            className="absolute w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-bold text-violet-300 select-none hidden lg:flex"
-            style={{ top: b.top, left: b.left, right: (b as { right?: string }).right }}
-            animate={{ y: [0, -12, 0] }}
-            transition={{ duration: 3.5, delay: b.delay, repeat: Infinity, ease: 'easeInOut' }}
-          >
-            {b.lang}
-          </motion.div>
-        ))}
-
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16 lg:py-0 grid grid-cols-1 lg:grid-cols-[55fr_45fr] gap-12 lg:gap-16 items-center w-full">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16 lg:py-0 grid grid-cols-1 lg:grid-cols-[52fr_48fr] gap-12 lg:gap-8 items-center w-full">
         <motion.div
           variants={stagger}
           initial="hidden"
@@ -354,15 +566,12 @@ function HeroSection() {
             </a>
           </motion.div>
 
-          <motion.div
-            variants={fadeUp}
-            className="flex items-center gap-2 pt-2"
-          >
+          <motion.div variants={fadeUp} className="flex items-center gap-2 pt-2">
             <div className="flex -space-x-2">
-              {['picsum.photos/seed/student-avatar-a/32/32', 'picsum.photos/seed/student-avatar-b/32/32', 'picsum.photos/seed/student-avatar-c/32/32'].map((src, i) => (
+              {['student-avatar-a', 'student-avatar-b', 'student-avatar-c'].map((seed, i) => (
                 <img
                   key={i}
-                  src={`https://${src}`}
+                  src={`https://picsum.photos/seed/${seed}/32/32`}
                   alt=""
                   className="w-8 h-8 rounded-full border-2 border-zinc-950 object-cover"
                 />
@@ -378,36 +587,12 @@ function HeroSection() {
         </motion.div>
 
         <motion.div
-          initial={shouldReduce ? false : { opacity: 0, x: 40 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="relative hidden lg:block"
+          initial={shouldReduce ? false : { opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.9, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="hidden lg:flex items-center justify-center"
         >
-          <div className="relative rounded-2xl overflow-hidden aspect-[4/3] border border-zinc-800 shadow-2xl shadow-zinc-950">
-            <img
-              src="https://picsum.photos/seed/online-language-class-group/800/600"
-              alt="Lekcja jezykowa online"
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/60 via-transparent to-transparent" />
-          </div>
-
-          <motion.div
-            className="absolute -bottom-4 -left-4 bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3 shadow-xl"
-            animate={shouldReduce ? {} : { y: [0, -6, 0] }}
-            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-          >
-            <p className="text-xs text-zinc-400">Najblizsza lekcja</p>
-            <p className="text-sm font-semibold text-white">Angielski B2 - Sroda 18:30</p>
-          </motion.div>
-
-          <motion.div
-            className="absolute -top-4 -right-4 bg-violet-600/90 backdrop-blur-sm rounded-xl px-3 py-2 shadow-lg"
-            animate={shouldReduce ? {} : { y: [0, 8, 0] }}
-            transition={{ duration: 3.5, delay: 0.5, repeat: Infinity, ease: 'easeInOut' }}
-          >
-            <p className="text-xs text-violet-200 font-medium">Maks. 6 osob w grupie</p>
-          </motion.div>
+          <AnimatedHeroVisual />
         </motion.div>
       </div>
     </section>
