@@ -15,6 +15,13 @@ import MaterialsPage from '@/pages/admin/MaterialsPage';
 import { PaymentsPage } from '@/pages/admin/PaymentsPage';
 import { AdminLayout } from '@/layouts/AdminLayout';
 import { StudentLayout } from '@/layouts/StudentLayout';
+import { ParentLayout } from '@/layouts/ParentLayout';
+import ParentDashboardPage from '@/pages/parent/ParentDashboardPage';
+import ParentChildClassesPage from '@/pages/parent/ParentChildClassesPage';
+import ParentChildAttendancePage from '@/pages/parent/ParentChildAttendancePage';
+import ParentChildGroupsPage from '@/pages/parent/ParentChildGroupsPage';
+import ParentChildMaterialsPage from '@/pages/parent/ParentChildMaterialsPage';
+import ParentChildPaymentsPage from '@/pages/parent/ParentChildPaymentsPage';
 import { PrivateRoute } from '@/router/PrivateRoute';
 import StudentDashboardPage from '@/pages/student/StudentDashboardPage';
 import StudentClassesPage from '@/pages/student/StudentClassesPage';
@@ -65,7 +72,15 @@ function App() {
           </Route>
 
           <Route element={<PrivateRoute allowedRoles={['PARENT']} />}>
-            <Route path="/parent" element={<div className="p-6">Parent Dashboard — WIP</div>} />
+            <Route element={<ParentLayout />}>
+              <Route path="/parent" element={<Navigate to="/parent/dashboard" replace />} />
+              <Route path="/parent/dashboard" element={<ParentDashboardPage />} />
+              <Route path="/parent/children/:childId/classes" element={<ParentChildClassesPage />} />
+              <Route path="/parent/children/:childId/attendance" element={<ParentChildAttendancePage />} />
+              <Route path="/parent/children/:childId/groups" element={<ParentChildGroupsPage />} />
+              <Route path="/parent/children/:childId/materials" element={<ParentChildMaterialsPage />} />
+              <Route path="/parent/children/:childId/payments" element={<ParentChildPaymentsPage />} />
+            </Route>
           </Route>
 
           <Route path="/unauthorized" element={<div className="p-6">Brak dostępu</div>} />

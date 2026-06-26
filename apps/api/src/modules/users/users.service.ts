@@ -141,6 +141,14 @@ export class UsersService {
     await this.prisma.user.delete({ where: { id } });
   }
 
+  async getChildIds(parentId: string): Promise<string[]> {
+    const links = await this.prisma.parentStudent.findMany({
+      where: { parentId },
+      select: { studentId: true },
+    });
+    return links.map((l) => l.studentId);
+  }
+
   async linkParentStudent(parentId: string, studentId: string) {
     await Promise.all([this.findOne(parentId), this.findOne(studentId)]);
     return this.prisma.parentStudent.upsert({

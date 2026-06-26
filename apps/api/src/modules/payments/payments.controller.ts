@@ -54,12 +54,18 @@ export class PaymentsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get()
   @Roles('ADMIN', 'TEACHER', 'STUDENT', 'PARENT')
-  findAll(
+  async findAll(
     @Query() query: QueryPaymentsDto,
     @Req() req: Request & { user: { id: string; role: string } },
   ) {
-    if (req.user.role === 'STUDENT' || req.user.role === 'PARENT') {
+    if (req.user.role === 'STUDENT') {
       query.studentId = req.user.id;
+    }
+    if (req.user.role === 'PARENT') {
+      const childIds = await this.paymentsService.getParentChildIds(req.user.id);
+      if (!query.studentId || !childIds.includes(query.studentId)) {
+        throw new ForbiddenException();
+      }
     }
     return this.paymentsService.findAll(query);
   }
@@ -107,9 +113,16 @@ export class PaymentsController {
     @Body() body: CheckoutDto,
     @Req() req: Request & { user: { id: string; role: string } },
   ) {
-    if (req.user.role === 'STUDENT' || req.user.role === 'PARENT') {
+    if (req.user.role === 'STUDENT') {
       const payment = await this.paymentsService.findOne(id);
       if (payment.student?.id !== req.user.id) throw new ForbiddenException();
+    }
+    if (req.user.role === 'PARENT') {
+      const payment = await this.paymentsService.findOne(id);
+      const childIds = await this.paymentsService.getParentChildIds(req.user.id);
+      if (!payment.student?.id || !childIds.includes(payment.student.id)) {
+        throw new ForbiddenException();
+      }
     }
     return this.paymentsService.createCheckout(id, body.returnUrl);
   }

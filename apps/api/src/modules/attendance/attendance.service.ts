@@ -223,4 +223,12 @@ export class AttendanceService {
       history: attendances,
     };
   }
+
+  async getParentChildIds(parentId: string): Promise<string[]> {
+    const links = await this.prisma.parentStudent.findMany({
+      where: { parentId },
+      select: { studentId: true },
+    });
+    return links.map((l) => l.studentId);
+  }
 }

@@ -59,7 +59,7 @@ export class ClassesController {
   constructor(private readonly classesService: ClassesService) {}
 
   @Get()
-  @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT)
+  @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT, Role.PARENT)
   findAll(@Query() query: ClassQueryDto) {
     return this.classesService.findAll(query);
   }

@@ -51,14 +51,18 @@ export class AttendanceController {
   }
 
   @Get('student/:studentId')
-  @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT)
-  getStudentStats(
+  @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT, Role.PARENT)
+  async getStudentStats(
     @Req() req: Request & { user: { id: string; role: string } },
     @Param('studentId') studentId: string,
     @Query() query: StudentStatsQuery,
   ) {
     if (req.user.role === 'STUDENT' && req.user.id !== studentId) {
       throw new ForbiddenException();
+    }
+    if (req.user.role === 'PARENT') {
+      const childIds = await this.attendanceService.getParentChildIds(req.user.id);
+      if (!childIds.includes(studentId)) throw new ForbiddenException();
     }
     return this.attendanceService.getStudentStats(studentId, {
       from: query.from ? new Date(query.from) : undefined,

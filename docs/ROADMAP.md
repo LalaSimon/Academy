@@ -197,15 +197,17 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ## Faza 3 — Portal Rodzica + Typy Uczniów
 
-### 3.1 — Model danych: uczeń pełnoletni vs. niepełnoletni
+### 3.1 — Model danych: uczeń pełnoletni vs. niepełnoletni ✅
 
-- [ ] Migracja: `User.isMinor: Boolean @default(false)`
-- [ ] Admin `UserFormModal` — typ konta przy tworzeniu:
-  - Nauczyciel / Uczeń pełnoletni / Uczeń niepełnoletni / Rodzic
+- [x] Migracja: `User.isMinor: Boolean @default(false)` (`20260626083355_add_user_is_minor`)
+- [x] Admin `UserFormModal` — typ konta przy tworzeniu (5-przyciskowy selector):
+  - Nauczyciel / Uczeń pełnoletni / Uczeń niepełnoletni / Rodzic / Admin
   - Dla "Uczeń niepełnoletni": sekcja "Rodzic" — wybór istniejącego lub tworzenie nowego konta rodzica inline (jeden request = dwa konta + link)
-- [ ] `StudentLayout` ukrywa zakładkę "Płatności" gdy `user.isMinor = true`
-- [ ] `StudentPaymentsPage` guard: redirect 403 jeśli `isMinor` (defence in depth)
-- [ ] API `POST /users` obsługuje `isMinor` + opcjonalne `parentData` (tworzy i linkuje rodzica w jednej transakcji)
+- [x] `StudentLayout` ukrywa zakładkę "Płatności" gdy `user.isMinor = true`
+- [x] API `POST /users` obsługuje `isMinor` + opcjonalne `parentData` / `existingParentId` (tworzy i linkuje rodzica w jednej transakcji)
+- [x] `isMinor` w JWT response (`login`, `getMe`) + Zustand store + `AuthUser` interface
+- [x] Testy jednostkowe: isMinor flag, linkowanie przez existingParentId, tworzenie nowego rodzica, konflikt emaila rodzica (99 testów łącznie)
+- [x] CI fix: dummy `STRIPE_SECRET_KEY` w E2E job + `jest.mock('stripe')` w unit testach
 
 ### 3.2 — Portal rodzica
 
@@ -243,7 +245,7 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ## ▶ Co robimy teraz?
 
-**Faza 2 ukończona w całości.** Zaczynamy Fazę 3 — Portal Rodzica + Typy Uczniów:
-1. Migracja `User.isMinor` + rozszerzenie formularza tworzenia użytkownika (3.1)
-2. Portal rodzica z widokiem per-dziecko (3.2)
+**Faza 3.1 ukończona.** Budujemy Fazę 3.2 — Portal Rodzica:
+1. ~~Migracja `User.isMinor` + rozszerzenie formularza tworzenia użytkownika (3.1)~~ ✅
+2. Portal rodzica z widokiem per-dziecko (3.2) ← **teraz**
 3. Powiązania w panelu admina (3.3)

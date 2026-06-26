@@ -49,13 +49,19 @@ export class UsersController {
   }
 
   @Get(':id')
-  @Roles(Role.ADMIN, Role.STUDENT)
-  findOne(
+  @Roles(Role.ADMIN, Role.STUDENT, Role.PARENT)
+  async findOne(
     @Param('id') id: string,
     @Req() req: Request & { user: { id: string; role: string } },
   ) {
     if (req.user.role === 'STUDENT' && req.user.id !== id) {
       throw new ForbiddenException();
+    }
+    if (req.user.role === 'PARENT') {
+      const childIds = await this.usersService.getChildIds(req.user.id);
+      if (req.user.id !== id && !childIds.includes(id)) {
+        throw new ForbiddenException();
+      }
     }
     return this.usersService.findOne(id);
   }

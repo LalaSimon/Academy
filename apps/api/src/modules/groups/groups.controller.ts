@@ -34,7 +34,7 @@ export class GroupsController {
   }
 
   @Get(':id')
-  @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT)
+  @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT, Role.PARENT)
   findOne(@Param('id') id: string) {
     return this.groupsService.findOne(id);
   }
