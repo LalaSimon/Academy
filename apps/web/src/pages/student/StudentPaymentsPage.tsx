@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { useAuthStore } from '@/store/auth.store';
 import { usePayments, useCheckoutPayment } from '@/hooks/usePayments';
+import { useQueryClient } from '@tanstack/react-query';
 import { CreditCard, ExternalLink, CheckCircle2, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -21,8 +23,26 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function StudentPaymentsPage() {
   const { user } = useAuthStore();
+  const queryClient = useQueryClient();
   const { data, isLoading } = usePayments({ studentId: user?.id, limit: 100 });
   const checkout = useCheckoutPayment();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('status');
+    if (!status) return;
+
+    window.history.replaceState({}, '', window.location.pathname);
+
+    if (status === 'success') {
+      toast.success('Płatność zakończona sukcesem!', {
+        description: 'Stripe przetwarza potwierdzenie — status zaktualizuje się za chwilę.',
+      });
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ['payments'] }), 3000);
+    } else if (status === 'cancelled') {
+      toast.info('Płatność anulowana.');
+    }
+  }, [queryClient]);
 
   const payments = data?.data ?? [];
   const pending = payments.filter((p) => p.status === 'PENDING' || p.status === 'OVERDUE');
@@ -36,11 +56,12 @@ export default function StudentPaymentsPage() {
 
   const handleCheckout = async (paymentId: string) => {
     try {
+      toast.info('Przekierowuję do bramki płatności...');
       const result = await checkout.mutateAsync({
         id: paymentId,
         returnUrl: `${window.location.origin}/student/payments`,
       });
-      window.open(result.checkoutUrl, '_blank');
+      window.location.href = result.checkoutUrl;
     } catch {
       toast.error('Nie udało się otworzyć bramki płatności');
     }

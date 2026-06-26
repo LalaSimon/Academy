@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, CreditCard, CheckCircle2, AlertCircle, Clock, Trash2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,8 @@ import {
   type Payment,
 } from '@/hooks/usePayments';
 import { PaymentFormModal } from '@/components/payments/PaymentFormModal';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Oczekuje',
@@ -58,12 +60,30 @@ export function PaymentsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [page, setPage] = useState(1);
+  const queryClient = useQueryClient();
 
   const { data, isLoading } = usePayments({ status: statusFilter || undefined, page, limit: 25 });
   const { data: stats } = usePaymentStats();
   const updateStatus = useUpdatePaymentStatus();
   const deletePayment = useDeletePayment();
   const checkout = useCheckoutPayment();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('status');
+    if (!status) return;
+
+    window.history.replaceState({}, '', window.location.pathname);
+
+    if (status === 'success') {
+      toast.success('Płatność zakończona sukcesem!', {
+        description: 'Status płatności zaktualizuje się za chwilę.',
+      });
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ['payments'] }), 3000);
+    } else if (status === 'cancelled') {
+      toast.info('Płatność anulowana.');
+    }
+  }, [queryClient]);
 
   const payments = (data?.data ?? []).filter((p) => {
     if (!search) return true;
@@ -88,9 +108,10 @@ export function PaymentsPage() {
   };
 
   const handleCheckout = async (payment: Payment) => {
-    const returnUrl = `${window.location.origin}/payments/${payment.id}/result`;
+    toast.info('Przekierowuję do bramki płatności...');
+    const returnUrl = `${window.location.origin}/admin/payments`;
     const result = await checkout.mutateAsync({ id: payment.id, returnUrl });
-    window.open(result.checkoutUrl, '_blank');
+    window.location.href = result.checkoutUrl;
   };
 
   const fmt = (amount: number) =>
