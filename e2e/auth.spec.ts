@@ -10,7 +10,7 @@ test.describe('Auth — login page', () => {
   });
 
   test('shows login form', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: 'Witaj z powrotem!' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Zaloguj się' })).toBeVisible();
     await expect(page.locator('#email')).toBeVisible();
     await expect(page.locator('#password')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Zaloguj się' })).toBeVisible();

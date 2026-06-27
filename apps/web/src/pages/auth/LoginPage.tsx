@@ -61,6 +61,7 @@ export function LoginPage() {
           <div>
             <label className="block text-xs font-medium text-zinc-400 mb-1.5">Adres email</label>
             <input
+              id="email"
               type="email"
               required
               value={email}
@@ -74,6 +75,7 @@ export function LoginPage() {
             <label className="block text-xs font-medium text-zinc-400 mb-1.5">Hasło</label>
             <div className="relative">
               <input
+                id="password"
                 type={showPassword ? 'text' : 'password'}
                 required
                 value={password}

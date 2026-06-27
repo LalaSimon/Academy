@@ -45,8 +45,9 @@ async function seed() {
           lastName: fixture.lastName,
           role: fixture.role,
           isActive: true,
+          emailVerified: true,
         },
-        update: { passwordHash: hash, isActive: true },
+        update: { passwordHash: hash, isActive: true, emailVerified: true },
       });
     }
 
