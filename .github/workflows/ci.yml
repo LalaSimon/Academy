@@ -122,6 +122,9 @@ jobs:
       TEST_ADMIN_PASSWORD: Admin1234!
       STRIPE_SECRET_KEY: sk_test_ci_dummy
       STRIPE_WEBHOOK_SECRET: whsec_ci_dummy
+      RESEND_API_KEY: re_ci_dummy
+      MAIL_FROM: noreply@academy.pl
+      ADMIN_EMAIL: admin@academy.pl
 
     steps:
       - uses: actions/checkout@v4
