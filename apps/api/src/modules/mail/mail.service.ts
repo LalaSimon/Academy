@@ -14,6 +14,7 @@ export interface MailPayload {
 export class MailService {
   private readonly resend: Resend;
   private readonly from: string;
+  private readonly devRedirectTo: string | undefined;
   private readonly logger = new Logger(MailService.name);
 
   constructor(private config: ConfigService) {
@@ -22,13 +23,25 @@ export class MailService {
       'MAIL_FROM',
       'Academy <noreply@academy.pl>',
     );
+    this.devRedirectTo = this.config.get<string>('MAIL_DEV_REDIRECT_TO');
   }
 
   async send(payload: MailPayload): Promise<void> {
+    let to = payload.to;
+    let subject = payload.subject;
+
+    if (this.devRedirectTo && process.env.NODE_ENV !== 'production') {
+      const original = Array.isArray(payload.to)
+        ? payload.to.join(', ')
+        : payload.to;
+      subject = `[DEV → ${original}] ${subject}`;
+      to = this.devRedirectTo;
+    }
+
     const { error } = await this.resend.emails.send({
       from: payload.from ?? this.from,
-      to: payload.to,
-      subject: payload.subject,
+      to,
+      subject,
       html: payload.html,
       text: payload.text,
     });
@@ -37,8 +50,6 @@ export class MailService {
       this.logger.error(
         `Failed to send email to ${Array.isArray(payload.to) ? payload.to.join(', ') : payload.to}: ${error.message}`,
       );
-      // In production, propagate the error. In dev/test, log and continue so
-      // registration/verification flows still work without a verified domain.
       if (process.env.NODE_ENV === 'production') {
         throw new Error(error.message);
       }
