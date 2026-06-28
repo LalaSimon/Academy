@@ -14,6 +14,7 @@ import {
   UpdatePaymentStatusDto,
 } from './dto/update-payment.dto';
 import { QueryPaymentsDto } from './dto/query-payments.dto';
+import { QueryStatsDto } from './dto/query-stats.dto';
 import { PaymentStatus } from '@prisma/client';
 import Stripe from 'stripe';
 
@@ -71,7 +72,7 @@ export class PaymentsService {
     return { data, total, page, limit };
   }
 
-  async getStats(query: { from?: string; to?: string; studentId?: string }) {
+  async getStats(query: QueryStatsDto) {
     const where: Record<string, unknown> = {};
     if (query.studentId) where.studentId = query.studentId;
     if (query.from || query.to) {

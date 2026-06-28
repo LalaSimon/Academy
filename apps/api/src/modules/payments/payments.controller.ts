@@ -26,6 +26,7 @@ import {
   UpdatePaymentStatusDto,
 } from './dto/update-payment.dto';
 import { QueryPaymentsDto } from './dto/query-payments.dto';
+import { QueryStatsDto } from './dto/query-stats.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -75,7 +76,7 @@ export class PaymentsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('stats')
   @Roles('ADMIN')
-  getStats(@Query() query: { from?: string; to?: string; studentId?: string }) {
+  getStats(@Query() query: QueryStatsDto) {
     return this.paymentsService.getStats(query);
   }
 

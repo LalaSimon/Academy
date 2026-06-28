@@ -30,7 +30,7 @@ vi.mock('framer-motion', () => {
   };
 });
 
-const mockVerify = vi.fn();
+const mockUseVerify = vi.fn();
 const mockResend = vi.fn();
 
 // State that can be overridden per test
@@ -38,7 +38,10 @@ let verifyState = { isPending: false, isSuccess: false, isError: false };
 let resendState = { isPending: false, isSuccess: false };
 
 vi.mock('@/hooks/useRegister', () => ({
-  useVerifyEmail: () => ({ mutate: mockVerify, ...verifyState }),
+  useVerifyEmail: (token: string | null) => {
+    mockUseVerify(token);
+    return verifyState;
+  },
   useResendVerification: () => ({ mutate: mockResend, ...resendState }),
 }));
 
@@ -107,14 +110,14 @@ describe('VerifyEmailPage — with token (verification flow)', () => {
     verifyState = { isPending: false, isSuccess: false, isError: false };
   });
 
-  it('calls verify mutation with token from URL', () => {
+  it('passes token from URL to the verify query', () => {
     renderAtPath('?token=abc123');
-    expect(mockVerify).toHaveBeenCalledWith('abc123', expect.any(Object));
+    expect(mockUseVerify).toHaveBeenCalledWith('abc123');
   });
 
-  it('does not call verify twice (StrictMode guard)', () => {
-    renderAtPath('?token=abc123');
-    expect(mockVerify).toHaveBeenCalledTimes(1);
+  it('passes null to the query when no token (query stays disabled)', () => {
+    renderAtPath('');
+    expect(mockUseVerify).toHaveBeenCalledWith(null);
   });
 
   it('shows loading state while verifying', () => {
@@ -139,15 +142,11 @@ describe('VerifyEmailPage — with token (verification flow)', () => {
 
   it('navigates to /login after successful verification (2500ms delay)', () => {
     vi.useFakeTimers();
-    const capturedCallback: { onSuccess?: () => void } = {};
-    mockVerify.mockImplementation((_token: unknown, opts: { onSuccess: () => void }) => {
-      capturedCallback.onSuccess = opts.onSuccess;
-    });
+    verifyState = { isPending: false, isSuccess: true, isError: false };
 
     renderAtPath('?token=abc');
 
     act(() => {
-      capturedCallback.onSuccess?.();
       vi.advanceTimersByTime(2500);
     });
 

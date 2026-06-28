@@ -235,82 +235,58 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [x] Hero z animowanym naglowkiem (rotating language + blur reveal) i floating bubbles
 - [x] Sekcja statystyk (500+ uczniow, 8 językow, 4 lata, 97% poleca)
 - [x] "Jak to dziala" — 3 kroki z ikonami i stagger reveal
-- [x] FeaturesSection bento — animowana sekcja: speaking ring (aktywny mowca), real-time progress bar (42:17), waveform, harmonogram, materialy
-- [x] LanguagesSection — siatka 4x2 z flagami CDN jako tlo + narozne flagi + greeting + hover lift
-- [x] PlatformSection — animowany mockup przegladarki z 6 zakladkami ucznia (Dashboard/Zajecia/Grupy/Materialy/Frekwencja/Platnosci), screenshoty z prawdziwymi danymi
-- [x] TeachersSection — 3 karty lektorow z certyfikatami, miniflagi jezykow, statystyki
+- [x] Bento features — 4 kafle (male grupy z obrazem, elastyczne godziny, nagrania, materialy z obrazem)
+- [x] Marquee z jezykami (jeden na strone)
+- [x] Opinie uczniow — 3 karty z awatarami i ocenami
 - [x] FAQ — accordion z AnimatePresence
-- [x] CTA section — split layout: duza typografia + interaktywny widget rezerwacji probnej lekcji (wybor jezyka + sloty godzinowe); zero gradientow
+- [x] CTA section z linkiem do `/login`
 - [x] Footer z nawigacja i danymi kontaktowymi
 - [x] Route `/` → `LandingPage` w `App.tsx`
 - [x] Responsywnosc (hamburger menu, mobile collapse dla wszystkich sekcji)
 - [x] prefers-reduced-motion support przez `useReducedMotion`
-- [x] Screenshoty aplikacji w `src/assets/screenshots/` — importowane przez Vite (nie public/); dane seedowane przez API
 
 ---
 
-## Faza 4 — Powiadomienia i Rozszerzenia
+### 3.5 — Logowanie i obserwowalność backendu ✅
 
-### 4.1 — Email sender ✅
+- [x] `RequestLoggerMiddleware` (`common/middleware/`) — globalny access-log każdego żądania HTTP
+  - Loguje na `res.on('finish')`: metoda, URL, status, czas (ms), użytkownik (`email [ROLE]` lub `anon`)
+  - Poziom dopasowany do statusu: `LOG` (2xx) / `WARN` (4xx) / `ERROR` (5xx)
+  - Middleware działa PRZED guardami → łapie też odrzucenia auth (401/403), czego interceptor by nie zobaczył
+  - Rejestracja globalna w `AppModule` przez `configure(consumer)` z `forRoutes({ path: '*path', method: RequestMethod.ALL })`
+- [x] `AllExceptionsFilter` (`common/filters/`) — globalny filtr wyjątków
+  - Loguje pełny stack trace dla błędów 5xx (nieobsłużone wyjątki) — wskazuje plik:linię źródła błędu
+  - Rozszerza `BaseExceptionFilter` i deleguje do `super.catch()` → NIE zmienia kształtu odpowiedzi (zero ryzyka dla frontendu i e2e)
+  - Rejestracja w `main.ts` z wstrzykniętym `httpAdapter` (`app.get(HttpAdapterHost)`)
+- [x] Bugfix (wyłapany przez logi): `GET /payments/stats?from=<niepoprawna_data>` zwracał 500 zamiast 400
+  - Endpoint przyjmował query przez inline typ zamiast klasy DTO → ValidationPipe nie walidował wejścia
+  - Fix: `QueryStatsDto` z `@IsDateString()` na `from`/`to`; kontroler i serwis używają DTO
+- [x] Bugfix: weryfikacja emaila zawieszała się na „Weryfikacja..." mimo 200 z backendu
+  - Przyczyna: `useVerifyEmail` było mutacją wołaną w `useEffect`; React 19 StrictMode gubił obserwatora mutacji przy remoncie
+  - Fix: zamiana mutacji na `useQuery` keszowany po `['verify-email', token]` (przeżywa podwójny mount); nawigacja przez efekt na `isSuccess`
+  - Zweryfikowane na żywo (Playwright): sukces natychmiast → redirect do `/login` po 2s, backend trafiony raz
 
-- [x] Wybor i konfiguracja dostawcy: **Resend SDK** (https://resend.com)
-- [x] `MailModule` + `MailService` — NestJS, wstrzykiwany globalnie
-- [x] Zmienne srodowiskowe: `RESEND_API_KEY`, `MAIL_FROM`, `ADMIN_EMAIL`
-- [x] Szablony HTML dla wszystkich emaili (weryfikacja, rejestracja, zajecia, nieobecnosc, platnosc)
-- [x] Dev/test error handling: bledy Resend logowane, nie propagowane
+---
 
-### 4.1.1 — Rejestracja publiczna + weryfikacja email ✅
+## Faza 4 — Rozszerzenia (przyszłość)
 
-- [x] `POST /auth/register` — publiczna rejestracja (student / rodzic), email weryfikacyjny
-- [x] `GET /auth/verify-email?token=` — weryfikacja linkiem
-- [x] `POST /auth/resend-verification` — ponowne wysylanie
-- [x] `POST /auth/setup-child` — rodzic konfiguruje konto dziecka (@academy.pl, isMinor=true)
-- [x] `RegisterPage` — formularz z AccountType selector (student/rodzic), Framer Motion
-- [x] `VerifyEmailPage` — stany: no-token (resend), pending, success (auto-redirect 2.5s), error
-- [x] `ParentSetupPage` — pierwszy login rodzica → formularz konta dziecka
-- [x] LoginPage: banner EMAIL_NOT_VERIFIED z linkiem resend
-- [x] Auth store: `needsChildSetup` → auto-redirect `/parent/setup`
-- [x] Prisma migracja: `emailVerificationToken`, `emailVerified`
-- [x] 167 testow (27 backend unit, 42 frontend unit, 6 E2E Playwright)
-
-### 4.2 — Kolejkowanie emaili (BullMQ)
-
-- [ ] BullMQ + Redis queue `mail-queue`
-- [ ] `MailProcessor` — worker pobierajacy zadania z kolejki
-- [ ] Retry policy (3 proby, exponential backoff)
-
-### 4.3 — Triggery emaili
-
-- [ ] Przypomnienie o zajeciach — 30 min przed `scheduledAt` (cron BullMQ delayed job)
-- [ ] Powiadomienie o nieobecnosci — po zapisaniu `ABSENT` w frekwencji
-- [ ] Przypomnienie o platnosci — gdy status `PENDING` i `dueDate` za 3 dni
-- [ ] Potwierdzenie platnosci — po zmianie statusu na `PAID` (webhook Stripe lub reczna zmiana)
-
-### 4.4 — In-app powiadomienia
-
-- [ ] `Notification` model w Prisma (userId, type, title, body, read, createdAt)
-- [ ] Bell icon w navbarze z licznikiem nieprzeczytanych
-- [ ] Panel powiadomien (dropdown lub strona)
-
-### 4.5 — Pozostale rozszerzenia (backlog)
-
+- [ ] Powiadomienia email (BullMQ + Nodemailer) — nieobecności, przypomnienia o płatnościach, 30 min przed zajęciami
+- [ ] In-app powiadomienia (bell icon w navbarze)
 - [ ] Zadania domowe (upload, ocenianie)
-- [ ] Testy poziomujace (quiz builder)
-- [ ] Tracking postepu ucznia
+- [ ] Testy poziomujące (quiz builder)
+- [ ] Tracking postępów ucznia
 - [ ] Google Calendar API (automatyczne Meet linki)
 - [ ] Raporty i eksport CSV/PDF
 - [ ] Aplikacja mobilna (React Native lub PWA)
-- [ ] Czat wewnetrzny (nauczyciel ↔ uczen)
+- [ ] Czat wewnętrzny (nauczyciel ↔ uczeń)
 
 ---
 
 ## ▶ Co robimy teraz?
 
-**Faza 4.1 + 4.1.1 ukonczona.** Nastepne kroki:
-1. ~~Portal rodzica (3.2)~~ ✅
-2. ~~Landing page (3.4)~~ ✅
-3. ~~Email sender + szablony (4.1)~~ ✅
-4. ~~Rejestracja publiczna + weryfikacja email (4.1.1)~~ ✅
-5. Kolejkowanie emaili — BullMQ (4.2) ← **nastepne**
-6. Triggery emaili — przypomnienia zajecia/platnosci (4.3)
-7. Powiazania rodzic-dziecko w panelu admina (3.3) — rowolegle
+**Faza 3.2 ukonczona. Strona glowna (3.4) ukonczona. Logowanie backendu (3.5) ukonczone.** Nastepne kroki:
+1. ~~Portal rodzica z widokiem per-dziecko (3.2)~~ ✅
+2. ~~Landing page szkoly jezykowej (3.4)~~ ✅
+3. ~~Logowanie i obserwowalność backendu (3.5)~~ ✅
+4. Powiazania rodzic-dziecko w panelu admina (3.3) ← **nastepne**
+5. Powiadomienia email i rozszerzenia (Faza 4)

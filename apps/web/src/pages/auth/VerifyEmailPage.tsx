@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useSearchParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { GraduationCap, Mail, CheckCircle, XCircle, Loader } from 'lucide-react';
@@ -13,18 +13,18 @@ export function VerifyEmailPage() {
   const token = params.get('token');
   const email = (location.state as { email?: string } | null)?.email ?? '';
 
-  const { mutate: verify, isPending, isSuccess, isError } = useVerifyEmail();
+  const { isPending, isSuccess, isError } = useVerifyEmail(token);
   const { mutate: resend, isPending: resending, isSuccess: resent } = useResendVerification();
-  const verified = useRef(false);
 
+  // Po udanej weryfikacji przekieruj do logowania (z krótkim opóźnieniem
+  // na pokazanie potwierdzenia). Efekt reaguje na `isSuccess` query — przeżywa
+  // podwójny mount StrictMode, bo wynik jest keszowany po tokenie.
   useEffect(() => {
-    if (token && !verified.current) {
-      verified.current = true;
-      verify(token, {
-        onSuccess: () => setTimeout(() => navigate('/login'), 2500),
-      });
+    if (isSuccess) {
+      const timer = setTimeout(() => navigate('/login'), 2500);
+      return () => clearTimeout(timer);
     }
-  }, [token, verify, navigate]);
+  }, [isSuccess, navigate]);
 
   // — State: token present → verify flow
   if (token) {

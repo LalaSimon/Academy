@@ -171,6 +171,31 @@ PARENT  → widok dziecka (obecności, płatności, harmonogram)
 
 Implementacja: NestJS Guards + custom decorator `@Roles()` + JWT payload z rolą.
 
+## Logowanie i obserwowalność (backend)
+
+Logowanie HTTP jest globalne i bezdekoratorowe — działa automatycznie na całej aplikacji, rozbite na dwie warstwy o rozdzielonej odpowiedzialności:
+
+| Warstwa | Plik | Rola |
+|---------|------|------|
+| `RequestLoggerMiddleware` | `common/middleware/request-logger.middleware.ts` | Access-log każdego żądania |
+| `AllExceptionsFilter` | `common/filters/all-exceptions.filter.ts` | Stack trace błędów 5xx |
+
+### Access-log (middleware)
+- Loguje na zdarzeniu `res.on('finish')`: metoda, URL, status, czas (ms), użytkownik (`email [ROLE]` lub `anon`).
+- Poziom logu dopasowany do statusu: `LOG` (2xx) / `WARN` (4xx) / `ERROR` (5xx).
+- **Dlaczego middleware, nie interceptor:** kolejność warstw NestJS to `middleware → guards → interceptors → controller → exception filters`. Interceptor odpala się PO guardach, więc gubi odrzucenia auth (401/403). Middleware widzi każde żądanie — łącznie z tymi zablokowanymi przez `JwtAuthGuard`.
+- `req.user` jest dostępny w handlerze `finish`, bo cały cykl żądania (w tym guardy) już się wykonał.
+- Rejestracja globalna w `AppModule.configure()` przez `forRoutes({ path: '*path', method: RequestMethod.ALL })` (NestJS 11 wymaga `*path`, nie `*`).
+
+### Logowanie błędów (exception filter)
+- Dla błędów 5xx loguje pełny stack trace ze wskazaniem `plik:linia` źródła.
+- Błędy 4xx (klient) pokrywa już access-log — filtr ich nie dubluje.
+- Rozszerza `BaseExceptionFilter` i deleguje do `super.catch()` → **nie zmienia domyślnego kształtu odpowiedzi błędu**, więc frontend i testy e2e dostają dokładnie to samo co wcześniej.
+- Rejestracja w `main.ts` z wstrzykniętym adapterem HTTP: `app.useGlobalFilters(new AllExceptionsFilter(app.get(HttpAdapterHost).httpAdapter))`.
+
+### Zasada na przyszłość
+Logi to nie ozdoba — służą wyłapywaniu realnych problemów. Przykład: filtr 5xx ujawnił, że `GET /payments/stats` przyjmował query przez inline typ zamiast klasy DTO, przez co `ValidationPipe` nie walidował daty i niepoprawne wejście wpadało do Prismy jako 500. Wzorzec do wyłapania w całym API: **endpoint z inline typem zamiast DTO = brak walidacji wejścia**.
+
 ## Integracje zewnętrzne
 
 ### Google Meet / Calendar API
@@ -258,6 +283,16 @@ docker logs academy_api --tail 30
 Błąd `Cannot find module` = trzeba `docker compose build api`.
 
 ---
+
+### React Query: weryfikacja „raz przy montażu" → query, nie mutacja w `useEffect`
+
+**Problem:** Strona potwierdzenia emaila (`VerifyEmailPage`) zawieszała się na „Weryfikacja..." mimo że backend zwracał 200 — bez przejścia do sukcesu i bez przekierowania.
+
+**Przyczyna:** `useVerifyEmail` było **mutacją** wywoływaną w `useEffect`. React 19 StrictMode w dev montuje komponent → odmontowuje → montuje ponownie. Pierwsza mutacja startowała, ale przy remoncie jej obserwator był porzucany, a nowy (z remontu) nie podchwytywał wyniku → stan zawisał na `isPending`. Ręczny ref-guard zapobiegał podwójnemu żądaniu, ale nie rozwiązywał gubienia stanu, bo mutacje (w odróżnieniu od query) nie są keszowane po kluczu i nie przeżywają remontu.
+
+**Rozwiązanie:** Zamiana mutacji na `useQuery` keszowany po `['verify-email', token]` (`enabled: !!token`, `retry: false`, `staleTime/gcTime: Infinity`). Query dedupuje żądanie i cache'uje wynik po kluczu, więc oba mounty StrictMode współdzielą ten sam wpis cache — `isSuccess`/`isError` ustala się niezawodnie. Nawigacja przeniesiona z callbacku `mutate` do `useEffect` reagującego na `isSuccess` (z czyszczeniem timera). Ref-guard usunięty — zbędny, bo query dedupuje z definicji.
+
+**Zasada na przyszłość:** Operacja, która ma wykonać się raz przy załadowaniu strony i przeżyć podwójny mount StrictMode, to **query** (keszowane po kluczu), a nie mutacja w `useEffect`. Mutacje rezerwuj na akcje wyzwalane przez użytkownika.
 
 ### shadcn/ui: złe ścieżki importów po `npx shadcn@latest add`
 

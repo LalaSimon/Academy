@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 export interface RegisterPayload {
@@ -24,10 +24,21 @@ export function useResendVerification() {
   });
 }
 
-export function useVerifyEmail() {
-  return useMutation({
-    mutationFn: (token: string) =>
-      api.get<{ message: string }>(`/auth/verify-email?token=${token}`).then((r) => r.data),
+// Weryfikacja jako QUERY, nie mutacja — query jest keszowany po kluczu
+// `['verify-email', token]`, więc dedupuje się i przeżywa podwójny mount
+// React StrictMode (mutacja w useEffect gubiła obserwatora przy remoncie →
+// strona zawisała na „Weryfikacja..." mimo 200 z backendu).
+export function useVerifyEmail(token: string | null) {
+  return useQuery({
+    queryKey: ['verify-email', token],
+    queryFn: () =>
+      api
+        .get<{ message: string }>(`/auth/verify-email?token=${token}`)
+        .then((r) => r.data),
+    enabled: !!token,
+    retry: false,
+    staleTime: Infinity,
+    gcTime: Infinity,
   });
 }
 
