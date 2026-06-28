@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Mail, Phone, Users, CheckCircle2, XCircle, Clock, ChevronDown, CreditCard, AlertCircle, BadgeCheck } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Users, CheckCircle2, XCircle, Clock, ChevronDown, CreditCard, AlertCircle, BadgeCheck, UserPlus, Unlink, UserX } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useUser } from '@/hooks/useUsers';
+import { useUser, useUsers, useLinkParentStudent, useUnlinkParentStudent } from '@/hooks/useUsers';
 import { useStudentStats } from '@/hooks/useAttendance';
 import { usePayments, usePaymentStats, useUpdatePaymentStatus, type Payment } from '@/hooks/usePayments';
 
@@ -75,6 +75,91 @@ const NEXT_STATUS: Partial<Record<Payment['status'], Payment['status']>> = {
   PENDING: 'PAID',
   OVERDUE: 'PAID',
 };
+
+function ParentSection({
+  studentId,
+  isMinor,
+  linkedParent,
+}: {
+  studentId: string;
+  isMinor: boolean;
+  linkedParent?: { id: string; firstName: string; lastName: string };
+}) {
+  const [selectedParentId, setSelectedParentId] = useState('');
+  const { data: parents } = useUsers({ role: 'PARENT', limit: 100 });
+  const link = useLinkParentStudent();
+  const unlink = useUnlinkParentStudent();
+
+  const handleLink = () => {
+    if (!selectedParentId) return;
+    link.mutate(
+      { parentId: selectedParentId, studentId },
+      { onSuccess: () => setSelectedParentId('') },
+    );
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+        <Users className="w-3.5 h-3.5" /> Rodzic / Opiekun
+      </h2>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        {linkedParent ? (
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+              <span className="text-sm font-bold text-emerald-600">
+                {`${linkedParent.firstName?.[0] ?? ''}${linkedParent.lastName?.[0] ?? ''}`.toUpperCase()}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-gray-900">{linkedParent.firstName} {linkedParent.lastName}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Przypisany opiekun</p>
+            </div>
+            <button
+              onClick={() => unlink.mutate({ parentId: linkedParent.id, studentId })}
+              disabled={unlink.isPending}
+              className="flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-700 px-3 py-2 rounded-xl hover:bg-red-50 transition-colors disabled:opacity-50"
+            >
+              <Unlink className="w-3.5 h-3.5" />
+              Odłącz
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {isMinor && (
+              <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 rounded-xl px-3 py-2">
+                <UserX className="w-4 h-4 shrink-0" />
+                Uczeń niepełnoletni bez przypisanego rodzica.
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedParentId}
+                onChange={(e) => setSelectedParentId(e.target.value)}
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Wybierz rodzica…</option>
+                {parents?.data.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.firstName} {p.lastName} ({p.email})
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleLink}
+                disabled={!selectedParentId || link.isPending}
+                className="flex items-center gap-1.5 text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                Przypisz
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
 
 export function StudentProfilePage() {
   const { studentId } = useParams<{ studentId: string }>();
@@ -179,6 +264,13 @@ export function StudentProfilePage() {
           {student.isActive ? 'Aktywny' : 'Nieaktywny'}
         </div>
       </motion.div>
+
+      {/* Rodzic / Opiekun */}
+      <ParentSection
+        studentId={studentId!}
+        isMinor={student.isMinor}
+        linkedParent={student.asStudent?.[0]?.parent}
+      />
 
       {stats && (
         <>

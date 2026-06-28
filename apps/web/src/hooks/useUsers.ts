@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 
+export interface ParentRef {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -12,6 +18,8 @@ export interface User {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  // Obecne na liście (findAll) — powiązania rodzic-uczeń; pusta tablica dla nie-uczniów
+  asStudent?: { parent: ParentRef }[];
 }
 
 export interface UserDetail extends User {
@@ -31,6 +39,7 @@ export interface UsersResponse {
 export interface UserQuery {
   role?: User['role'];
   search?: string;
+  isMinor?: boolean;
   page?: number;
   limit?: number;
 }
@@ -123,6 +132,25 @@ export function useDeleteUser() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/users/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [USERS_KEY] }),
+  });
+}
+
+export function useLinkParentStudent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ parentId, studentId }: { parentId: string; studentId: string }) =>
+      api.post(`/users/${parentId}/students/${studentId}`).then((r) => r.data),
+    // Link dotyka listy oraz detali obu kont (asStudent/asParent) — invaliduj cały klucz
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [USERS_KEY] }),
+  });
+}
+
+export function useUnlinkParentStudent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ parentId, studentId }: { parentId: string; studentId: string }) =>
+      api.delete(`/users/${parentId}/students/${studentId}`).then((r) => r.data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [USERS_KEY] }),
   });
 }

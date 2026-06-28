@@ -27,11 +27,12 @@ export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(query: UserQueryDto) {
-    const { role, search, page = 1, limit = 20 } = query;
+    const { role, search, isMinor, page = 1, limit = 20 } = query;
     const skip = (page - 1) * limit;
 
     const where = {
       ...(role && { role }),
+      ...(isMinor !== undefined && { isMinor }),
       ...(search && {
         OR: [
           { firstName: { contains: search, mode: 'insensitive' as const } },
@@ -44,7 +45,14 @@ export class UsersService {
     const [data, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
-        select: USER_SELECT,
+        select: {
+          ...USER_SELECT,
+          asStudent: {
+            select: {
+              parent: { select: { id: true, firstName: true, lastName: true } },
+            },
+          },
+        },
         skip,
         take: limit,
         orderBy: { lastName: 'asc' },

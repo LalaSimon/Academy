@@ -1,6 +1,14 @@
 import { Role } from '@prisma/client';
-import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 
 export class UserQueryDto {
   @IsOptional()
@@ -10,6 +18,15 @@ export class UserQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === true || value === 'true') return true;
+    if (value === false || value === 'false') return false;
+    return value; // nieprawidłowa wartość → zostaje stringiem → @IsBoolean odrzuci (400)
+  })
+  @IsBoolean()
+  isMinor?: boolean;
 
   @IsOptional()
   @Type(() => Number)
