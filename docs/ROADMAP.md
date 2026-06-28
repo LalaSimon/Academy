@@ -282,6 +282,7 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [x] **Przypomnienie o płatności (termin <= 3 dni)** — cron dzienny; flaga `Payment.reminderSentAt`
 - [x] **Dane logowania dziecka** — mail do rodzica po `setup-child`
 - [x] **Reset hasła** — migracja (`passwordResetToken/Expiry`), endpointy `POST /auth/forgot-password` + `/auth/reset-password` (token 1h, unieważnia sesje, brak enumeracji emaili), szablon maila, frontend `ForgotPasswordPage` + `ResetPasswordPage` + link na loginie
+  - **Reset hasła dziecka:** gdy login należy do niepełnoletniego (`@academy.pl` = nie skrzynka), link resetu idzie na email RODZICA (z kontekstem `forChildName`); token siedzi na koncie dziecka, więc resetuje hasło dziecka. Bez powiązanego rodzica — brak wysyłki
 - [x] 3 nowe szablony HTML (zaległość, dane dziecka, reset) spójne z `baseLayout`
 - [x] Testy: 14 nowych (routing odbiorcy, crony, reset hasła); zweryfikowane na żywo (reset end-to-end, potwierdzenie płatności, strony resetu)
 - [ ] **Powiadomienia dla admina** — do ustalenia osobno (nieudana płatność, narastające zaległości, digest)

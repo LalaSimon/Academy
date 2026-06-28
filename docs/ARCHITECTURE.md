@@ -219,6 +219,8 @@ Uczeń niepełnoletni ma **generowany login** (`@academy.pl`), który jest ident
 ### Reset hasła
 `POST /auth/forgot-password` (token 1h w `User.passwordResetToken`, zawsze zwraca `ok` — brak enumeracji emaili) → mail z linkiem → `POST /auth/reset-password` (waliduje token, hashuje nowe hasło, **unieważnia wszystkie sesje** przez `refreshToken.deleteMany`). Frontend: `ForgotPasswordPage` + `ResetPasswordPage`.
 
+**Reset hasła dziecka:** ta sama zasada routingu co powiadomienia — gdy login należy do niepełnoletniego (generowany `@academy.pl`, nie skrzynka), link resetu trafia na email **rodzica** (z kontekstem `forChildName` w treści). Token zapisywany jest na koncie dziecka, więc link resetuje hasło dziecka. Brak powiązanego rodzica → brak wysyłki.
+
 ## Integracje zewnętrzne
 
 ### Google Meet / Calendar API

@@ -84,6 +84,7 @@ const mockPrisma = {
   },
   parentStudent: {
     count: jest.fn().mockResolvedValue(0),
+    findFirst: jest.fn(),
   },
   $transaction: jest.fn().mockResolvedValue([]),
 };
@@ -574,6 +575,52 @@ describe('AuthService', () => {
 
       expect(result).toEqual({ message: 'ok' });
       expect(mockMail.sendPasswordReset).not.toHaveBeenCalled();
+    });
+
+    it('routes minor reset link to the parent email', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'child-1',
+        email: 'maks.kowalski@academy.pl',
+        firstName: 'Maks',
+        lastName: 'Kowalski',
+        isActive: true,
+        isMinor: true,
+      });
+      mockPrisma.parentStudent.findFirst.mockResolvedValue({
+        parent: { email: 'rodzic@example.com', firstName: 'Anna' },
+      });
+      mockPrisma.user.update.mockResolvedValue({});
+
+      const result = await service.requestPasswordReset(
+        'maks.kowalski@academy.pl',
+      );
+
+      expect(result).toEqual({ message: 'ok' });
+      expect(mockMail.sendPasswordReset).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'rodzic@example.com',
+          firstName: 'Anna',
+          forChildName: 'Maks Kowalski',
+        }),
+      );
+    });
+
+    it('does not send for a minor without a linked parent', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'child-2',
+        email: 'sierota@academy.pl',
+        firstName: 'Sierota',
+        lastName: 'Bezrodzic',
+        isActive: true,
+        isMinor: true,
+      });
+      mockPrisma.parentStudent.findFirst.mockResolvedValue(null);
+
+      const result = await service.requestPasswordReset('sierota@academy.pl');
+
+      expect(result).toEqual({ message: 'ok' });
+      expect(mockMail.sendPasswordReset).not.toHaveBeenCalled();
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
     });
   });
 

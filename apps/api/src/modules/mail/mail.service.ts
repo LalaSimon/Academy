@@ -221,12 +221,21 @@ export class MailService {
     to: string;
     firstName: string;
     resetUrl: string;
+    // Gdy ustawione, reset dotyczy konta dziecka, a mail idzie do rodzica
+    forChildName?: string;
   }): Promise<void> {
+    const subject = opts.forChildName
+      ? `Reset hasła dziecka (${opts.forChildName}) — Academy`
+      : 'Reset hasła — Academy';
+    const text = opts.forChildName
+      ? `Cześć ${opts.firstName}! Otrzymaliśmy prośbę o reset hasła do konta dziecka (${opts.forChildName}). Kliknij w link, aby ustawić nowe hasło: ${opts.resetUrl}. Link wygasa po 1 godzinie. Jeśli to nie Ty, zignoruj tę wiadomość.`
+      : `Cześć ${opts.firstName}! Aby zresetować hasło, kliknij w link: ${opts.resetUrl}. Link wygasa po 1 godzinie. Jeśli to nie Ty, zignoruj tę wiadomość.`;
+
     await this.send({
       to: opts.to,
-      subject: 'Reset hasła — Academy',
+      subject,
       html: buildPasswordResetHtml(opts),
-      text: `Cześć ${opts.firstName}! Aby zresetować hasło, kliknij w link: ${opts.resetUrl}. Link wygasa po 1 godzinie. Jeśli to nie Ty, zignoruj tę wiadomość.`,
+      text,
     });
   }
 }
@@ -485,19 +494,27 @@ function buildChildCredentialsHtml(o: {
 function buildPasswordResetHtml(o: {
   firstName: string;
   resetUrl: string;
+  forChildName?: string;
 }): string {
+  const heading = o.forChildName
+    ? `Zresetuj hasło konta dziecka`
+    : 'Zresetuj swoje hasło';
+  const intro = o.forChildName
+    ? `Otrzymaliśmy prośbę o zmianę hasła do konta dziecka — <strong style="color:#18181b;">${o.forChildName}</strong>. Kliknij poniższy przycisk, aby ustawić nowe. Link jest ważny przez <strong style="color:#18181b;">1 godzinę</strong>.`
+    : `Otrzymaliśmy prośbę o zmianę hasła. Kliknij poniższy przycisk, aby ustawić nowe. Link jest ważny przez <strong style="color:#18181b;">1 godzinę</strong>.`;
+
   return baseLayout(
     'Reset hasła',
     'Reset hasła',
     `
     <p style="margin:0 0 6px;font-size:14px;color:#71717a;">Cześć, ${o.firstName}!</p>
-    <h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#18181b;letter-spacing:-0.3px;">Zresetuj swoje hasło</h2>
+    <h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#18181b;letter-spacing:-0.3px;">${heading}</h2>
     <p style="font-size:15px;color:#52525b;line-height:1.7;margin:0 0 28px;">
-      Otrzymaliśmy prośbę o zmianę hasła. Kliknij poniższy przycisk, aby ustawić nowe. Link jest ważny przez <strong style="color:#18181b;">1 godzinę</strong>.
+      ${intro}
     </p>
     ${btn(o.resetUrl, 'Ustaw nowe hasło')}
     <p style="font-size:12px;color:#a1a1aa;margin:20px 0 0;line-height:1.6;">
-      Jeśli to nie Ty prosiłeś o zmianę hasła, zignoruj tę wiadomość — Twoje hasło pozostanie bez zmian.
+      Jeśli to nie Ty prosiłeś o zmianę hasła, zignoruj tę wiadomość — hasło pozostanie bez zmian.
     </p>
   `,
   );

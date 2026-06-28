@@ -220,6 +220,22 @@ export class AuthService {
     // Zawsze zwracamy ten sam komunikat — nie zdradzamy czy email istnieje
     if (!user || !user.isActive) return { message: 'ok' };
 
+    // Niepełnoletni ma generowany login @academy.pl (nie skrzynkę) — link
+    // resetu musi trafić na email RODZICA. Bez rodzica nie ma gdzie wysłać.
+    let recipientEmail = user.email;
+    let recipientName = user.firstName;
+    let forChildName: string | undefined;
+    if (user.isMinor) {
+      const link = await this.prisma.parentStudent.findFirst({
+        where: { studentId: user.id },
+        select: { parent: { select: { email: true, firstName: true } } },
+      });
+      if (!link) return { message: 'ok' };
+      recipientEmail = link.parent.email;
+      recipientName = link.parent.firstName;
+      forChildName = `${user.firstName} ${user.lastName}`;
+    }
+
     const resetToken = randomBytes(32).toString('hex');
     const resetExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1h
 
@@ -238,9 +254,10 @@ export class AuthService {
     const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
 
     await this.mail.sendPasswordReset({
-      to: user.email,
-      firstName: user.firstName,
+      to: recipientEmail,
+      firstName: recipientName,
       resetUrl,
+      forChildName,
     });
 
     return { message: 'ok' };
