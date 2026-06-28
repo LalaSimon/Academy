@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Pencil, Trash2, UserPlus, BarChart2 } from 'lucide-react';
+import { Pencil, Trash2, UserPlus, BarChart2, Baby, UserX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -33,7 +33,7 @@ function initials(user: User) {
   return `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase();
 }
 
-function SkeletonRow() {
+function SkeletonRow({ showParent }: { showParent: boolean }) {
   return (
     <TableRow className="border-b border-border/50">
       <TableCell className="py-4 pl-6 pr-3">
@@ -54,6 +54,11 @@ function SkeletonRow() {
       <TableCell className="py-4 px-3">
         <div className="h-5 w-16 rounded-full bg-muted/50 animate-pulse" />
       </TableCell>
+      {showParent && (
+        <TableCell className="py-4 px-3">
+          <div className="h-5 w-24 rounded-full bg-muted/50 animate-pulse" />
+        </TableCell>
+      )}
       <TableCell className="py-4 pl-3 pr-6">
         <div className="flex justify-end gap-1.5">
           <div className="h-7 w-7 rounded-lg bg-muted/50 animate-pulse" />
@@ -71,11 +76,20 @@ interface Props {
 
 export function UsersTable({ roleFilter, title }: Props) {
   const [search, setSearch] = useState('');
+  const [minorOnly, setMinorOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
 
-  const { data, isLoading } = useUsers({ role: roleFilter, search: search || undefined, page, limit: 20 });
+  const showParent = roleFilter === 'STUDENT';
+
+  const { data, isLoading } = useUsers({
+    role: roleFilter,
+    search: search || undefined,
+    isMinor: showParent && minorOnly ? true : undefined,
+    page,
+    limit: 20,
+  });
   const deleteUser = useDeleteUser();
 
   const handleEdit = (user: User) => { setEditUser(user); setModalOpen(true); };
@@ -93,6 +107,21 @@ export function UsersTable({ roleFilter, title }: Props) {
           )}
         </div>
         <div className="flex items-center gap-3">
+          {showParent && (
+            <Button
+              variant="ghost"
+              onClick={() => { setMinorOnly((v) => !v); setPage(1); }}
+              className={`h-9 rounded-xl px-3.5 gap-2 text-sm border transition-colors ${
+                minorOnly
+                  ? 'bg-amber-500/15 text-amber-400 border-amber-500/30 hover:bg-amber-500/20'
+                  : 'text-muted-foreground border-border hover:bg-muted/30'
+              }`}
+              title="Pokaż tylko uczniów niepełnoletnich"
+            >
+              <Baby className="w-3.5 h-3.5" />
+              Tylko niepełnoletni
+            </Button>
+          )}
           <Input
             placeholder="Szukaj po imieniu, nazwisku, emailu..."
             value={search}
@@ -127,15 +156,20 @@ export function UsersTable({ roleFilter, title }: Props) {
               <TableHead className="py-3.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                 Status
               </TableHead>
+              {showParent && (
+                <TableHead className="py-3.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                  Rodzic
+                </TableHead>
+              )}
               <TableHead className="py-3.5 pl-3 pr-6 w-28" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
+            {isLoading && Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} showParent={showParent} />)}
 
             {!isLoading && data?.data.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="py-16 text-center text-muted-foreground">
+                <TableCell colSpan={showParent ? 6 : 5} className="py-16 text-center text-muted-foreground">
                   Brak użytkowników
                 </TableCell>
               </TableRow>
@@ -183,6 +217,22 @@ export function UsersTable({ roleFilter, title }: Props) {
                     {user.isActive ? 'Aktywny' : 'Nieaktywny'}
                   </span>
                 </TableCell>
+                {showParent && (
+                  <TableCell className="py-3.5 px-3">
+                    {!user.isMinor ? (
+                      <span className="text-xs text-muted-foreground/60">Pełnoletni</span>
+                    ) : user.asStudent?.[0]?.parent ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/12 text-emerald-400 border border-emerald-500/20">
+                        {user.asStudent[0].parent.firstName} {user.asStudent[0].parent.lastName}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-amber-500/12 text-amber-400 border border-amber-500/20">
+                        <UserX className="w-3 h-3" />
+                        Brak rodzica
+                      </span>
+                    )}
+                  </TableCell>
+                )}
                 <TableCell className="py-3.5 pl-3 pr-6">
                   <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     {user.role === 'STUDENT' && (
