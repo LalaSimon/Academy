@@ -221,11 +221,14 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [x] useParentProfile hook + useChildProfile hook
 - [x] Fix: dashboard ucznia ukrywa sekcję płatności gdy `user.isMinor = true` (query disabled + sekcja ukryta)
 
-### 3.3 — Administracja powiązań rodzic-dziecko
+### 3.3 — Administracja powiązań rodzic-dziecko ✅
 
-- [ ] `StudentProfilePage` (admin) — sekcja "Rodzic": wyświetla powiązanego rodzica, przycisk linkowania/odlinkowania
-- [ ] `UsersTable` — kolumna "Rodzic" dla uczniów niepełnoletnich (badge)
-- [ ] `StudentsPage` — filtr "Tylko niepełnoletni"
+- [x] `StudentProfilePage` (admin) — sekcja "Rodzic / Opiekun": wyświetla powiązanego rodzica z przyciskiem "Odłącz"; gdy brak — selektor istniejących rodziców + "Przypisz" (ostrzeżenie dla niepełnoletnich bez opiekuna)
+- [x] `UsersTable` — kolumna "Rodzic" (tylko dla uczniów): badge z imieniem rodzica, "Brak rodzica" (amber) dla niepełnoletnich bez opiekuna, "Pełnoletni" dla dorosłych
+- [x] `StudentsPage` / `UsersTable` — filtr toggle "Tylko niepełnoletni"
+- [x] Backend: `findAll` zwraca relację `asStudent.parent`; filtr `isMinor` w `UserQueryDto` (`@Transform` + `@IsBoolean` — odrzuca nieprawidłowe wartości)
+- [x] Hooki `useLinkParentStudent` / `useUnlinkParentStudent` (invalidacja `['users']`); endpointy link/unlink istniały od 3.1
+- [x] Zweryfikowane na żywo (Playwright): filtr, badge, przypisanie i odłączenie rodzica z reaktywną aktualizacją
 
 ---
 
@@ -284,9 +287,9 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ## ▶ Co robimy teraz?
 
-**Faza 3.2 ukonczona. Strona glowna (3.4) ukonczona. Logowanie backendu (3.5) ukonczone.** Nastepne kroki:
+**Faza 3 ukonczona w całości (3.1–3.5).** Nastepne kroki:
 1. ~~Portal rodzica z widokiem per-dziecko (3.2)~~ ✅
 2. ~~Landing page szkoly jezykowej (3.4)~~ ✅
 3. ~~Logowanie i obserwowalność backendu (3.5)~~ ✅
-4. Powiazania rodzic-dziecko w panelu admina (3.3) ← **nastepne**
-5. Powiadomienia email i rozszerzenia (Faza 4)
+4. ~~Powiazania rodzic-dziecko w panelu admina (3.3)~~ ✅
+5. Powiadomienia email i rozszerzenia (Faza 4) ← **nastepne**
