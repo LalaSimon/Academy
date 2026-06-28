@@ -85,6 +85,7 @@ const mockPrisma = {
   parentStudent: {
     count: jest.fn().mockResolvedValue(0),
   },
+  $transaction: jest.fn().mockResolvedValue([]),
 };
 
 const mockJwt = { sign: jest.fn().mockReturnValue('access-token') };
@@ -105,6 +106,8 @@ const mockConfig = {
 const mockMail = {
   sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
   sendAdminNewRegistration: jest.fn().mockResolvedValue(undefined),
+  sendChildCredentials: jest.fn().mockResolvedValue(undefined),
+  sendPasswordReset: jest.fn().mockResolvedValue(undefined),
 };
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -505,6 +508,107 @@ describe('AuthService', () => {
       await expect(service.setupChild('user-1', childDto)).rejects.toThrow(
         ForbiddenException,
       );
+    });
+
+    it('sends child login credentials to the parent', async () => {
+      setupParentMocks();
+
+      await service.setupChild('parent-1', childDto);
+
+      expect(mockMail.sendChildCredentials).toHaveBeenCalledWith(
+        expect.objectContaining({
+          childEmail: 'maks.kowalski@academy.pl',
+          childName: 'Maks Kowalski',
+        }),
+      );
+    });
+  });
+
+  // ── password reset ───────────────────────────────────────────────────────────
+
+  describe('requestPasswordReset', () => {
+    it('generates token and sends reset email for active user', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'jan@example.com',
+        firstName: 'Jan',
+        isActive: true,
+      });
+      mockPrisma.user.update.mockResolvedValue({});
+
+      const result = await service.requestPasswordReset('jan@example.com');
+
+      expect(result).toEqual({ message: 'ok' });
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            passwordResetToken: expect.any(String),
+            passwordResetExpiry: expect.any(Date),
+          }),
+        }),
+      );
+      expect(mockMail.sendPasswordReset).toHaveBeenCalledWith(
+        expect.objectContaining({ to: 'jan@example.com', firstName: 'Jan' }),
+      );
+    });
+
+    it('returns generic ok and sends nothing for unknown email (no enumeration)', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+
+      const result = await service.requestPasswordReset('ghost@example.com');
+
+      expect(result).toEqual({ message: 'ok' });
+      expect(mockMail.sendPasswordReset).not.toHaveBeenCalled();
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('does not send for inactive user', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'jan@example.com',
+        firstName: 'Jan',
+        isActive: false,
+      });
+
+      const result = await service.requestPasswordReset('jan@example.com');
+
+      expect(result).toEqual({ message: 'ok' });
+      expect(mockMail.sendPasswordReset).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('hashes new password and clears token within a transaction', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        passwordResetToken: 'valid',
+        passwordResetExpiry: new Date(Date.now() + 60_000),
+      });
+
+      const result = await service.resetPassword('valid', 'NewPass1234!');
+
+      expect(result).toEqual({ message: 'Password reset successful.' });
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+    });
+
+    it('throws INVALID_TOKEN for unknown token', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.resetPassword('bad', 'NewPass1234!'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws TOKEN_EXPIRED for expired token', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        passwordResetToken: 'expired',
+        passwordResetExpiry: new Date(Date.now() - 60_000),
+      });
+
+      await expect(
+        service.resetPassword('expired', 'NewPass1234!'),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

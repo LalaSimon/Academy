@@ -4,6 +4,8 @@ import { AuthInitializer } from '@/components/AuthInitializer';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { VerifyEmailPage } from '@/pages/auth/VerifyEmailPage';
+import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
+import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage';
 import { ParentSetupPage } from '@/pages/parent/ParentSetupPage';
 import { TeachersPage } from '@/pages/admin/TeachersPage';
 import { StudentsPage } from '@/pages/admin/StudentsPage';
@@ -44,6 +46,8 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/parent/setup" element={<ParentSetupPage />} />
 
           <Route element={<PrivateRoute allowedRoles={['ADMIN']} />}>

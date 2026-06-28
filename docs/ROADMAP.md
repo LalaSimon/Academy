@@ -268,9 +268,26 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ---
 
-## Faza 4 — Rozszerzenia (przyszłość)
+## Faza 4 — Rozszerzenia
 
-- [ ] Powiadomienia email (BullMQ + Nodemailer) — nieobecności, przypomnienia o płatnościach, 30 min przed zajęciami
+### 4.1 — Powiadomienia email (uczeń pełnoletni + rodzic) ✅
+
+- [x] `NotificationsService` (`modules/notifications/`) — centralizuje powiadomienia; deps Prisma + Mail (oba `@Global`)
+- [x] **Routing odbiorcy:** niepełnoletni → email RODZICA (login dziecka @academy.pl to nie skrzynka), pełnoletni → własny adres. Helper `resolveRecipient`
+- [x] Metody event-driven NIGDY nie rzucają wyjątku do wywołującego (błąd maila nie psuje logiki biznesowej)
+- [x] **Potwierdzenie płatności** — webhook Stripe (`checkout.session.completed`) + ręczne oznaczenie PAID
+- [x] **Nieobecność** — przy zapisie `ABSENT` w `attendance.bulkUpdate`; flaga `Attendance.absenceNotifiedAt` (idempotencja, reset przy zmianie statusu)
+- [x] **Zaległość płatności** — w cronie `markOverdue` (pobiera przed update, powiadamia nowo zaległe)
+- [x] **Przypomnienie o zajęciach (~30 min)** — cron co 5 min; flaga `Class.reminderSentAt`; uczniowie grupy + zajęcia 1:1
+- [x] **Przypomnienie o płatności (termin <= 3 dni)** — cron dzienny; flaga `Payment.reminderSentAt`
+- [x] **Dane logowania dziecka** — mail do rodzica po `setup-child`
+- [x] **Reset hasła** — migracja (`passwordResetToken/Expiry`), endpointy `POST /auth/forgot-password` + `/auth/reset-password` (token 1h, unieważnia sesje, brak enumeracji emaili), szablon maila, frontend `ForgotPasswordPage` + `ResetPasswordPage` + link na loginie
+- [x] 3 nowe szablony HTML (zaległość, dane dziecka, reset) spójne z `baseLayout`
+- [x] Testy: 14 nowych (routing odbiorcy, crony, reset hasła); zweryfikowane na żywo (reset end-to-end, potwierdzenie płatności, strony resetu)
+- [ ] **Powiadomienia dla admina** — do ustalenia osobno (nieudana płatność, narastające zaległości, digest)
+
+### Pozostałe rozszerzenia (przyszłość)
+
 - [ ] In-app powiadomienia (bell icon w navbarze)
 - [ ] Zadania domowe (upload, ocenianie)
 - [ ] Testy poziomujące (quiz builder)
@@ -284,9 +301,9 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ## ▶ Co robimy teraz?
 
-**Faza 3.2 ukonczona. Strona glowna (3.4) ukonczona. Logowanie backendu (3.5) ukonczone.** Nastepne kroki:
-1. ~~Portal rodzica z widokiem per-dziecko (3.2)~~ ✅
-2. ~~Landing page szkoly jezykowej (3.4)~~ ✅
-3. ~~Logowanie i obserwowalność backendu (3.5)~~ ✅
-4. Powiazania rodzic-dziecko w panelu admina (3.3) ← **nastepne**
-5. Powiadomienia email i rozszerzenia (Faza 4)
+**Logowanie backendu (3.5) ukonczone. Powiadomienia email ucznia/rodzica (4.1) ukonczone.** Nastepne kroki:
+1. ~~Logowanie i obserwowalność backendu (3.5)~~ ✅
+2. Powiazania rodzic-dziecko w panelu admina (3.3) — na osobnym branchu `feat/parent-child-links`
+3. ~~Powiadomienia email: uczeń pełnoletni + rodzic (4.1)~~ ✅
+4. Powiadomienia email dla admina ← **do ustalenia osobno**
+5. Pozostałe rozszerzenia Fazy 4 (in-app, zadania domowe, raporty…)

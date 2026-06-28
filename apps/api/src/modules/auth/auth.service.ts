@@ -200,12 +200,77 @@ export class AuthService {
       },
     });
 
+    await this.mail.sendChildCredentials({
+      to: parent.email,
+      parentName: `${parent.firstName} ${parent.lastName}`,
+      childName: `${child.firstName} ${child.lastName}`,
+      childEmail: child.email,
+    });
+
     return {
       id: child.id,
       email: child.email,
       firstName: child.firstName,
       lastName: child.lastName,
     };
+  }
+
+  async requestPasswordReset(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    // Zawsze zwracamy ten sam komunikat — nie zdradzamy czy email istnieje
+    if (!user || !user.isActive) return { message: 'ok' };
+
+    const resetToken = randomBytes(32).toString('hex');
+    const resetExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1h
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: resetToken,
+        passwordResetExpiry: resetExpiry,
+      },
+    });
+
+    const frontendUrl = this.config.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:5173',
+    );
+    const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+    await this.mail.sendPasswordReset({
+      to: user.email,
+      firstName: user.firstName,
+      resetUrl,
+    });
+
+    return { message: 'ok' };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { passwordResetToken: token },
+    });
+    if (!user) throw new BadRequestException('INVALID_TOKEN');
+    if (user.passwordResetExpiry && user.passwordResetExpiry < new Date()) {
+      throw new BadRequestException('TOKEN_EXPIRED');
+    }
+
+    const passwordHash = await argon2.hash(newPassword);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash,
+          passwordResetToken: null,
+          passwordResetExpiry: null,
+        },
+      }),
+      // Unieważnij wszystkie sesje po zmianie hasła
+      this.prisma.refreshToken.deleteMany({ where: { userId: user.id } }),
+    ]);
+
+    return { message: 'Password reset successful.' };
   }
 
   async refresh(token: string) {

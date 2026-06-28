@@ -15,6 +15,7 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
 import { MaterialsModule } from './modules/materials/materials.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { MailModule } from './modules/mail/mail.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
 
 @Module({
@@ -30,6 +31,7 @@ import { RequestLoggerMiddleware } from './common/middleware/request-logger.midd
     AttendanceModule,
     MaterialsModule,
     PaymentsModule,
+    NotificationsModule,
   ],
 })
 export class AppModule implements NestModule {
