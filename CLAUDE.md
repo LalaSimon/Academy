@@ -30,11 +30,19 @@ cd apps/web && npm run build
 # 6. E2E — testy Playwright (wymaga docker compose up -d)
 npx playwright test
 
-# 7. Commit i push
-git add ... && git commit ... && git push
+# 7. Commit i push — ZAWSZE na nowym branchu (nigdy bezpośrednio na main)
+git checkout -b feat/nazwa-zadania   # prefix wg convention: feat/ fix/ docs/ chore/ refactor/
+git add ... && git commit ... && git push -u origin feat/nazwa-zadania
 ```
 
 Jeśli lint/test/build failuje — napraw przed commitem. Nie commituj "będzie naprawione w następnym commicie".
+
+## Wersjonowanie — ZAWSZE nowy branch
+
+- **Nigdy nie commitujemy bezpośrednio na `main`.** Każda praca = nowy branch utworzony z aktualnego `main`.
+- Nazwa brancha wg Conventional Commits: `feat/...`, `fix/...`, `docs/...`, `chore/...`, `refactor/...` (np. `feat/parent-child-links`).
+- Wypychamy branch (`git push -u origin <branch>`). **Pull requesty i merge na GitHubie robi właściciel ręcznie** — nie mergujemy ani nie tworzymy PR-ów automatycznie.
+- Przed nowym zadaniem: `git checkout main && git pull` → dopiero potem `git checkout -b <nowy-branch>`.
 
 ## Docker — ważne zasady
 
