@@ -16,6 +16,7 @@ import { TeacherProfilePage } from '@/pages/admin/TeacherProfilePage';
 import { AttendancePage } from '@/pages/admin/AttendancePage';
 import MaterialsPage from '@/pages/admin/MaterialsPage';
 import { PaymentsPage } from '@/pages/admin/PaymentsPage';
+import { ReportsPage } from '@/pages/admin/ReportsPage';
 import { AdminLayout } from '@/layouts/AdminLayout';
 import { StudentLayout } from '@/layouts/StudentLayout';
 import { ParentLayout } from '@/layouts/ParentLayout';
@@ -60,6 +61,7 @@ function App() {
               <Route path="/admin/attendance" element={<AttendancePage />} />
               <Route path="/admin/materials" element={<MaterialsPage />} />
               <Route path="/admin/payments" element={<PaymentsPage />} />
+              <Route path="/admin/reports" element={<ReportsPage />} />
             </Route>
           </Route>
 

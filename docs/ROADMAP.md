@@ -271,7 +271,21 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ---
 
-## Faza 4 — Rozszerzenia (przyszłość)
+## Faza 4 — Rozszerzenia
+
+### 4.1 — Raporty (eksport XLSX) ✅
+
+- [x] Moduł `reports` (`modules/reports/`) — endpointy **ADMIN-only** generujące pliki Excel (exceljs)
+- [x] `GET /reports/payments` — płatności z filtrami (status, grupa, zakres dat) + podsumowanie kwot wg statusu (RAZEM / Zapłacone / Zaległe / Oczekujące)
+- [x] `GET /reports/attendance` — frekwencja per uczeń (grupa, zakres dat); % = (obecny + spóźniony) / razem
+- [x] `GET /reports/students` — użytkownicy (rola, wiek, szukaj) z powiązaniem rodzic-dziecko
+- [x] Wspólny builder `xlsx-builder.ts` — blok tytułowy, opis zastosowanych filtrów, nagłówek (biały na fioletowym, zamrożony), format walutowy/dat/procent, kolor tła statusu, wiersze podsumowania, auto-szerokość kolumn
+- [x] DTO z walidacją (zły `from`/`to` → 400, brak admina → 401/403) — analogicznie do `QueryStatsDto`
+- [x] Frontend: `ReportsPage` (3 karty z filtrami + „Generuj XLSX"), hook `useReportDownload` (pobranie blob + nazwa z `Content-Disposition`), trasa `/admin/reports` + link „Raporty" w nawigacji admina
+- [x] Testy jednostkowe serwisu (4): agregacja płatności/frekwencji, mapowanie ról/wieku/rodzica, przełożenie filtrów na zapytanie Prisma
+- [x] Zweryfikowane na żywo: curl (200 + XLSX, 400 zły date, 401 bez auth) oraz Playwright (render 3 kart + realne pobranie pliku)
+
+### Pozostałe rozszerzenia (przyszłość)
 
 - [ ] Powiadomienia email (BullMQ + Nodemailer) — nieobecności, przypomnienia o płatnościach, 30 min przed zajęciami
 - [ ] In-app powiadomienia (bell icon w navbarze)
@@ -279,7 +293,7 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [ ] Testy poziomujące (quiz builder)
 - [ ] Tracking postępów ucznia
 - [ ] Google Calendar API (automatyczne Meet linki)
-- [ ] Raporty i eksport CSV/PDF
+- [ ] Raporty: dodatkowe typy + eksport PDF
 - [ ] Aplikacja mobilna (React Native lub PWA)
 - [ ] Czat wewnętrzny (nauczyciel ↔ uczeń)
 
@@ -292,4 +306,5 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 2. ~~Landing page szkoly jezykowej (3.4)~~ ✅
 3. ~~Logowanie i obserwowalność backendu (3.5)~~ ✅
 4. ~~Powiazania rodzic-dziecko w panelu admina (3.3)~~ ✅
-5. Powiadomienia email i rozszerzenia (Faza 4) ← **nastepne**
+5. ~~Raporty (eksport XLSX) — płatności, frekwencja, użytkownicy (4.1)~~ ✅
+6. Powiadomienia email i pozostałe rozszerzenia (Faza 4) ← **nastepne**

@@ -14,6 +14,7 @@ import { ClassesModule } from './modules/classes/classes.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { MaterialsModule } from './modules/materials/materials.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { MailModule } from './modules/mail/mail.module';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
 
@@ -30,6 +31,7 @@ import { RequestLoggerMiddleware } from './common/middleware/request-logger.midd
     AttendanceModule,
     MaterialsModule,
     PaymentsModule,
+    ReportsModule,
   ],
 })
 export class AppModule implements NestModule {
