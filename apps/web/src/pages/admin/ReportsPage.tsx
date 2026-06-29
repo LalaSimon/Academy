@@ -1,30 +1,35 @@
-import { useState } from 'react';
-import { FileSpreadsheet, CreditCard, ClipboardList, Users } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useState } from "react";
+import {
+  FileSpreadsheet,
+  CreditCard,
+  ClipboardList,
+  Users,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { useGroups } from '@/hooks/useGroups';
-import { useReportDownload, type ReportType } from '@/hooks/useReports';
+} from "@/components/ui/select";
+import { useGroups } from "@/hooks/useGroups";
+import { useReportDownload, type ReportType } from "@/hooks/useReports";
 
 const PAYMENT_STATUSES: Record<string, string> = {
-  PENDING: 'Oczekuje',
-  PAID: 'Zapłacone',
-  OVERDUE: 'Zaległe',
-  REFUNDED: 'Zwrot',
-  CANCELLED: 'Anulowane',
+  PENDING: "Oczekuje",
+  PAID: "Zapłacone",
+  OVERDUE: "Zaległe",
+  REFUNDED: "Zwrot",
+  CANCELLED: "Anulowane",
 };
 
 const ROLES: Record<string, string> = {
-  STUDENT: 'Uczeń',
-  PARENT: 'Rodzic',
-  TEACHER: 'Nauczyciel',
-  ADMIN: 'Administrator',
+  STUDENT: "Uczeń",
+  PARENT: "Rodzic",
+  TEACHER: "Nauczyciel",
+  ADMIN: "Administrator",
 };
 
 function ReportCard({
@@ -60,10 +65,10 @@ function ReportCard({
         onClick={onGenerate}
         disabled={loading}
         className="w-full rounded-xl h-9 gap-2 text-white"
-        style={{ background: 'linear-gradient(135deg, #8b5cf6, #6366f1)' }}
+        style={{ background: "linear-gradient(135deg, #8b5cf6, #6366f1)" }}
       >
         <FileSpreadsheet className="w-4 h-4" />
-        {loading ? 'Generuję...' : 'Generuj XLSX'}
+        {loading ? "Generuję..." : "Generuj XLSX"}
       </Button>
     </div>
   );
@@ -91,21 +96,26 @@ export function ReportsPage() {
   const { data: groupsData } = useGroups({ limit: 100 });
   const groups = groupsData?.data ?? [];
 
+  // @base-ui Select.Value pokazuje surową wartość (id/bool), nie label —
+  // dlatego mapujemy ją ręcznie przez funkcję-children.
+  const groupLabel = (v: string) =>
+    v ? (groups.find((g) => g.id === v)?.name ?? v) : "Wszystkie";
+
   // ── Filtry płatności ──────────────────────────────────────────────
-  const [pStatus, setPStatus] = useState('');
-  const [pGroup, setPGroup] = useState('');
-  const [pFrom, setPFrom] = useState('');
-  const [pTo, setPTo] = useState('');
+  const [pStatus, setPStatus] = useState("");
+  const [pGroup, setPGroup] = useState("");
+  const [pFrom, setPFrom] = useState("");
+  const [pTo, setPTo] = useState("");
 
   // ── Filtry frekwencji ─────────────────────────────────────────────
-  const [aGroup, setAGroup] = useState('');
-  const [aFrom, setAFrom] = useState('');
-  const [aTo, setATo] = useState('');
+  const [aGroup, setAGroup] = useState("");
+  const [aFrom, setAFrom] = useState("");
+  const [aTo, setATo] = useState("");
 
   // ── Filtry uczniów ────────────────────────────────────────────────
-  const [uRole, setURole] = useState('');
-  const [uMinor, setUMinor] = useState('');
-  const [uSearch, setUSearch] = useState('');
+  const [uRole, setURole] = useState("");
+  const [uMinor, setUMinor] = useState("");
+  const [uSearch, setUSearch] = useState("");
 
   const isLoading = (t: ReportType) => loading === t;
 
@@ -124,9 +134,9 @@ export function ReportsPage() {
           icon={CreditCard}
           title="Raport płatności"
           description="Lista płatności z podsumowaniem kwot wg statusu."
-          loading={isLoading('payments')}
+          loading={isLoading("payments")}
           onGenerate={() =>
-            download('payments', {
+            download("payments", {
               status: pStatus,
               groupId: pGroup,
               from: pFrom,
@@ -137,10 +147,14 @@ export function ReportsPage() {
           <Field label="Status">
             <Select
               value={pStatus}
-              onValueChange={(v: string | null) => setPStatus(v ?? '')}
+              onValueChange={(v: string | null) => setPStatus(v ?? "")}
             >
               <SelectTrigger className="w-full rounded-xl">
-                <SelectValue placeholder="Wszystkie statusy" />
+                <SelectValue placeholder="Wszystkie statusy">
+                  {(v: string) =>
+                    v ? (PAYMENT_STATUSES[v] ?? v) : "Wszystkie"
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">Wszystkie</SelectItem>
@@ -155,10 +169,12 @@ export function ReportsPage() {
           <Field label="Grupa">
             <Select
               value={pGroup}
-              onValueChange={(v: string | null) => setPGroup(v ?? '')}
+              onValueChange={(v: string | null) => setPGroup(v ?? "")}
             >
               <SelectTrigger className="w-full rounded-xl">
-                <SelectValue placeholder="Wszystkie grupy" />
+                <SelectValue placeholder="Wszystkie grupy">
+                  {groupLabel}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">Wszystkie</SelectItem>
@@ -193,9 +209,9 @@ export function ReportsPage() {
           icon={ClipboardList}
           title="Raport frekwencji"
           description="Obecności uczniów z wyliczoną frekwencją procentową."
-          loading={isLoading('attendance')}
+          loading={isLoading("attendance")}
           onGenerate={() =>
-            download('attendance', {
+            download("attendance", {
               groupId: aGroup,
               from: aFrom,
               to: aTo,
@@ -205,10 +221,12 @@ export function ReportsPage() {
           <Field label="Grupa">
             <Select
               value={aGroup}
-              onValueChange={(v: string | null) => setAGroup(v ?? '')}
+              onValueChange={(v: string | null) => setAGroup(v ?? "")}
             >
               <SelectTrigger className="w-full rounded-xl">
-                <SelectValue placeholder="Wszystkie grupy" />
+                <SelectValue placeholder="Wszystkie grupy">
+                  {groupLabel}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">Wszystkie</SelectItem>
@@ -244,11 +262,11 @@ export function ReportsPage() {
           icon={Users}
           title="Raport użytkowników"
           description="Lista użytkowników z rolami i powiązaniami rodzic-dziecko."
-          loading={isLoading('students')}
+          loading={isLoading("students")}
           onGenerate={() =>
-            download('students', {
+            download("students", {
               role: uRole,
-              isMinor: uMinor === '' ? undefined : uMinor,
+              isMinor: uMinor === "" ? undefined : uMinor,
               search: uSearch,
             })
           }
@@ -256,10 +274,12 @@ export function ReportsPage() {
           <Field label="Rola">
             <Select
               value={uRole}
-              onValueChange={(v: string | null) => setURole(v ?? '')}
+              onValueChange={(v: string | null) => setURole(v ?? "")}
             >
               <SelectTrigger className="w-full rounded-xl">
-                <SelectValue placeholder="Wszystkie role" />
+                <SelectValue placeholder="Wszystkie role">
+                  {(v: string) => (v ? (ROLES[v] ?? v) : "Wszystkie")}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">Wszystkie</SelectItem>
@@ -274,10 +294,18 @@ export function ReportsPage() {
           <Field label="Wiek">
             <Select
               value={uMinor}
-              onValueChange={(v: string | null) => setUMinor(v ?? '')}
+              onValueChange={(v: string | null) => setUMinor(v ?? "")}
             >
               <SelectTrigger className="w-full rounded-xl">
-                <SelectValue placeholder="Wszyscy" />
+                <SelectValue placeholder="Wszyscy">
+                  {(v: string) =>
+                    v === "true"
+                      ? "Niepełnoletni"
+                      : v === "false"
+                        ? "Pełnoletni"
+                        : "Wszyscy"
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">Wszyscy</SelectItem>
