@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -187,20 +188,14 @@ export function ReportsPage() {
             </Select>
           </Field>
           <Field label="Termin od">
-            <Input
-              type="date"
+            <DatePicker
               value={pFrom}
-              onChange={(e) => setPFrom(e.target.value)}
+              onChange={setPFrom}
               className="rounded-xl"
             />
           </Field>
           <Field label="Termin do">
-            <Input
-              type="date"
-              value={pTo}
-              onChange={(e) => setPTo(e.target.value)}
-              className="rounded-xl"
-            />
+            <DatePicker value={pTo} onChange={setPTo} className="rounded-xl" />
           </Field>
         </ReportCard>
 
@@ -240,20 +235,14 @@ export function ReportsPage() {
           </Field>
           <div className="hidden sm:block" />
           <Field label="Zajęcia od">
-            <Input
-              type="date"
+            <DatePicker
               value={aFrom}
-              onChange={(e) => setAFrom(e.target.value)}
+              onChange={setAFrom}
               className="rounded-xl"
             />
           </Field>
           <Field label="Zajęcia do">
-            <Input
-              type="date"
-              value={aTo}
-              onChange={(e) => setATo(e.target.value)}
-              className="rounded-xl"
-            />
+            <DatePicker value={aTo} onChange={setATo} className="rounded-xl" />
           </Field>
         </ReportCard>
 

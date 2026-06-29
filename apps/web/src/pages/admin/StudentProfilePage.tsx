@@ -1,12 +1,48 @@
-import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Mail, Phone, Users, CheckCircle2, XCircle, Clock, ChevronDown, CreditCard, AlertCircle, BadgeCheck, UserPlus, Unlink, UserX } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { useUser, useUsers, useLinkParentStudent, useUnlinkParentStudent } from '@/hooks/useUsers';
-import { useStudentStats } from '@/hooks/useAttendance';
-import { usePayments, usePaymentStats, useUpdatePaymentStatus, type Payment } from '@/hooks/usePayments';
+import { useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import {
+  ArrowLeft,
+  Mail,
+  Phone,
+  Users,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  ChevronDown,
+  CreditCard,
+  AlertCircle,
+  BadgeCheck,
+  UserPlus,
+  Unlink,
+  UserX,
+} from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  useUser,
+  useUsers,
+  useLinkParentStudent,
+  useUnlinkParentStudent,
+} from "@/hooks/useUsers";
+import { useStudentStats } from "@/hooks/useAttendance";
+import {
+  usePayments,
+  usePaymentStats,
+  useUpdatePaymentStatus,
+  type Payment,
+} from "@/hooks/usePayments";
+import { DatePicker } from "@/components/ui/date-picker";
 
-function StatCard({ label, value, sub, color }: { label: string; value: number | string; sub?: string; color: string }) {
+function StatCard({
+  label,
+  value,
+  sub,
+  color,
+}: {
+  label: string;
+  value: number | string;
+  sub?: string;
+  color: string;
+}) {
   return (
     <div className={`rounded-2xl px-5 py-4 ${color}`}>
       <p className="text-2xl font-bold">{value}</p>
@@ -21,59 +57,64 @@ function RateBar({ rate }: { rate: number }) {
     <div className="flex items-center gap-2">
       <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all ${rate >= 80 ? 'bg-green-500' : rate >= 60 ? 'bg-amber-400' : 'bg-red-400'}`}
+          className={`h-full rounded-full transition-all ${rate >= 80 ? "bg-green-500" : rate >= 60 ? "bg-amber-400" : "bg-red-400"}`}
           style={{ width: `${rate}%` }}
         />
       </div>
-      <span className={`text-sm font-semibold w-10 text-right ${rate >= 80 ? 'text-green-600' : rate >= 60 ? 'text-amber-500' : 'text-red-500'}`}>
+      <span
+        className={`text-sm font-semibold w-10 text-right ${rate >= 80 ? "text-green-600" : rate >= 60 ? "text-amber-500" : "text-red-500"}`}
+      >
         {rate}%
       </span>
     </div>
   );
 }
 
-type Preset = '30d' | '90d' | '6m' | 'school-year' | 'custom';
+type Preset = "30d" | "90d" | "6m" | "school-year" | "custom";
 
 const PRESETS: { id: Preset; label: string }[] = [
-  { id: '30d', label: 'Ostatnie 30 dni' },
-  { id: '90d', label: 'Ostatnie 90 dni' },
-  { id: '6m', label: 'Ostatnie 6 mies.' },
-  { id: 'school-year', label: 'Rok szkolny' },
-  { id: 'custom', label: 'Własny zakres' },
+  { id: "30d", label: "Ostatnie 30 dni" },
+  { id: "90d", label: "Ostatnie 90 dni" },
+  { id: "6m", label: "Ostatnie 6 mies." },
+  { id: "school-year", label: "Rok szkolny" },
+  { id: "custom", label: "Własny zakres" },
 ];
 
 function presetToRange(preset: Preset, customFrom: string, customTo: string) {
   const now = new Date();
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
-  if (preset === '30d') return { from: fmt(new Date(Date.now() - 30 * 86400000)), to: fmt(now) };
-  if (preset === '90d') return { from: fmt(new Date(Date.now() - 90 * 86400000)), to: fmt(now) };
-  if (preset === '6m') return { from: fmt(new Date(Date.now() - 180 * 86400000)), to: fmt(now) };
-  if (preset === 'school-year') {
+  if (preset === "30d")
+    return { from: fmt(new Date(Date.now() - 30 * 86400000)), to: fmt(now) };
+  if (preset === "90d")
+    return { from: fmt(new Date(Date.now() - 90 * 86400000)), to: fmt(now) };
+  if (preset === "6m")
+    return { from: fmt(new Date(Date.now() - 180 * 86400000)), to: fmt(now) };
+  if (preset === "school-year") {
     const sep = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
     return { from: `${sep}-09-01`, to: fmt(now) };
   }
   return { from: customFrom || undefined, to: customTo || undefined };
 }
 
-const STATUS_LABEL: Record<Payment['status'], string> = {
-  PENDING: 'Oczekuje',
-  PAID: 'Opłacona',
-  OVERDUE: 'Zaległa',
-  REFUNDED: 'Zwrócona',
-  CANCELLED: 'Anulowana',
+const STATUS_LABEL: Record<Payment["status"], string> = {
+  PENDING: "Oczekuje",
+  PAID: "Opłacona",
+  OVERDUE: "Zaległa",
+  REFUNDED: "Zwrócona",
+  CANCELLED: "Anulowana",
 };
 
-const STATUS_STYLE: Record<Payment['status'], string> = {
-  PENDING: 'bg-amber-100 text-amber-700',
-  PAID: 'bg-green-100 text-green-700',
-  OVERDUE: 'bg-red-100 text-red-700',
-  REFUNDED: 'bg-blue-100 text-blue-700',
-  CANCELLED: 'bg-gray-100 text-gray-500',
+const STATUS_STYLE: Record<Payment["status"], string> = {
+  PENDING: "bg-amber-100 text-amber-700",
+  PAID: "bg-green-100 text-green-700",
+  OVERDUE: "bg-red-100 text-red-700",
+  REFUNDED: "bg-blue-100 text-blue-700",
+  CANCELLED: "bg-gray-100 text-gray-500",
 };
 
-const NEXT_STATUS: Partial<Record<Payment['status'], Payment['status']>> = {
-  PENDING: 'PAID',
-  OVERDUE: 'PAID',
+const NEXT_STATUS: Partial<Record<Payment["status"], Payment["status"]>> = {
+  PENDING: "PAID",
+  OVERDUE: "PAID",
 };
 
 function ParentSection({
@@ -85,8 +126,8 @@ function ParentSection({
   isMinor: boolean;
   linkedParent?: { id: string; firstName: string; lastName: string };
 }) {
-  const [selectedParentId, setSelectedParentId] = useState('');
-  const { data: parents } = useUsers({ role: 'PARENT', limit: 100 });
+  const [selectedParentId, setSelectedParentId] = useState("");
+  const { data: parents } = useUsers({ role: "PARENT", limit: 100 });
   const link = useLinkParentStudent();
   const unlink = useUnlinkParentStudent();
 
@@ -94,12 +135,16 @@ function ParentSection({
     if (!selectedParentId) return;
     link.mutate(
       { parentId: selectedParentId, studentId },
-      { onSuccess: () => setSelectedParentId('') },
+      { onSuccess: () => setSelectedParentId("") },
     );
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.05 }}
+    >
       <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
         <Users className="w-3.5 h-3.5" /> Rodzic / Opiekun
       </h2>
@@ -108,15 +153,19 @@ function ParentSection({
           <div className="flex items-center gap-4">
             <div className="w-11 h-11 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
               <span className="text-sm font-bold text-emerald-600">
-                {`${linkedParent.firstName?.[0] ?? ''}${linkedParent.lastName?.[0] ?? ''}`.toUpperCase()}
+                {`${linkedParent.firstName?.[0] ?? ""}${linkedParent.lastName?.[0] ?? ""}`.toUpperCase()}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-gray-900">{linkedParent.firstName} {linkedParent.lastName}</p>
+              <p className="font-medium text-gray-900">
+                {linkedParent.firstName} {linkedParent.lastName}
+              </p>
               <p className="text-xs text-gray-400 mt-0.5">Przypisany opiekun</p>
             </div>
             <button
-              onClick={() => unlink.mutate({ parentId: linkedParent.id, studentId })}
+              onClick={() =>
+                unlink.mutate({ parentId: linkedParent.id, studentId })
+              }
               disabled={unlink.isPending}
               className="flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-700 px-3 py-2 rounded-xl hover:bg-red-50 transition-colors disabled:opacity-50"
             >
@@ -163,14 +212,17 @@ function ParentSection({
 
 export function StudentProfilePage() {
   const { studentId } = useParams<{ studentId: string }>();
-  const [preset, setPreset] = useState<Preset>('school-year');
-  const [customFrom, setCustomFrom] = useState('');
-  const [customTo, setCustomTo] = useState('');
+  const [preset, setPreset] = useState<Preset>("school-year");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [showPresets, setShowPresets] = useState(false);
 
   const range = presetToRange(preset, customFrom, customTo);
   const { data: student, isLoading: loadingStudent } = useUser(studentId!);
-  const { data: stats, isLoading: loadingStats } = useStudentStats(studentId!, range);
+  const { data: stats, isLoading: loadingStats } = useStudentStats(
+    studentId!,
+    range,
+  );
   const { data: paymentsData } = usePayments({ studentId, limit: 50 });
   const { data: paymentStats } = usePaymentStats({ studentId });
   const updateStatus = useUpdatePaymentStatus();
@@ -180,16 +232,22 @@ export function StudentProfilePage() {
   }
 
   if (!student) {
-    return <p className="text-center py-16 text-gray-400">Nie znaleziono ucznia.</p>;
+    return (
+      <p className="text-center py-16 text-gray-400">Nie znaleziono ucznia.</p>
+    );
   }
 
-  const initials = `${student.firstName?.[0] ?? ''}${student.lastName?.[0] ?? ''}`.toUpperCase();
+  const initials =
+    `${student.firstName?.[0] ?? ""}${student.lastName?.[0] ?? ""}`.toUpperCase();
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Link to="/admin/students" className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
+        <Link
+          to="/admin/students"
+          className="p-2 rounded-xl hover:bg-gray-100 transition-colors"
+        >
           <ArrowLeft className="w-4 h-4 text-gray-500" />
         </Link>
         <h1 className="text-xl font-semibold text-gray-900">Profil ucznia</h1>
@@ -199,19 +257,25 @@ export function StudentProfilePage() {
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative">
           <button
-            onClick={() => setShowPresets(p => !p)}
+            onClick={() => setShowPresets((p) => !p)}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm"
           >
-            {PRESETS.find(p => p.id === preset)?.label}
-            <ChevronDown size={14} className={`transition-transform ${showPresets ? 'rotate-180' : ''}`} />
+            {PRESETS.find((p) => p.id === preset)?.label}
+            <ChevronDown
+              size={14}
+              className={`transition-transform ${showPresets ? "rotate-180" : ""}`}
+            />
           </button>
           {showPresets && (
             <div className="absolute top-full mt-1 left-0 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-44">
-              {PRESETS.map(p => (
+              {PRESETS.map((p) => (
                 <button
                   key={p.id}
-                  onClick={() => { setPreset(p.id); setShowPresets(false); }}
-                  className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${preset === p.id ? 'text-indigo-600 font-medium' : 'text-gray-700'}`}
+                  onClick={() => {
+                    setPreset(p.id);
+                    setShowPresets(false);
+                  }}
+                  className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${preset === p.id ? "text-indigo-600 font-medium" : "text-gray-700"}`}
                 >
                   {p.label}
                 </button>
@@ -220,48 +284,71 @@ export function StudentProfilePage() {
           )}
         </div>
 
-        {preset === 'custom' && (
+        {preset === "custom" && (
           <>
-            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <DatePicker
+              value={customFrom}
+              onChange={setCustomFrom}
+              className="w-40 rounded-xl"
+            />
             <span className="text-gray-400 text-sm">–</span>
-            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <DatePicker
+              value={customTo}
+              onChange={setCustomTo}
+              className="w-40 rounded-xl"
+            />
           </>
         )}
 
-        {preset !== 'custom' && range.from && (
+        {preset !== "custom" && range.from && (
           <span className="text-xs text-gray-400">
-            {new Date(range.from).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}
-            {' – '}
-            {new Date(range.to!).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}
+            {new Date(range.from).toLocaleDateString("pl-PL", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })}
+            {" – "}
+            {new Date(range.to!).toLocaleDateString("pl-PL", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })}
           </span>
         )}
       </div>
 
       {/* Student card */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex items-center gap-5">
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex items-center gap-5"
+      >
         <div className="w-16 h-16 rounded-2xl bg-violet-100 flex items-center justify-center shrink-0">
           <span className="text-xl font-bold text-violet-600">{initials}</span>
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-semibold text-gray-900">{student.firstName} {student.lastName}</h2>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {student.firstName} {student.lastName}
+          </h2>
           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
             {student.email && (
               <span className="flex items-center gap-1.5 text-sm text-gray-400">
-                <Mail className="w-3.5 h-3.5" />{student.email}
+                <Mail className="w-3.5 h-3.5" />
+                {student.email}
               </span>
             )}
             {student.phone && (
               <span className="flex items-center gap-1.5 text-sm text-gray-400">
-                <Phone className="w-3.5 h-3.5" />{student.phone}
+                <Phone className="w-3.5 h-3.5" />
+                {student.phone}
               </span>
             )}
           </div>
         </div>
-        <div className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${student.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-          {student.isActive ? 'Aktywny' : 'Nieaktywny'}
+        <div
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${student.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}
+        >
+          {student.isActive ? "Aktywny" : "Nieaktywny"}
         </div>
       </motion.div>
 
@@ -275,21 +362,45 @@ export function StudentProfilePage() {
       {stats && (
         <>
           {/* Overall stats */}
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Frekwencja ogółem</h2>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+          >
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Frekwencja ogółem
+            </h2>
             {stats.overall.total === 0 ? (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-10 text-center text-gray-400 text-sm">
                 Brak danych o frekwencji.
               </div>
             ) : (
               <div className="grid grid-cols-4 gap-3">
-                <StatCard label="Łącznie zajęć" value={stats.overall.total} color="bg-gray-50 text-gray-700" />
-                <StatCard label="Obecny" value={stats.overall.present} color="bg-green-50 text-green-700" />
-                <StatCard label="Nieobecny" value={stats.overall.absent} color="bg-red-50 text-red-700" />
+                <StatCard
+                  label="Łącznie zajęć"
+                  value={stats.overall.total}
+                  color="bg-gray-50 text-gray-700"
+                />
+                <StatCard
+                  label="Obecny"
+                  value={stats.overall.present}
+                  color="bg-green-50 text-green-700"
+                />
+                <StatCard
+                  label="Nieobecny"
+                  value={stats.overall.absent}
+                  color="bg-red-50 text-red-700"
+                />
                 <StatCard
                   label="Frekwencja"
                   value={`${stats.overall.attendanceRate}%`}
-                  color={stats.overall.attendanceRate >= 80 ? 'bg-green-100 text-green-700' : stats.overall.attendanceRate >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}
+                  color={
+                    stats.overall.attendanceRate >= 80
+                      ? "bg-green-100 text-green-700"
+                      : stats.overall.attendanceRate >= 60
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-red-100 text-red-700"
+                  }
                 />
               </div>
             )}
@@ -297,23 +408,37 @@ export function StudentProfilePage() {
 
           {/* Per-group breakdown */}
           {stats.byGroup.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                 <Users className="w-3.5 h-3.5" /> Grupy
               </h2>
               <div className="space-y-3">
                 {stats.byGroup.map((bg, i) => (
-                  <motion.div key={bg.group.id}
-                    initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.05 }}
-                    className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 space-y-3">
+                  <motion.div
+                    key={bg.group.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 + i * 0.05 }}
+                    className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 space-y-3"
+                  >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium text-gray-900">{bg.group.name}</p>
+                        <p className="font-medium text-gray-900">
+                          {bg.group.name}
+                        </p>
                         <p className="text-xs text-gray-400 mt-0.5">
-                          {[bg.group.language, bg.group.level].filter(Boolean).join(' · ')}
+                          {[bg.group.language, bg.group.level]
+                            .filter(Boolean)
+                            .join(" · ")}
                         </p>
                       </div>
-                      <span className="text-xs text-gray-400">{bg.total} zajęć</span>
+                      <span className="text-xs text-gray-400">
+                        {bg.total} zajęć
+                      </span>
                     </div>
 
                     <RateBar rate={bg.attendanceRate} />
@@ -322,15 +447,23 @@ export function StudentProfilePage() {
                       <div className="flex items-center gap-2 bg-green-50 rounded-xl px-3 py-2">
                         <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
                         <div>
-                          <p className="text-sm font-semibold text-green-700">{bg.present}</p>
-                          <p className="text-xs text-green-600 opacity-70">Obecny</p>
+                          <p className="text-sm font-semibold text-green-700">
+                            {bg.present}
+                          </p>
+                          <p className="text-xs text-green-600 opacity-70">
+                            Obecny
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 bg-red-50 rounded-xl px-3 py-2">
                         <XCircle className="w-4 h-4 text-red-400 shrink-0" />
                         <div>
-                          <p className="text-sm font-semibold text-red-600">{bg.absent}</p>
-                          <p className="text-xs text-red-500 opacity-70">Nieobecny</p>
+                          <p className="text-sm font-semibold text-red-600">
+                            {bg.absent}
+                          </p>
+                          <p className="text-xs text-red-500 opacity-70">
+                            Nieobecny
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -342,38 +475,76 @@ export function StudentProfilePage() {
 
           {/* Payments summary */}
           {paymentStats && paymentStats.total > 0 && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                 <CreditCard className="w-3.5 h-3.5" /> Płatności — podsumowanie
               </h2>
               <div className="grid grid-cols-3 gap-3">
-                <StatCard label="Łącznie" value={`${paymentStats.totalAmount.toFixed(0)} PLN`} sub={`${paymentStats.total} faktur`} color="bg-gray-50 text-gray-700" />
-                <StatCard label="Opłacone" value={`${paymentStats.paidAmount.toFixed(0)} PLN`} sub={`${paymentStats.paid} faktur`} color="bg-green-50 text-green-700" />
-                <StatCard label="Zaległe" value={`${paymentStats.overdueAmount.toFixed(0)} PLN`} sub={`${paymentStats.overdue + paymentStats.pending} do zapłaty`} color={paymentStats.overdueAmount > 0 ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-400'} />
+                <StatCard
+                  label="Łącznie"
+                  value={`${paymentStats.totalAmount.toFixed(0)} PLN`}
+                  sub={`${paymentStats.total} faktur`}
+                  color="bg-gray-50 text-gray-700"
+                />
+                <StatCard
+                  label="Opłacone"
+                  value={`${paymentStats.paidAmount.toFixed(0)} PLN`}
+                  sub={`${paymentStats.paid} faktur`}
+                  color="bg-green-50 text-green-700"
+                />
+                <StatCard
+                  label="Zaległe"
+                  value={`${paymentStats.overdueAmount.toFixed(0)} PLN`}
+                  sub={`${paymentStats.overdue + paymentStats.pending} do zapłaty`}
+                  color={
+                    paymentStats.overdueAmount > 0
+                      ? "bg-red-50 text-red-700"
+                      : "bg-gray-50 text-gray-400"
+                  }
+                />
               </div>
             </motion.div>
           )}
 
           {/* Recent history */}
           {stats.history.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+            >
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                 <Clock className="w-3.5 h-3.5" /> Ostatnie zajęcia
               </h2>
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-50">
                 {stats.history.slice(0, 10).map((h, i) => (
                   <div key={i} className="flex items-center gap-3 px-5 py-3">
-                    <div className={`w-2 h-2 rounded-full shrink-0 ${h.status === 'PRESENT' ? 'bg-green-500' : 'bg-red-400'}`} />
+                    <div
+                      className={`w-2 h-2 rounded-full shrink-0 ${h.status === "PRESENT" ? "bg-green-500" : "bg-red-400"}`}
+                    />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{h.class.title}</p>
-                      <p className="text-xs text-gray-400">{h.class.group.name}</p>
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {h.class.title}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {h.class.group.name}
+                      </p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-xs text-gray-400">
-                        {new Date(h.class.scheduledAt).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        {new Date(h.class.scheduledAt).toLocaleDateString(
+                          "pl-PL",
+                          { day: "numeric", month: "short", year: "numeric" },
+                        )}
                       </p>
-                      <p className={`text-xs font-medium mt-0.5 ${h.status === 'PRESENT' ? 'text-green-600' : 'text-red-500'}`}>
-                        {h.status === 'PRESENT' ? 'Obecny' : 'Nieobecny'}
+                      <p
+                        className={`text-xs font-medium mt-0.5 ${h.status === "PRESENT" ? "text-green-600" : "text-red-500"}`}
+                      >
+                        {h.status === "PRESENT" ? "Obecny" : "Nieobecny"}
                       </p>
                     </div>
                   </div>
@@ -383,18 +554,28 @@ export function StudentProfilePage() {
           )}
           {/* Payments list */}
           {paymentsData && paymentsData.data.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                 <CreditCard className="w-3.5 h-3.5" /> Lista płatności
               </h2>
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-50">
                 {paymentsData.data.map((p) => {
-                  const isOverdue = p.status === 'OVERDUE' || (p.status === 'PENDING' && new Date(p.dueDate) < new Date());
+                  const isOverdue =
+                    p.status === "OVERDUE" ||
+                    (p.status === "PENDING" &&
+                      new Date(p.dueDate) < new Date());
                   const next = NEXT_STATUS[p.status];
                   return (
-                    <div key={p.id} className="flex items-center gap-3 px-5 py-3.5">
+                    <div
+                      key={p.id}
+                      className="flex items-center gap-3 px-5 py-3.5"
+                    >
                       <div className="shrink-0">
-                        {p.status === 'PAID' ? (
+                        {p.status === "PAID" ? (
                           <BadgeCheck className="w-5 h-5 text-green-500" />
                         ) : isOverdue ? (
                           <AlertCircle className="w-5 h-5 text-red-400" />
@@ -403,20 +584,34 @@ export function StudentProfilePage() {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800 truncate">{p.description}</p>
+                        <p className="text-sm font-medium text-gray-800 truncate">
+                          {p.description}
+                        </p>
                         <p className="text-xs text-gray-400 mt-0.5">
-                          Termin: {new Date(p.dueDate).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          {p.paidAt && ` · opłacono ${new Date(p.paidAt).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}`}
+                          Termin:{" "}
+                          {new Date(p.dueDate).toLocaleDateString("pl-PL", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                          {p.paidAt &&
+                            ` · opłacono ${new Date(p.paidAt).toLocaleDateString("pl-PL", { day: "numeric", month: "short" })}`}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-sm font-semibold text-gray-800">{Number(p.amount).toFixed(0)} {p.currency}</span>
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-lg ${STATUS_STYLE[p.status]}`}>
+                        <span className="text-sm font-semibold text-gray-800">
+                          {Number(p.amount).toFixed(0)} {p.currency}
+                        </span>
+                        <span
+                          className={`text-xs font-medium px-2 py-0.5 rounded-lg ${STATUS_STYLE[p.status]}`}
+                        >
                           {STATUS_LABEL[p.status]}
                         </span>
                         {next && (
                           <button
-                            onClick={() => updateStatus.mutate({ id: p.id, status: next })}
+                            onClick={() =>
+                              updateStatus.mutate({ id: p.id, status: next })
+                            }
                             className="text-xs text-violet-600 hover:text-violet-800 font-medium px-2 py-0.5 rounded-lg hover:bg-violet-50 transition-colors"
                           >
                             Oznacz jako opłaconą
@@ -431,7 +626,11 @@ export function StudentProfilePage() {
           )}
 
           {paymentsData && paymentsData.data.length === 0 && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                 <CreditCard className="w-3.5 h-3.5" /> Płatności
               </h2>
