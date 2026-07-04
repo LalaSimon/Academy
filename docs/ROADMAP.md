@@ -274,7 +274,12 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 ## Faza 4 — Rozszerzenia (przyszłość)
 
 - [ ] Powiadomienia email (BullMQ + Nodemailer) — nieobecności, przypomnienia o płatnościach, 30 min przed zajęciami
-- [ ] In-app powiadomienia (bell icon w navbarze)
+- [x] In-app powiadomienia (bell icon w navbarze) — moduł `notifications` (REST + polling co 45 s), dzwonek z licznikiem nieprzeczytanych w layoutach admina/ucznia/rodzica, panel z listą i „oznacz wszystkie"
+  - Model `Notification` już w schemacie (z Fazy 0); `NotificationsService` (`create`/`createMany`/`notifyStudents`/`findAll`/`unreadCount`/`markRead`/`markAllRead`) + `NotificationsController` (GET `/notifications`, GET `/unread-count`, PATCH `/:id/read`, PATCH `/read-all`) scoped do zalogowanego usera przez `JwtAuthGuard`
+  - Triggery w istniejących serwisach: `CLASS_CANCELLED` (anulowanie zajęć), `ATTENDANCE_ALERT` (nieobecność), `PAYMENT_REMINDER` (nowa płatność + zaległość z crona), `CLASS_REMINDER` (cron `EVERY_5_MINUTES`, okno 30–35 min przed zajęciami — bez flagi w DB)
+  - `notifyStudents` powiadamia ucznia ORAZ powiązanych rodziców (dzwonek rodzica dostaje zdarzenia dziecka)
+  - Front: `useNotifications` (TanStack Query, polling licznika + invalidacja), `NotificationBell` (base-ui Popover, ikony/kolory per typ, relatywny czas)
+  - Testy: 6 jednostkowych `NotificationsService`; live (curl + Playwright): dzwonek + badge + panel + mark-all-read, triggery płatności i anulowania zajęć zweryfikowane end-to-end
 - [ ] Zadania domowe (upload, ocenianie)
 - [ ] Testy poziomujące (quiz builder)
 - [ ] Tracking postępów ucznia

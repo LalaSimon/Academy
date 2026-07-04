@@ -16,6 +16,8 @@ import {
 import { QueryPaymentsDto } from './dto/query-payments.dto';
 import { QueryStatsDto } from './dto/query-stats.dto';
 import { PaymentStatus } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
+import { formatPlDate } from '../../common/utils/format-date';
 import Stripe from 'stripe';
 
 @Injectable()
@@ -24,7 +26,14 @@ export class PaymentsService {
     apiVersion: '2026-06-24.dahlia',
   });
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
+
+  private money(amount: unknown, currency: string) {
+    return `${Number(amount).toFixed(2)} ${currency}`;
+  }
 
   async findAll(query: QueryPaymentsDto) {
     const {
@@ -137,7 +146,7 @@ export class PaymentsService {
     if (!student)
       throw new NotFoundException(`Student ${dto.studentId} not found`);
 
-    return this.prisma.payment.create({
+    const payment = await this.prisma.payment.create({
       data: {
         studentId: dto.studentId,
         amount: dto.amount,
@@ -153,6 +162,15 @@ export class PaymentsService {
         },
       },
     });
+
+    await this.notifications.notifyStudents(
+      [payment.studentId],
+      'PAYMENT_REMINDER',
+      'Nowa płatność',
+      `Wystawiono płatność ${this.money(payment.amount, payment.currency)} — termin ${formatPlDate(payment.dueDate)}.`,
+    );
+
+    return payment;
   }
 
   async createBulk(dto: CreateBulkPaymentsDto) {
@@ -306,10 +324,33 @@ export class PaymentsService {
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async markOverdue() {
+    const where = {
+      status: PaymentStatus.PENDING,
+      dueDate: { lt: new Date() },
+    };
+
+    // Pobieramy przed updateMany, żeby wiedzieć kogo powiadomić.
+    const becomingOverdue = await this.prisma.payment.findMany({
+      where,
+      select: { studentId: true, amount: true, currency: true, dueDate: true },
+    });
+
     const result = await this.prisma.payment.updateMany({
-      where: { status: 'PENDING', dueDate: { lt: new Date() } },
+      where,
       data: { status: 'OVERDUE' },
     });
+
+    await Promise.all(
+      becomingOverdue.map((p) =>
+        this.notifications.notifyStudents(
+          [p.studentId],
+          'PAYMENT_REMINDER',
+          'Zaległa płatność',
+          `Płatność ${this.money(p.amount, p.currency)} (termin ${formatPlDate(p.dueDate)}) jest zaległa. Prosimy o uregulowanie.`,
+        ),
+      ),
+    );
+
     return result;
   }
 

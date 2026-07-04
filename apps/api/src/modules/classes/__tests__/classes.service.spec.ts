@@ -3,6 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { ClassStatus } from '@prisma/client';
 import { ClassesService } from '../classes.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 
 const mockClass = {
   id: 'cls1',
@@ -37,11 +38,16 @@ const prismaMock = {
   group: {
     findUnique: jest.fn(),
   },
+  groupStudent: {
+    findMany: jest.fn().mockResolvedValue([]),
+  },
   attendance: {
     deleteMany: jest.fn(),
   },
   $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
 };
+
+const notificationsMock = { notifyStudents: jest.fn() };
 
 describe('ClassesService', () => {
   let service: ClassesService;
@@ -51,6 +57,7 @@ describe('ClassesService', () => {
       providers: [
         ClassesService,
         { provide: PrismaService, useValue: prismaMock },
+        { provide: NotificationsService, useValue: notificationsMock },
       ],
     }).compile();
     service = module.get(ClassesService);

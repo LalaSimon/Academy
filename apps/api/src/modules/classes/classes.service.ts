@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { randomUUID } from 'crypto';
 import { ClassStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { formatPlDateTime, formatPlTime } from '../../common/utils/format-date';
 import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 import { ClassQueryDto } from './dto/class-query.dto';
@@ -44,7 +47,10 @@ const CLASS_SELECT = {
 
 @Injectable()
 export class ClassesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async findAll(query: ClassQueryDto) {
     const {
@@ -350,11 +356,75 @@ export class ClassesService {
 
   async updateStatus(id: string, status: ClassStatus, cancelReason?: string) {
     await this.assertExists(id);
-    return this.prisma.class.update({
+    const updated = await this.prisma.class.update({
       where: { id },
       data: { status, ...(cancelReason && { cancelReason }) },
       select: CLASS_SELECT,
     });
+
+    if (status === 'CANCELLED') {
+      const studentIds = await this.getClassStudentIds(updated);
+      const reason = updated.cancelReason
+        ? ` Powód: ${updated.cancelReason}.`
+        : '';
+      await this.notifications.notifyStudents(
+        studentIds,
+        'CLASS_CANCELLED',
+        'Zajęcia odwołane',
+        `Zajęcia „${updated.title}" (${formatPlDateTime(updated.scheduledAt)}) zostały odwołane.${reason}`,
+      );
+    }
+
+    return updated;
+  }
+
+  /** Uczniowie danych zajęć: 1:1 → pojedynczy uczeń; grupowe → aktywni członkowie grupy. */
+  private async getClassStudentIds(cls: {
+    student?: { id: string } | null;
+    group?: { id: string } | null;
+  }): Promise<string[]> {
+    if (cls.student?.id) return [cls.student.id];
+    if (cls.group?.id) {
+      const members = await this.prisma.groupStudent.findMany({
+        where: { groupId: cls.group.id, isActive: true },
+        select: { studentId: true },
+      });
+      return members.map((m) => m.studentId);
+    }
+    return [];
+  }
+
+  /**
+   * Przypomnienie ~30 min przed zajęciami. Okno [now+30min, now+35min) równe
+   * interwałowi crona (5 min) → każde zajęcia trafiają dokładnie raz, bez flagi
+   * w bazie.
+   */
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async sendClassReminders() {
+    const now = Date.now();
+    const from = new Date(now + 30 * 60_000);
+    const to = new Date(now + 35 * 60_000);
+
+    const classes = await this.prisma.class.findMany({
+      where: { status: 'SCHEDULED', scheduledAt: { gte: from, lt: to } },
+      select: {
+        id: true,
+        title: true,
+        scheduledAt: true,
+        student: { select: { id: true } },
+        group: { select: { id: true } },
+      },
+    });
+
+    for (const cls of classes) {
+      const studentIds = await this.getClassStudentIds(cls);
+      await this.notifications.notifyStudents(
+        studentIds,
+        'CLASS_REMINDER',
+        'Przypomnienie o zajęciach',
+        `Zajęcia „${cls.title}" zaczynają się o ${formatPlTime(cls.scheduledAt)}.`,
+      );
+    }
   }
 
   private async assertExists(id: string) {

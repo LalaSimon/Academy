@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { formatPlDateTime } from '../../common/utils/format-date';
 import { BulkUpdateAttendanceDto } from './dto/bulk-update-attendance.dto';
 
 const ATTENDANCE_SELECT = {
@@ -14,7 +16,10 @@ const ATTENDANCE_SELECT = {
 
 @Injectable()
 export class AttendanceService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async getForClass(classId: string) {
     const cls = await this.prisma.class.findUnique({
@@ -73,7 +78,7 @@ export class AttendanceService {
   async bulkUpdate(dto: BulkUpdateAttendanceDto) {
     const cls = await this.prisma.class.findUnique({
       where: { id: dto.classId },
-      select: { id: true },
+      select: { id: true, title: true, scheduledAt: true },
     });
     if (!cls) throw new NotFoundException(`Class ${dto.classId} not found`);
 
@@ -102,6 +107,18 @@ export class AttendanceService {
         }),
       ),
     );
+
+    const absentStudentIds = dto.items
+      .filter((item) => item.status === 'ABSENT')
+      .map((item) => item.studentId);
+    if (absentStudentIds.length > 0) {
+      await this.notifications.notifyStudents(
+        absentStudentIds,
+        'ATTENDANCE_ALERT',
+        'Odnotowano nieobecność',
+        `Odnotowano nieobecność na zajęciach „${cls.title}" (${formatPlDateTime(cls.scheduledAt)}).`,
+      );
+    }
 
     return this.getForClass(dto.classId);
   }

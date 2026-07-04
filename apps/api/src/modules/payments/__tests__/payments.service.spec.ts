@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PaymentsService } from '../payments.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 
 jest.mock('stripe', () => {
@@ -61,6 +62,8 @@ const prismaMock = {
   $transaction: jest.fn(),
 };
 
+const notificationsMock = { notifyStudents: jest.fn() };
+
 describe('PaymentsService', () => {
   let service: PaymentsService;
 
@@ -69,6 +72,7 @@ describe('PaymentsService', () => {
       providers: [
         PaymentsService,
         { provide: PrismaService, useValue: prismaMock },
+        { provide: NotificationsService, useValue: notificationsMock },
       ],
     }).compile();
 
