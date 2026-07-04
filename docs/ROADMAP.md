@@ -287,7 +287,6 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ### Pozostałe rozszerzenia (przyszłość)
 
-- [ ] Powiadomienia email (BullMQ + Nodemailer) — nieobecności, przypomnienia o płatnościach, 30 min przed zajęciami
 - [ ] In-app powiadomienia (bell icon w navbarze)
 - [ ] Zadania domowe (upload, ocenianie)
 - [ ] Testy poziomujące (quiz builder)

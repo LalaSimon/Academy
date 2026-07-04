@@ -200,12 +200,94 @@ export class AuthService {
       },
     });
 
+    await this.mail.sendChildCredentials({
+      to: parent.email,
+      parentName: `${parent.firstName} ${parent.lastName}`,
+      childName: `${child.firstName} ${child.lastName}`,
+      childEmail: child.email,
+    });
+
     return {
       id: child.id,
       email: child.email,
       firstName: child.firstName,
       lastName: child.lastName,
     };
+  }
+
+  async requestPasswordReset(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    // Zawsze zwracamy ten sam komunikat — nie zdradzamy czy email istnieje
+    if (!user || !user.isActive) return { message: 'ok' };
+
+    // Niepełnoletni ma generowany login @academy.pl (nie skrzynkę) — link
+    // resetu musi trafić na email RODZICA. Bez rodzica nie ma gdzie wysłać.
+    let recipientEmail = user.email;
+    let recipientName = user.firstName;
+    let forChildName: string | undefined;
+    if (user.isMinor) {
+      const link = await this.prisma.parentStudent.findFirst({
+        where: { studentId: user.id },
+        select: { parent: { select: { email: true, firstName: true } } },
+      });
+      if (!link) return { message: 'ok' };
+      recipientEmail = link.parent.email;
+      recipientName = link.parent.firstName;
+      forChildName = `${user.firstName} ${user.lastName}`;
+    }
+
+    const resetToken = randomBytes(32).toString('hex');
+    const resetExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1h
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: resetToken,
+        passwordResetExpiry: resetExpiry,
+      },
+    });
+
+    const frontendUrl = this.config.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:5173',
+    );
+    const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+    await this.mail.sendPasswordReset({
+      to: recipientEmail,
+      firstName: recipientName,
+      resetUrl,
+      forChildName,
+    });
+
+    return { message: 'ok' };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { passwordResetToken: token },
+    });
+    if (!user) throw new BadRequestException('INVALID_TOKEN');
+    if (user.passwordResetExpiry && user.passwordResetExpiry < new Date()) {
+      throw new BadRequestException('TOKEN_EXPIRED');
+    }
+
+    const passwordHash = await argon2.hash(newPassword);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash,
+          passwordResetToken: null,
+          passwordResetExpiry: null,
+        },
+      }),
+      // Unieważnij wszystkie sesje po zmianie hasła
+      this.prisma.refreshToken.deleteMany({ where: { userId: user.id } }),
+    ]);
+
+    return { message: 'Password reset successful.' };
   }
 
   async refresh(token: string) {

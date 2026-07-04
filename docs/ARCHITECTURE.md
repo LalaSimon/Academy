@@ -211,6 +211,31 @@ Logowanie HTTP jest globalne i bezdekoratorowe — działa automatycznie na cał
 ### Zasada na przyszłość
 Logi to nie ozdoba — służą wyłapywaniu realnych problemów. Przykład: filtr 5xx ujawnił, że `GET /payments/stats` przyjmował query przez inline typ zamiast klasy DTO, przez co `ValidationPipe` nie walidował daty i niepoprawne wejście wpadało do Prismy jako 500. Wzorzec do wyłapania w całym API: **endpoint z inline typem zamiast DTO = brak walidacji wejścia**.
 
+## Powiadomienia email
+
+`NotificationsService` (`modules/notifications/`) centralizuje wszystkie powiadomienia email o zdarzeniach dotyczących ucznia. Zależy od `PrismaService` i `MailService` (oba `@Global`); inne moduły (`payments`, `attendance`) importują `NotificationsModule` i wołają jego metody.
+
+### Routing odbiorcy — kluczowa zasada
+Uczeń niepełnoletni ma **generowany login** (`@academy.pl`), który jest identyfikatorem, **nie realną skrzynką**. Dlatego helper `resolveRecipient(studentId)`:
+- pełnoletni → własny email ucznia,
+- niepełnoletni → email powiązanego **rodzica** (przez `ParentStudent`); brak rodzica → pomija i loguje ostrzeżenie.
+
+### Dwa tryby wyzwalania
+| Tryb | Powiadomienia | Mechanizm |
+|------|---------------|-----------|
+| Event-driven | potwierdzenie płatności, nieobecność, zaległość | inny serwis woła `notifications.notify*()` |
+| Cron | przypomnienie o zajęciach (~30 min, co 5 min), o płatności (termin ≤ 3 dni, dziennie) | `@Cron` w `NotificationsService` |
+
+### Zasady niezawodności
+- **Metody event-driven nigdy nie rzucają wyjątku** do wywołującego (try/catch + log) — awaria maila nie może cofnąć zapisu obecności czy płatności.
+- **Idempotencja przez flagi w bazie:** `Attendance.absenceNotifiedAt`, `Class.reminderSentAt`, `Payment.reminderSentAt`. Flaga nieobecności jest resetowana, gdy status przestaje być `ABSENT` → ponowna nieobecność wyśle maila ponownie.
+- **Cron `markOverdue`** pobiera rekordy PRZED `updateMany` (które nie zwraca wierszy), by powiadomić tylko nowo zaległe.
+
+### Reset hasła
+`POST /auth/forgot-password` (token 1h w `User.passwordResetToken`, zawsze zwraca `ok` — brak enumeracji emaili) → mail z linkiem → `POST /auth/reset-password` (waliduje token, hashuje nowe hasło, **unieważnia wszystkie sesje** przez `refreshToken.deleteMany`). Frontend: `ForgotPasswordPage` + `ResetPasswordPage`.
+
+**Reset hasła dziecka:** ta sama zasada routingu co powiadomienia — gdy login należy do niepełnoletniego (generowany `@academy.pl`, nie skrzynka), link resetu trafia na email **rodzica** (z kontekstem `forChildName` w treści). Token zapisywany jest na koncie dziecka, więc link resetuje hasło dziecka. Brak powiązanego rodzica → brak wysyłki.
+
 ## Integracje zewnętrzne
 
 ### Google Meet / Calendar API

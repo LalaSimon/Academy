@@ -3,6 +3,9 @@ import { NotFoundException } from '@nestjs/common';
 import { AttendanceStatus } from '@prisma/client';
 import { AttendanceService } from '../attendance.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { NotificationsService } from '../../notifications/notifications.service';
+
+const notificationsMock = { notifyAbsence: jest.fn() };
 
 const mockAttendance = {
   id: 'att1',
@@ -39,6 +42,7 @@ const prismaMock = {
     findMany: jest.fn(),
     createMany: jest.fn(),
     upsert: jest.fn(),
+    updateMany: jest.fn(),
   },
   groupStudent: {
     findMany: jest.fn().mockResolvedValue([]),
@@ -54,6 +58,7 @@ describe('AttendanceService', () => {
       providers: [
         AttendanceService,
         { provide: PrismaService, useValue: prismaMock },
+        { provide: NotificationsService, useValue: notificationsMock },
       ],
     }).compile();
     service = module.get(AttendanceService);

@@ -176,6 +176,68 @@ export class MailService {
       text: `Cześć ${opts.studentName}, potwierdzamy otrzymanie płatności ${amountFmt} za "${opts.description}". Dziękujemy!`,
     });
   }
+
+  async sendPaymentOverdue(opts: {
+    to: string;
+    studentName: string;
+    amount: string;
+    currency: string;
+    description: string;
+    dueDate: Date;
+  }): Promise<void> {
+    const due = opts.dueDate.toLocaleDateString('pl-PL', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    const amountFmt = new Intl.NumberFormat('pl-PL', {
+      style: 'currency',
+      currency: opts.currency,
+    }).format(Number(opts.amount));
+
+    await this.send({
+      to: opts.to,
+      subject: `Zaległa płatność — ${amountFmt}`,
+      html: buildPaymentOverdueHtml({ ...opts, due, amountFmt }),
+      text: `Cześć ${opts.studentName}, płatność ${amountFmt} za "${opts.description}" jest po terminie (${due}). Prosimy o uregulowanie.`,
+    });
+  }
+
+  async sendChildCredentials(opts: {
+    to: string;
+    parentName: string;
+    childName: string;
+    childEmail: string;
+  }): Promise<void> {
+    await this.send({
+      to: opts.to,
+      subject: `Konto dziecka utworzone — login ${opts.childName}`,
+      html: buildChildCredentialsHtml(opts),
+      text: `Cześć ${opts.parentName}! Konto dla ${opts.childName} zostało utworzone. Login dziecka: ${opts.childEmail}. Hasło ustawiłeś podczas konfiguracji.`,
+    });
+  }
+
+  async sendPasswordReset(opts: {
+    to: string;
+    firstName: string;
+    resetUrl: string;
+    // Gdy ustawione, reset dotyczy konta dziecka, a mail idzie do rodzica
+    forChildName?: string;
+  }): Promise<void> {
+    const subject = opts.forChildName
+      ? `Reset hasła dziecka (${opts.forChildName}) — Academy`
+      : 'Reset hasła — Academy';
+    const text = opts.forChildName
+      ? `Cześć ${opts.firstName}! Otrzymaliśmy prośbę o reset hasła do konta dziecka (${opts.forChildName}). Kliknij w link, aby ustawić nowe hasło: ${opts.resetUrl}. Link wygasa po 1 godzinie. Jeśli to nie Ty, zignoruj tę wiadomość.`
+      : `Cześć ${opts.firstName}! Aby zresetować hasło, kliknij w link: ${opts.resetUrl}. Link wygasa po 1 godzinie. Jeśli to nie Ty, zignoruj tę wiadomość.`;
+
+    await this.send({
+      to: opts.to,
+      subject,
+      html: buildPasswordResetHtml(opts),
+      text,
+    });
+  }
 }
 
 // ── HTML templates ─────────────────────────────────────────────────────────────
@@ -376,6 +438,84 @@ function buildPaymentConfirmationHtml(o: {
       { label: 'Zapłacono', value: o.amountFmt, highlight: true },
     ])}
     <p style="font-size:14px;color:#71717a;margin:20px 0 0;">Dziękujemy! Szczegóły znajdziesz w historii płatności w portalu ucznia.</p>
+  `,
+  );
+}
+
+function buildPaymentOverdueHtml(o: {
+  studentName: string;
+  amountFmt: string;
+  description: string;
+  due: string;
+}): string {
+  return baseLayout(
+    'Zaległa płatność',
+    'Zaległość',
+    `
+    <p style="margin:0 0 6px;font-size:14px;color:#71717a;">Cześć, ${o.studentName}!</p>
+    <h2 style="margin:0 0 24px;font-size:22px;font-weight:700;color:#dc2626;letter-spacing:-0.3px;">Płatność po terminie</h2>
+    ${infoTable([
+      { label: 'Opis', value: o.description },
+      { label: 'Kwota', value: o.amountFmt, highlight: true },
+      { label: 'Termin minął', value: o.due },
+    ])}
+    <p style="font-size:14px;color:#71717a;line-height:1.7;margin:20px 0 0;">
+      Prosimy o jak najszybsze uregulowanie należności. Zaloguj się do portalu, aby opłacić przez Stripe.
+    </p>
+  `,
+  );
+}
+
+function buildChildCredentialsHtml(o: {
+  parentName: string;
+  childName: string;
+  childEmail: string;
+}): string {
+  return baseLayout(
+    'Konto dziecka utworzone',
+    'Konto dziecka',
+    `
+    <p style="margin:0 0 6px;font-size:14px;color:#71717a;">Cześć, ${o.parentName}!</p>
+    <h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#18181b;letter-spacing:-0.3px;">Konto dla ${o.childName} jest gotowe</h2>
+    <p style="font-size:15px;color:#52525b;line-height:1.7;margin:0 0 24px;">
+      Dziecko loguje się poniższym adresem (to login w systemie, nie skrzynka email). Hasło ustawiłeś podczas konfiguracji.
+    </p>
+    ${infoTable([
+      { label: 'Imię i nazwisko', value: o.childName },
+      { label: 'Login dziecka', value: o.childEmail, highlight: true },
+    ])}
+    <p style="font-size:13px;color:#a1a1aa;margin:20px 0 0;line-height:1.6;">
+      Powiadomienia dotyczące dziecka (nieobecności, płatności, przypomnienia) będą przychodzić na Twój adres.
+    </p>
+  `,
+  );
+}
+
+function buildPasswordResetHtml(o: {
+  firstName: string;
+  resetUrl: string;
+  forChildName?: string;
+}): string {
+  const heading = o.forChildName
+    ? `Zresetuj hasło konta dziecka`
+    : 'Zresetuj swoje hasło';
+  const intro = o.forChildName
+    ? `Otrzymaliśmy prośbę o zmianę hasła do konta dziecka — <strong style="color:#18181b;">${o.forChildName}</strong>. Kliknij poniższy przycisk, aby ustawić nowe. Link jest ważny przez <strong style="color:#18181b;">1 godzinę</strong>.`
+    : `Otrzymaliśmy prośbę o zmianę hasła. Kliknij poniższy przycisk, aby ustawić nowe. Link jest ważny przez <strong style="color:#18181b;">1 godzinę</strong>.`;
+
+  return baseLayout(
+    'Reset hasła',
+    'Reset hasła',
+    `
+    <p style="margin:0 0 6px;font-size:14px;color:#71717a;">Cześć, ${o.firstName}!</p>
+    <h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#18181b;letter-spacing:-0.3px;">${heading}</h2>
+    <p style="font-size:15px;color:#52525b;line-height:1.7;margin:0 0 28px;">
+      ${intro}
+    </p>
+    ${btn(o.resetUrl, 'Ustaw nowe hasło')}
+    <p style="font-size:12px;color:#a1a1aa;margin:20px 0 0;line-height:1.6;">
+      Jeśli to nie Ty prosiłeś o zmianę hasła, zignoruj tę wiadomość — hasło pozostanie bez zmian.
+    </p>
   `,
   );
 }
