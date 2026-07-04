@@ -30,6 +30,10 @@ function PopoverContent({
         alignOffset={alignOffset}
         side={side}
         sideOffset={sideOffset}
+        // `absolute` (base-ui default) makes the popup contribute to document
+        // scrollHeight — opening the calendar near a page/modal edge grows the
+        // layout and adds a scrollbar. `fixed` anchors to the viewport instead.
+        positionMethod="fixed"
         className="isolate z-50"
       >
         <PopoverPrimitive.Popup
