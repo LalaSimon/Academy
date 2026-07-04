@@ -42,6 +42,20 @@ export function useVerifyEmail(token: string | null) {
   });
 }
 
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: (email: string) =>
+      api.post('/auth/forgot-password', { email }).then((r) => r.data),
+  });
+}
+
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: (data: { token: string; password: string }) =>
+      api.post('/auth/reset-password', data).then((r) => r.data),
+  });
+}
+
 export function useSetupChild() {
   return useMutation({
     mutationFn: (data: { firstName: string; lastName: string; password: string }) =>

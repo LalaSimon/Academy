@@ -16,6 +16,7 @@ import {
 import { QueryPaymentsDto } from './dto/query-payments.dto';
 import { QueryStatsDto } from './dto/query-stats.dto';
 import { PaymentStatus } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 import Stripe from 'stripe';
 
 @Injectable()
@@ -24,7 +25,10 @@ export class PaymentsService {
     apiVersion: '2026-06-24.dahlia',
   });
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async findAll(query: QueryPaymentsDto) {
     const {
@@ -189,7 +193,7 @@ export class PaymentsService {
 
   async updateStatus(id: string, dto: UpdatePaymentStatusDto) {
     await this.findOne(id);
-    return this.prisma.payment.update({
+    const payment = await this.prisma.payment.update({
       where: { id },
       data: {
         status: dto.status as PaymentStatus,
@@ -201,6 +205,16 @@ export class PaymentsService {
         },
       },
     });
+
+    if (dto.status === 'PAID') {
+      await this.notifications.notifyPaymentConfirmation(payment.studentId, {
+        amount: payment.amount.toString(),
+        currency: payment.currency,
+        description: payment.description,
+      });
+    }
+
+    return payment;
   }
 
   async update(id: string, dto: UpdatePaymentDto) {
@@ -288,7 +302,7 @@ export class PaymentsService {
       const paymentId = session.metadata?.paymentId;
       if (!paymentId) return { received: true };
 
-      await this.prisma.payment.update({
+      const payment = await this.prisma.payment.update({
         where: { id: paymentId },
         data: {
           status: 'PAID',
@@ -296,6 +310,12 @@ export class PaymentsService {
           externalId: session.id,
           paymentProvider: 'stripe',
         },
+      });
+
+      await this.notifications.notifyPaymentConfirmation(payment.studentId, {
+        amount: payment.amount.toString(),
+        currency: payment.currency,
+        description: payment.description,
       });
     }
 
@@ -306,10 +326,32 @@ export class PaymentsService {
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async markOverdue() {
+    // Pobierz przed update, by powiadomić tylko nowo zaległe (updateMany nie zwraca wierszy)
+    const becomingOverdue = await this.prisma.payment.findMany({
+      where: { status: 'PENDING', dueDate: { lt: new Date() } },
+      select: {
+        studentId: true,
+        amount: true,
+        currency: true,
+        description: true,
+        dueDate: true,
+      },
+    });
+
     const result = await this.prisma.payment.updateMany({
       where: { status: 'PENDING', dueDate: { lt: new Date() } },
       data: { status: 'OVERDUE' },
     });
+
+    for (const p of becomingOverdue) {
+      await this.notifications.notifyPaymentOverdue(p.studentId, {
+        amount: p.amount.toString(),
+        currency: p.currency,
+        description: p.description,
+        dueDate: p.dueDate,
+      });
+    }
+
     return result;
   }
 
