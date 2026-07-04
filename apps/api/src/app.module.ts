@@ -33,6 +33,7 @@ import { RequestLoggerMiddleware } from './common/middleware/request-logger.midd
     MaterialsModule,
     PaymentsModule,
     ReportsModule,
+    NotificationsModule,
   ],
 })
 export class AppModule implements NestModule {
