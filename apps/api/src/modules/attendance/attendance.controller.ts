@@ -15,6 +15,10 @@ import { IsOptional, IsString } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import {
+  AccessControlService,
+  type RequestUser,
+} from '../../common/access/access-control.service';
 import { AttendanceService } from './attendance.service';
 import { BulkUpdateAttendanceDto } from './dto/bulk-update-attendance.dto';
 
@@ -36,17 +40,29 @@ class StudentStatsQuery {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('attendance')
 export class AttendanceController {
-  constructor(private readonly attendanceService: AttendanceService) {}
+  constructor(
+    private readonly attendanceService: AttendanceService,
+    private readonly access: AccessControlService,
+  ) {}
 
   @Get()
   @Roles(Role.ADMIN, Role.TEACHER)
-  getForClass(@Query() query: ClassIdQuery) {
+  async getForClass(
+    @Query() query: ClassIdQuery,
+    @Req() req: Request & { user: RequestUser },
+  ) {
+    await this.access.assertCanAccessClass(req.user, query.classId);
     return this.attendanceService.getForClass(query.classId);
   }
 
   @Patch('bulk')
   @Roles(Role.ADMIN, Role.TEACHER)
-  bulkUpdate(@Body() dto: BulkUpdateAttendanceDto) {
+  async bulkUpdate(
+    @Body() dto: BulkUpdateAttendanceDto,
+    @Req() req: Request & { user: RequestUser },
+  ) {
+    // ZAPIS: oznaczenie nieobecności wysyła powiadomienie uczniowi i rodzicowi.
+    await this.access.assertCanAccessClass(req.user, dto.classId);
     return this.attendanceService.bulkUpdate(dto);
   }
 

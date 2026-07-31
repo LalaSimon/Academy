@@ -96,7 +96,11 @@ export class ClassesController {
 
   @Get(':id')
   @Roles(Role.ADMIN, Role.TEACHER)
-  findOne(@Param('id') id: string) {
+  async findOne(
+    @Param('id') id: string,
+    @Req() req: Request & { user: RequestUser },
+  ) {
+    await this.access.assertCanAccessClass(req.user, id);
     return this.classesService.findOne(id);
   }
 
@@ -129,7 +133,14 @@ export class ClassesController {
 
   @Patch(':id/status')
   @Roles(Role.ADMIN, Role.TEACHER)
-  updateStatus(@Param('id') id: string, @Body() dto: UpdateStatusDto) {
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateStatusDto,
+    @Req() req: Request & { user: RequestUser },
+  ) {
+    // ZAPIS o trwałych skutkach: odwołanie zajęć rozsyła powiadomienia
+    // uczniom grupy. Bez tego nauczyciel mógł odwołać cudze zajęcia.
+    await this.access.assertCanAccessClass(req.user, id);
     return this.classesService.updateStatus(id, dto.status, dto.cancelReason);
   }
 

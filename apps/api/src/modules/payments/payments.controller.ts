@@ -54,7 +54,7 @@ export class PaymentsController {
   // ── Protected routes ──────────────────────────────────────────────────────
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get()
-  @Roles('ADMIN', 'TEACHER', 'STUDENT', 'PARENT')
+  @Roles('ADMIN', 'STUDENT', 'PARENT')
   async findAll(
     @Query() query: QueryPaymentsDto,
     @Req() req: Request & { user: { id: string; role: string } },
@@ -94,11 +94,31 @@ export class PaymentsController {
     return this.paymentsService.createBulk(dto);
   }
 
+  // TEACHER usunięty: nauczyciel nie ma powodu oglądać finansów szkoły,
+  // a lista i tak filtrowała tylko ucznia i rodzica — więc widział wszystko.
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get(':id')
-  @Roles('ADMIN', 'TEACHER', 'STUDENT', 'PARENT')
-  findOne(@Param('id') id: string) {
-    return this.paymentsService.findOne(id);
+  @Roles('ADMIN', 'STUDENT', 'PARENT')
+  async findOne(
+    @Param('id') id: string,
+    @Req() req: Request & { user: { id: string; role: string } },
+  ) {
+    const payment = await this.paymentsService.findOne(id);
+
+    // Lista miała self-check od Fazy 2.1, pojedyncza płatność nie — dało się
+    // odczytać cudzą kwotę, opis i dane ucznia, znając `id`.
+    if (req.user.role === 'STUDENT' && payment.studentId !== req.user.id) {
+      throw new ForbiddenException();
+    }
+    if (req.user.role === 'PARENT') {
+      const childIds = await this.paymentsService.getParentChildIds(
+        req.user.id,
+      );
+      if (!childIds.includes(payment.studentId)) {
+        throw new ForbiddenException();
+      }
+    }
+    return payment;
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

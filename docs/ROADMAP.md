@@ -366,6 +366,26 @@ Audyt przy okazji portalu nauczyciela wykazał, że `@Roles()` przepuszczał **r
 - [x] Zweryfikowane na żywo dla wszystkich ról: uczeń (własna grupa 200 / cudza 403, zajęcia 55 z 70), rodzic (grupa i materiały dziecka 200, cudza 403, zajęcia 43 z 70), nauczyciel (1 grupa z 3, 42 zajęcia z 70), admin bez zmian
 - [x] Sprawdzone, że uczeń nie stracił zajęć 1:1 (utworzone i zweryfikowane na żywo)
 
+### 5.3 — Kontrola dostępu: zapis i materiały ✅
+
+Pytanie „czy jest już szczelne?" skłoniło do przeglądu **wszystkich** endpointów dostępnych dla ról nie-admin. 5.2 naprawiła trzy miejsca, do których doprowadził pierwszy trop; ten przegląd znalazł kolejne — w tym **operacje zapisu**, groźniejsze od odczytu, bo mają skutki uboczne.
+
+**Zapis (najpoważniejsze):**
+- [x] `PATCH /classes/:id/status` — nauczyciel mógł **odwołać cudze zajęcia**, co dodatkowo rozsyłało powiadomienia uczniom obcej grupy
+- [x] `PATCH /attendance/bulk` — mógł zapisać frekwencję na cudzych zajęciach (oznaczenie nieobecności wysyła mail i powiadomienie)
+
+**Odczyt:**
+- [x] `GET /payments/:id` — uczeń widział **cudzą płatność** (kwota, opis, dane). Lista miała self-check od 2.1, pojedyncza płatność nie
+- [x] `GET /payments` — **nauczyciel widział finanse całej szkoły**; rola `TEACHER` usunięta z płatności (brak przypadku użycia, zasada najmniejszych uprawnień)
+- [x] `GET /materials`, `/materials/:id`, `/materials/:id/file` — dostęp do dowolnego materiału i pobranie pliku; biblioteka filtrowana przez `isPublic` / grupy / zajęcia / własne wgranie (nauczyciel)
+- [x] `GET /materials/class/:classId`, `GET /classes/:id`, `GET /attendance?classId` — scope zajęć
+
+`AccessControlService` rozszerzony o `assertCanAccessClass` (używane też przy zapisie), `assertCanReadMaterial` i `getAccessibleClassIds`.
+
+- [x] 24 testy jednostkowe serwisu (było 13)
+- [x] 13 testów E2E (było 7) — osobno dla zapisu i odczytu
+- [x] Zweryfikowane na żywo: wszystkie osiem dziur zwraca 403, a własne zasoby nadal 200 (nauczyciel: własne zajęcia i frekwencja, uczeń: 7 materiałów, 2 płatności, własna płatność po `id`)
+
 ### ⚠ Znane luki (wykryte w audycie 2026-07-31)
 
 - [x] ~~**Portal nauczyciela — NIE ISTNIEJE**~~ — zamknięte 2026-07-31, patrz Faza 5
@@ -410,7 +430,7 @@ Zamyka najpoważniejszą lukę z audytu: `/teacher` był placeholderem `<div>Tea
 - [x] 5 testów E2E (`e2e/teacher.spec.ts`): redirect po logowaniu, nawigacja, lista zajęć, rozliczenie godzin, brak dostępu do panelu admina. Stabilność potwierdzona trzema przebiegami
 - [x] Zweryfikowane na żywo (curl): nauczyciel widzi 39 zajęć, admin 66; podanie cudzego `teacherId` w URL nie zmienia wyniku; własne statystyki 200, cudze 403
 
-**Do zrobienia dalej:** widok materiałów i listy uczniów grupy w portalu nauczyciela (backend gotowy po 5.2).
+**Do zrobienia dalej:** widok materiałów i listy uczniów grupy w portalu nauczyciela (backend gotowy po 5.2–5.3).
 
 ### Pozostałe rozszerzenia (przyszłość)
 
@@ -436,9 +456,9 @@ Zamyka najpoważniejszą lukę z audytu: `/teacher` był placeholderem `<div>Tea
 
 | Zestaw | Liczba | Komenda | We flow | W CI |
 |---|---|---|---|---|
-| API — jednostkowe (13 suite'ów) | 169 | `cd apps/api && npm test` | ✅ | ✅ |
+| API — jednostkowe (13 suite'ów) | 180 | `cd apps/api && npm test` | ✅ | ✅ |
 | API — integracyjne (5 spec) | 45 | `cd apps/api && npm run test:e2e` | ❌ (Docker) | ✅ |
 | Web — jednostkowe (6 plików, Vitest) | 65 | `cd apps/web && npm test` | ✅ | ✅ |
-| E2E — Playwright (6 spec) | 35 | `npx playwright test` | ❌ (Docker) | ✅ |
+| E2E — Playwright (6 spec) | 40 | `npx playwright test` | ❌ (Docker) | ✅ |
 
-**Razem 314 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
+**Razem 330 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.

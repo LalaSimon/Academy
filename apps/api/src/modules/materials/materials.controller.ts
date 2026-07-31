@@ -38,27 +38,57 @@ export class MaterialsController {
     private readonly access: AccessControlService,
   ) {}
 
+  // Biblioteka materiałów: admin widzi wszystko, pozostali tylko to, co
+  // publiczne, przypisane do ich grup/zajęć albo (nauczyciel) własnego wgrania.
   @Get()
   @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT)
-  findAll(@Query() query: MaterialQueryDto) {
-    return this.materialsService.findAll(query);
+  async findAll(
+    @Query() query: MaterialQueryDto,
+    @Req() req: Request & { user: RequestUser },
+  ) {
+    if (req.user.role === Role.ADMIN) {
+      return this.materialsService.findAll(query);
+    }
+    const [groupIds, classIds] = await Promise.all([
+      this.access.getAccessibleGroupIds(req.user),
+      this.access.getAccessibleClassIds(req.user),
+    ]);
+    return this.materialsService.findAll(query, {
+      groupIds: groupIds ?? [],
+      classIds,
+      uploaderId: req.user.role === Role.TEACHER ? req.user.id : undefined,
+    });
   }
 
   @Get(':id')
   @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT)
-  findOne(@Param('id') id: string) {
+  async findOne(
+    @Param('id') id: string,
+    @Req() req: Request & { user: RequestUser },
+  ) {
+    await this.access.assertCanReadMaterial(req.user, id);
     return this.materialsService.findOne(id);
   }
 
   @Get(':id/file')
   @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT)
-  async streamFile(@Param('id') id: string, @Res() res: Response) {
+  async streamFile(
+    @Param('id') id: string,
+    @Res() res: Response,
+    @Req() req: Request & { user: RequestUser },
+  ) {
+    // Bez tego dało się pobrać plik dowolnego materiału, znając `id`.
+    await this.access.assertCanReadMaterial(req.user, id);
     await this.materialsService.streamFile(id, res);
   }
 
   @Get('class/:classId')
   @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT)
-  getForClass(@Param('classId') classId: string) {
+  async getForClass(
+    @Param('classId') classId: string,
+    @Req() req: Request & { user: RequestUser },
+  ) {
+    await this.access.assertCanAccessClass(req.user, classId);
     return this.materialsService.getForClass(classId);
   }
 

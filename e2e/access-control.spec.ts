@@ -30,6 +30,7 @@ test.describe('Kontrola dostępu — odczyt', () => {
   let ownGroupId = '';
   let foreignGroupId = '';
   let createdForeignGroup = false;
+  let foreignClassId = '';
 
   test.beforeAll(async ({ playwright, baseURL }) => {
     const request = await playwright.request.newContext({ baseURL });
@@ -83,6 +84,26 @@ test.describe('Kontrola dostępu — odczyt', () => {
       foreignGroupId = (await created.json()).id;
       createdForeignGroup = true;
     }
+
+    // Zajęcia prowadzone przez kogoś innego niż nasz nauczyciel — potrzebne
+    // do testów zapisu.
+    const clsRes = await request.get('/api/v1/classes?limit=200', {
+      headers: auth(adminToken),
+    });
+    const teacherMe = await (
+      await request.get('/api/v1/auth/me', { headers: auth(teacherToken) })
+    ).json();
+    const all = (await clsRes.json()).data as {
+      id: string;
+      teacher: { id: string } | null;
+      group: { teacher?: { id: string } | null } | null;
+    }[];
+    foreignClassId =
+      all.find(
+        (c) =>
+          c.teacher?.id !== teacherMe.id &&
+          c.group?.teacher?.id !== teacherMe.id,
+      )?.id ?? '';
 
     await request.dispose();
   });
@@ -178,6 +199,114 @@ test.describe('Kontrola dostępu — odczyt', () => {
     expect((await teacherRes.json()).total).toBeLessThanOrEqual(
       (await adminRes.json()).total,
     );
+  });
+
+  // ── Zapis ────────────────────────────────────────────────────────────────
+  // Najpoważniejsza część audytu: nauczyciel mógł odwołać CUDZE zajęcia,
+  // co dodatkowo rozsyłało powiadomienia uczniom obcej grupy.
+
+  test('nauczyciel NIE zmieni statusu cudzych zajęć', async ({ request }) => {
+    test.skip(!foreignClassId, 'brak zajęć prowadzonych przez kogoś innego');
+    const res = await request.patch(`/api/v1/classes/${foreignClassId}/status`, {
+      headers: auth(teacherToken),
+      data: { status: 'CANCELLED', cancelReason: 'próba z testu' },
+    });
+    expect(res.status()).toBe(403);
+  });
+
+  test('nauczyciel NIE zapisze frekwencji na cudzych zajęciach', async ({
+    request,
+  }) => {
+    test.skip(!foreignClassId, 'brak zajęć prowadzonych przez kogoś innego');
+    const res = await request.patch('/api/v1/attendance/bulk', {
+      headers: auth(teacherToken),
+      data: {
+        classId: foreignClassId,
+        items: [{ studentId: 'ktokolwiek', status: 'ABSENT' }],
+      },
+    });
+    expect(res.status()).toBe(403);
+  });
+
+  test('nauczyciel NIE odczyta cudzych zajęć ani ich frekwencji', async ({
+    request,
+  }) => {
+    test.skip(!foreignClassId, 'brak zajęć prowadzonych przez kogoś innego');
+    const [cls, att] = await Promise.all([
+      request.get(`/api/v1/classes/${foreignClassId}`, {
+        headers: auth(teacherToken),
+      }),
+      request.get(`/api/v1/attendance?classId=${foreignClassId}`, {
+        headers: auth(teacherToken),
+      }),
+    ]);
+    expect(cls.status()).toBe(403);
+    expect(att.status()).toBe(403);
+  });
+
+  test('uczeń NIE pobierze cudzej płatności', async ({ request }) => {
+    const all = await request.get('/api/v1/payments?limit=100', {
+      headers: auth(adminToken),
+    });
+    const me = await (
+      await request.get('/api/v1/auth/me', { headers: auth(studentToken) })
+    ).json();
+    const foreign = ((await all.json()).data as { id: string; studentId: string }[]).find(
+      (p) => p.studentId !== me.id,
+    );
+    test.skip(!foreign, 'brak płatności innego ucznia');
+
+    const res = await request.get(`/api/v1/payments/${foreign!.id}`, {
+      headers: auth(studentToken),
+    });
+    expect(res.status()).toBe(403);
+  });
+
+  test('uczeń NIE pobierze materiału ani pliku obcej grupy', async ({
+    request,
+  }) => {
+    // Materiał kontrolny powstaje w locie — seed nie zawiera materiału
+    // przypisanego wyłącznie do obcej grupy.
+    const created = await request.post('/api/v1/materials', {
+      headers: auth(adminToken),
+      data: {
+        title: `ACL materiał kontrolny ${Date.now()}`,
+        type: 'LINK',
+        url: 'https://example.com/secret',
+      },
+    });
+    expect(created.ok()).toBeTruthy();
+    const materialId = (await created.json()).id as string;
+
+    try {
+      await request.post(
+        `/api/v1/materials/${materialId}/groups/${foreignGroupId}`,
+        { headers: auth(adminToken) },
+      );
+
+      const [detail, file, list] = await Promise.all([
+        request.get(`/api/v1/materials/${materialId}`, {
+          headers: auth(studentToken),
+        }),
+        request.get(`/api/v1/materials/${materialId}/file`, {
+          headers: auth(studentToken),
+        }),
+        // MaterialQueryDto ogranicza `limit` do 100.
+        request.get('/api/v1/materials?limit=100', {
+          headers: auth(studentToken),
+        }),
+      ]);
+
+      expect(detail.status()).toBe(403);
+      expect(file.status()).toBe(403);
+
+      const visible = (await list.json()).data as { id: string }[];
+      expect(visible.some((m) => m.id === materialId)).toBe(false);
+    } finally {
+      await request.delete(`/api/v1/materials/${materialId}`, {
+        headers: auth(adminToken),
+      });
+    }
   });
 
   test('uczeń NIE pobierze statystyk nauczyciela', async ({ request }) => {
