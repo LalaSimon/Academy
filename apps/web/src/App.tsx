@@ -22,6 +22,10 @@ import { ReportsPage } from '@/pages/admin/ReportsPage';
 import { AdminLayout } from '@/layouts/AdminLayout';
 import { StudentLayout } from '@/layouts/StudentLayout';
 import { ParentLayout } from '@/layouts/ParentLayout';
+import { TeacherLayout } from '@/layouts/TeacherLayout';
+import { TeacherDashboardPage } from '@/pages/teacher/TeacherDashboardPage';
+import { TeacherClassesPage } from '@/pages/teacher/TeacherClassesPage';
+import { TeacherStatsPage } from '@/pages/teacher/TeacherStatsPage';
 import ParentDashboardPage from '@/pages/parent/ParentDashboardPage';
 import ParentChildClassesPage from '@/pages/parent/ParentChildClassesPage';
 import ParentChildAttendancePage from '@/pages/parent/ParentChildAttendancePage';
@@ -70,7 +74,12 @@ function App() {
           </Route>
 
           <Route element={<PrivateRoute allowedRoles={['ADMIN', 'TEACHER']} />}>
-            <Route path="/teacher" element={<div className="p-6">Teacher Dashboard — WIP</div>} />
+            <Route element={<TeacherLayout />}>
+              <Route path="/teacher" element={<Navigate to="/teacher/dashboard" replace />} />
+              <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
+              <Route path="/teacher/classes" element={<TeacherClassesPage />} />
+              <Route path="/teacher/stats" element={<TeacherStatsPage />} />
+            </Route>
           </Route>
 
           <Route element={<PrivateRoute allowedRoles={['STUDENT']} />}>

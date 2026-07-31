@@ -345,10 +345,7 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ### ⚠ Znane luki (wykryte w audycie 2026-07-31)
 
-- [ ] **Portal nauczyciela — NIE ISTNIEJE.** `/teacher` to placeholder `<div>Teacher Dashboard — WIP</div>` w `App.tsx`; nie ma `TeacherLayout` ani żadnej strony nauczyciela
-  - Rola `TEACHER` jest w pełni obecna w backendzie (przypisanie do zajęć i grup, `GET /users/:id/stats`, fallback `Class.teacherId → group.teacherId`) i admin widzi statystyki nauczyciela w `TeacherProfilePage` — ale sam nauczyciel po zalogowaniu nie widzi nic
-  - Minimalny zakres do użyteczności: lista swoich zajęć, modal obecności, materiały grupy, własne statystyki godzin
-  - **To najpoważniejszy brak w projekcie** — jedna z trzech ról produktowych nie ma UI, mimo że Fazy 1–3 są oznaczone jako ukończone
+- [x] ~~**Portal nauczyciela — NIE ISTNIEJE**~~ — zamknięte 2026-07-31, patrz Faza 5
 - [ ] Testy E2E procesu płatności (z 2.0) — wciąż otwarte
 - [ ] Brak testów jednostkowych frontendu poza `pages/auth` i `ParentSetupPage` (42 testy, 4 pliki) — panele admina/ucznia/rodzica bez pokrycia
 - [x] ~~Testy frontendu poza obowiązkowym flow~~ — naprawione 2026-07-31: `npm test` w `apps/web` dodany jako krok 5 w `CLAUDE.md`. Przy okazji poprawiony skrypt, który uruchamiał Vitest w trybie **watch** (`vitest` zamiast `vitest run`) — dlatego lokalnie nikt go nie wołał, bo wieszał terminal. CI łapało te testy od początku (`npx vitest run`), więc realny koszt był taki, że o awarii dowiadywano się dopiero po pushu
@@ -362,6 +359,35 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
   - **Druga tura (2026-07-31): 8 → 5.** `npm update` domknął `@hono/node-server` (przez CLI `shadcn`) i `esbuild` → 0.28.1. Zamknęło to PR-y Dependabota #7 i #11
   - **Pozostałe 3, świadomie nienaprawione**, wszystkie poza ścieżką produkcyjną: `react-router` (tryb RSC, którego SPA nie używa; łatka dopiero w v8, a `react-router-dom` nie ma linii 8.x — wymaga migracji majora), `brace-expansion` (dev-tooling; w drzewie 3 równoległe majory, `npm update` wywołuje kaskadę do 32 podatności), `uuid` (zapinowany przez `exceljs`)
 - [x] Higiena sekretów zweryfikowana przed upublicznieniem (2026-07-31): `.env` nigdy nie był w historii, brak kluczy Stripe/Resend w commitach, brak plików `.pem`/`.key`, `.env.example` zawiera wyłącznie placeholdery
+
+---
+
+## Faza 5 — Portal nauczyciela
+
+### 5.1 — Layout, zajęcia i rozliczenie godzin ✅
+
+Zamyka najpoważniejszą lukę z audytu: `/teacher` był placeholderem `<div>Teacher Dashboard — WIP</div>`, więc jedna z trzech ról produktowych nie miała UI mimo gotowego backendu.
+
+**Backend — scoping (bezpieczeństwo):**
+- [x] `GET /classes` **nie filtrował po nauczycielu w ogóle** — `findAll` przyjmował tylko `groupId`/`studentId`/`status`, więc portal pokazywałby cudze zajęcia. Dodany `teacherId` w `ClassQueryDto` + gałąź `OR` w `where`
+- [x] Gałąź `OR: [{ teacherId }, { teacherId: null, group: { teacherId } }]` — ten sam wzorzec co `getTeacherStats`; bez niej nauczyciel nie zobaczyłby zajęć odziedziczonych po grupie (`Class.teacherId` bywa null)
+- [x] Kontroler **nadpisuje** `teacherId` z query wartością `req.user.id` dla roli TEACHER — filtra nie da się obejść parametrem w URL-u
+- [x] `GET /users/:id/stats` otwarte dla TEACHER z self-checkiem (`ForbiddenException` przy cudzym id); wcześniej całe `UsersController` było ADMIN-only
+- [x] 3 testy jednostkowe weryfikujące strukturę `WHERE` (gałęzie OR, łączenie z innymi filtrami, brak scope'u bez `teacherId`)
+
+**Frontend:**
+- [x] `TeacherLayout` — sidebar w konwencji pozostałych layoutów, z dzwonkiem powiadomień i przełącznikiem motywu
+- [x] `TeacherDashboardPage` — zajęcia na dziś, najbliższe 5, skrót statystyk z 30 dni
+- [x] `TeacherClassesPage` — zakładki Nadchodzące/Poprzednie/Wszystkie, przyciski „Rozpocznij"/„Zakończ", modal obecności (reużyty `AttendanceModal`), link do Meet
+- [x] `TeacherStatsPage` — rozliczenie godzin z filtrem okresu, rozbicie miesięczne i na grupy
+- [x] Routing `/teacher/*` zamiast placeholdera; redirect po logowaniu (`TEACHER → /teacher`) już istniał
+
+**Naprawiony przy okazji:** `AnimatePresence` bez `mode="wait"` montował nowy widok, zanim stary zniknął — przez moment renderowały się **dwie kopie strony**. Wykrył to niestabilny test E2E; naprawiona przyczyna, nie test. **Ten sam wzorzec jest nadal w `AdminLayout`, `StudentLayout` i `ParentLayout`** — do poprawy osobno.
+
+- [x] 5 testów E2E (`e2e/teacher.spec.ts`): redirect po logowaniu, nawigacja, lista zajęć, rozliczenie godzin, brak dostępu do panelu admina. Stabilność potwierdzona trzema przebiegami
+- [x] Zweryfikowane na żywo (curl): nauczyciel widzi 39 zajęć, admin 66; podanie cudzego `teacherId` w URL nie zmienia wyniku; własne statystyki 200, cudze 403
+
+**Do zrobienia w 5.2:** materiały grupy z poziomu nauczyciela, podgląd listy uczniów w grupie.
 
 ### Pozostałe rozszerzenia (przyszłość)
 
@@ -377,11 +403,9 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ## ▶ Co robimy teraz?
 
-**Faza 4 domknięta** — powiadomienia email (4.1), in-app (4.2), raporty XLSX (4.3) i date-picker (4.4) działają; finansowe alerty admina świadomie pominięte.
+**Faza 4 domknięta**; **Faza 5.1 (portal nauczyciela) ukończona** — wszystkie trzy role produktowe mają wreszcie UI.
 
-**Rekomendacja po audycie 2026-07-31: portal nauczyciela.** To jedyna rola produktowa bez interfejsu — backend jest gotowy (zajęcia, frekwencja, statystyki godzin), więc brakuje wyłącznie warstwy UI. Każde kolejne rozszerzenie buduje na systemie, w którym jedna z trzech ról nadal nie może z niego korzystać.
-
-Alternatywy, gdy portal nauczyciela nie jest priorytetem biznesowym: zadania domowe, tracking postępów ucznia, Google Calendar API.
+**Następne do wyboru:** 5.2 (materiały grupy i lista uczniów dla nauczyciela), zadania domowe, tracking postępów ucznia, Google Calendar API.
 
 ---
 
@@ -389,9 +413,9 @@ Alternatywy, gdy portal nauczyciela nie jest priorytetem biznesowym: zadania dom
 
 | Zestaw | Liczba | Komenda | We flow | W CI |
 |---|---|---|---|---|
-| API — jednostkowe (12 suite'ów) | 150 | `cd apps/api && npm test` | ✅ | ✅ |
+| API — jednostkowe (12 suite'ów) | 153 | `cd apps/api && npm test` | ✅ | ✅ |
 | API — integracyjne (5 spec) | 45 | `cd apps/api && npm run test:e2e` | ❌ (Docker) | ✅ |
 | Web — jednostkowe (4 pliki, Vitest) | 42 | `cd apps/web && npm test` | ✅ | ✅ |
-| E2E — Playwright (3 spec) | 19 | `npx playwright test` | ❌ (Docker) | ✅ |
+| E2E — Playwright (4 spec) | 24 | `npx playwright test` | ❌ (Docker) | ✅ |
 
-**Razem 256 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
+**Razem 264 testy, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.

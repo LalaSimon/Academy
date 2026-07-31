@@ -18,6 +18,14 @@ export class ClassQueryDto {
   @IsString()
   studentId?: string;
 
+  /**
+   * Filtr po nauczycielu. Dla roli TEACHER kontroler i tak nadpisuje tę wartość
+   * własnym `req.user.id` — nauczyciel nie może podejrzeć cudzych zajęć.
+   */
+  @IsOptional()
+  @IsString()
+  teacherId?: string;
+
   @IsOptional()
   @IsEnum(ClassStatus)
   status?: ClassStatus;

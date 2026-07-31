@@ -56,6 +56,7 @@ export class ClassesService {
       groupId,
       studentId,
       status,
+      teacherId,
       from,
       to,
       page = 1,
@@ -67,6 +68,12 @@ export class ClassesService {
       ...(groupId && { groupId }),
       ...(studentId && { studentId }),
       ...(status && { status }),
+      // `Class.teacherId` bywa null — wtedy prowadzącym jest nauczyciel grupy.
+      // Ten sam wzorzec co w `getTeacherStats`, inaczej nauczyciel nie zobaczy
+      // zajęć odziedziczonych po grupie.
+      ...(teacherId && {
+        OR: [{ teacherId }, { teacherId: null, group: { teacherId } }],
+      }),
       ...((from || to) && {
         scheduledAt: {
           ...(from && { gte: new Date(from) }),
