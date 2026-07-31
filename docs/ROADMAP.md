@@ -389,9 +389,9 @@ Alternatywy, gdy portal nauczyciela nie jest priorytetem biznesowym: zadania dom
 
 | Zestaw | Liczba | Komenda | We flow | W CI |
 |---|---|---|---|---|
-| API — jednostkowe (11 suite'ów) | 146 | `cd apps/api && npm test` | ✅ | ✅ |
+| API — jednostkowe (12 suite'ów) | 150 | `cd apps/api && npm test` | ✅ | ✅ |
 | API — integracyjne (5 spec) | 45 | `cd apps/api && npm run test:e2e` | ❌ (Docker) | ✅ |
 | Web — jednostkowe (4 pliki, Vitest) | 42 | `cd apps/web && npm test` | ✅ | ✅ |
 | E2E — Playwright (3 spec) | 19 | `npx playwright test` | ❌ (Docker) | ✅ |
 
-**Razem 252 testy, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
+**Razem 256 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
