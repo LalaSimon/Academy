@@ -24,18 +24,24 @@ cd apps/api && npm run build
 # 4. Web — lint
 cd apps/web && npm run lint
 
-# 5. Web — build
+# 5. Web — testy (Vitest)
+cd apps/web && npm test
+
+# 6. Web — build
 cd apps/web && npm run build
 
-# 6. E2E — testy Playwright (wymaga docker compose up -d)
+# 7. E2E — testy Playwright (wymaga docker compose up -d)
 npx playwright test
 
-# 7. Commit i push — ZAWSZE na nowym branchu (nigdy bezpośrednio na main)
+# 8. Commit i push — ZAWSZE na nowym branchu (nigdy bezpośrednio na main)
 git checkout -b feat/nazwa-zadania   # prefix wg convention: feat/ fix/ docs/ chore/ refactor/
 git add ... && git commit ... && git push -u origin feat/nazwa-zadania
 ```
 
 Jeśli lint/test/build failuje — napraw przed commitem. Nie commituj "będzie naprawione w następnym commicie".
+
+**Poza flow** (uruchamiaj świadomie, gdy dotykasz warstwy API):
+- Testy integracyjne API — `cd apps/api && npm run test:e2e` (wymaga `docker-compose.test.yml`, baza na porcie 5433). Nie wchodzą w skład `npm test` i nie ma ich w CI.
 
 ## Wersjonowanie — ZAWSZE nowy branch
 

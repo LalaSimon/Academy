@@ -333,7 +333,8 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
   - **To najpoważniejszy brak w projekcie** — jedna z trzech ról produktowych nie ma UI, mimo że Fazy 1–3 są oznaczone jako ukończone
 - [ ] Testy E2E procesu płatności (z 2.0) — wciąż otwarte
 - [ ] Brak testów jednostkowych frontendu poza `pages/auth` i `ParentSetupPage` (42 testy, 4 pliki) — panele admina/ucznia/rodzica bez pokrycia
-- [ ] `apps/web` ma skrypt `test` (Vitest), ale obowiązkowe flow w `CLAUDE.md` go nie uruchamia — testy frontendu mogą się zepsuć niezauważone
+- [x] ~~Testy frontendu poza obowiązkowym flow~~ — naprawione 2026-07-31: `npm test` w `apps/web` dodany jako krok 5 w `CLAUDE.md`. Przy okazji poprawiony skrypt, który uruchamiał Vitest w trybie **watch** (`vitest` zamiast `vitest run`) — dlatego lokalnie nikt go nie wołał, bo wieszał terminal. CI łapało te testy od początku (`npx vitest run`), więc realny koszt był taki, że o awarii dowiadywano się dopiero po pushu
+- [ ] Testy integracyjne API (`npm run test:e2e`) **nie są uruchamiane w CI** — jedyne pokrycie to lokalne, świadome wywołanie
 
 ### Pozostałe rozszerzenia (przyszłość)
 
