@@ -7,8 +7,10 @@ import {
   Body,
   Param,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { ClassStatus, Role } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -60,7 +62,15 @@ export class ClassesController {
 
   @Get()
   @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT, Role.PARENT)
-  findAll(@Query() query: ClassQueryDto) {
+  findAll(
+    @Query() query: ClassQueryDto,
+    @Req() req: Request & { user: { id: string; role: string } },
+  ) {
+    // Nauczyciel widzi wyłącznie własne zajęcia — nadpisujemy `teacherId`
+    // z query, żeby nie dało się go obejść parametrem w URL-u.
+    if (req.user.role === Role.TEACHER) {
+      return this.classesService.findAll({ ...query, teacherId: req.user.id });
+    }
     return this.classesService.findAll(query);
   }
 

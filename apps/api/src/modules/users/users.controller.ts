@@ -41,7 +41,16 @@ export class UsersController {
   }
 
   @Get(':id/stats')
-  getTeacherStats(@Param('id') id: string, @Query() query: TeacherStatsQuery) {
+  @Roles(Role.ADMIN, Role.TEACHER)
+  getTeacherStats(
+    @Param('id') id: string,
+    @Query() query: TeacherStatsQuery,
+    @Req() req: Request & { user: { id: string; role: string } },
+  ) {
+    // Nauczyciel może obejrzeć wyłącznie własne rozliczenie godzin.
+    if (req.user.role === Role.TEACHER && req.user.id !== id) {
+      throw new ForbiddenException();
+    }
     return this.usersService.getTeacherStats(id, {
       from: query.from ? new Date(query.from) : undefined,
       to: query.to ? new Date(query.to) : undefined,

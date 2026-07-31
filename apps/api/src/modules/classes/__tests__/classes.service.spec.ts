@@ -110,6 +110,54 @@ describe('ClassesService', () => {
         }),
       );
     });
+
+    // Portal nauczyciela: `Class.teacherId` bywa null i prowadzącym jest wtedy
+    // nauczyciel grupy — bez gałęzi OR nauczyciel nie zobaczyłby takich zajęć.
+    it('filters by teacher including classes inherited from the group', async () => {
+      prismaMock.class.findMany.mockResolvedValue([]);
+      prismaMock.class.count.mockResolvedValue(0);
+      await service.findAll({ teacherId: 'teacher-1' });
+      expect(prismaMock.class.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: [
+              { teacherId: 'teacher-1' },
+              { teacherId: null, group: { teacherId: 'teacher-1' } },
+            ],
+          }),
+        }),
+      );
+    });
+
+    it('combines the teacher scope with other filters', async () => {
+      prismaMock.class.findMany.mockResolvedValue([]);
+      prismaMock.class.count.mockResolvedValue(0);
+      await service.findAll({
+        teacherId: 'teacher-1',
+        status: ClassStatus.SCHEDULED,
+      });
+      expect(prismaMock.class.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: ClassStatus.SCHEDULED,
+            OR: [
+              { teacherId: 'teacher-1' },
+              { teacherId: null, group: { teacherId: 'teacher-1' } },
+            ],
+          }),
+        }),
+      );
+    });
+
+    it('does not scope by teacher when no teacherId is given', async () => {
+      prismaMock.class.findMany.mockResolvedValue([]);
+      prismaMock.class.count.mockResolvedValue(0);
+      await service.findAll({});
+      const call = prismaMock.class.findMany.mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(call.where.OR).toBeUndefined();
+    });
   });
 
   describe('findOne', () => {
