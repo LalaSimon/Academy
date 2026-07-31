@@ -288,7 +288,7 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
   - **Reset hasła dziecka:** gdy login należy do niepełnoletniego (`@academy.pl` = nie skrzynka), link resetu idzie na email RODZICA (z kontekstem `forChildName`); token siedzi na koncie dziecka, więc resetuje hasło dziecka. Bez powiązanego rodzica — brak wysyłki
 - [x] 3 nowe szablony HTML (zaległość, dane dziecka, reset) spójne z `baseLayout`
 - [x] Testy: 14 nowych (routing odbiorcy, crony, reset hasła); zweryfikowane na żywo (reset end-to-end, potwierdzenie płatności, strony resetu)
-- [ ] **Powiadomienia dla admina** — do ustalenia osobno (nieudana płatność, narastające zaległości, digest)
+- **Powiadomienia dla admina — świadomie pominięte** (decyzja 2026-07-31). Rozważane były: nieudana płatność, narastające zaległości, dzienny digest. Brak realnego case'u — admin i tak widzi te dane w panelu (`/admin/payments` + statystyki), a alert bez konkretnej akcji do podjęcia to tylko szum. Do rewizji dopiero gdy pojawi się skala, przy której przeglądanie panelu przestanie wystarczać
 
 ### 4.2 — Powiadomienia in-app (dzwonek w navbarze) ✅
 
@@ -321,5 +321,7 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 2. ~~Powiazania rodzic-dziecko w panelu admina (3.3)~~ ✅
 3. ~~Powiadomienia email: uczeń pełnoletni + rodzic (4.1)~~ ✅
 4. ~~Powiadomienia in-app: dzwonek + triggery (4.2)~~ ✅
-5. Powiadomienia email dla admina ← **do ustalenia osobno**
+5. ~~Powiadomienia dla admina~~ — pominięte świadomie, brak case'u (patrz 4.1)
+
+**Faza 4 domknięta.** Nastepny temat do wyboru z „Pozostałe rozszerzenia" ← **do ustalenia**
 5. Pozostałe rozszerzenia Fazy 4 (in-app, zadania domowe, raporty…)
