@@ -1,20 +1,32 @@
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useCreatePayment, useCreateBulkPayments } from '@/hooks/usePayments';
-import { useUsers } from '@/hooks/useUsers';
-import { useGroups } from '@/hooks/useGroups';
+import { useEffect } from "react";
+import { useForm, Controller } from "react-hook-form";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useCreatePayment, useCreateBulkPayments } from "@/hooks/usePayments";
+import { useUsers } from "@/hooks/useUsers";
+import { useGroups } from "@/hooks/useGroups";
 
 interface Props {
   open: boolean;
   onClose: () => void;
 }
 
-type Mode = 'student' | 'group';
+type Mode = "student" | "group";
 
 interface FormValues {
   mode: Mode;
@@ -29,14 +41,30 @@ interface FormValues {
 export function PaymentFormModal({ open, onClose }: Props) {
   const createPayment = useCreatePayment();
   const createBulk = useCreateBulkPayments();
-  const { data: studentsData } = useUsers({ role: 'STUDENT', limit: 100 });
+  const { data: studentsData } = useUsers({ role: "STUDENT", limit: 100 });
   const { data: groupsData } = useGroups({ limit: 100 });
 
-  const { register, handleSubmit, watch, setValue, reset, formState: { isSubmitting } } = useForm<FormValues>({
-    defaultValues: { mode: 'student', targetId: '', amount: '', description: '', dueDate: '', periodStart: '', periodEnd: '' },
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    control,
+    reset,
+    formState: { isSubmitting },
+  } = useForm<FormValues>({
+    defaultValues: {
+      mode: "student",
+      targetId: "",
+      amount: "",
+      description: "",
+      dueDate: "",
+      periodStart: "",
+      periodEnd: "",
+    },
   });
 
-  const mode = watch('mode');
+  const mode = watch("mode");
 
   useEffect(() => {
     if (!open) reset();
@@ -51,8 +79,11 @@ export function PaymentFormModal({ open, onClose }: Props) {
       ...(values.periodEnd && { periodEnd: values.periodEnd }),
     };
 
-    if (values.mode === 'student') {
-      await createPayment.mutateAsync({ ...payload, studentId: values.targetId });
+    if (values.mode === "student") {
+      await createPayment.mutateAsync({
+        ...payload,
+        studentId: values.targetId,
+      });
     } else {
       await createBulk.mutateAsync({ ...payload, groupId: values.targetId });
     }
@@ -71,25 +102,35 @@ export function PaymentFormModal({ open, onClose }: Props) {
           <div className="flex rounded-xl border border-border overflow-hidden text-sm">
             <button
               type="button"
-              onClick={() => { setValue('mode', 'student'); setValue('targetId', ''); }}
-              className={`flex-1 py-2 transition-colors ${mode === 'student' ? 'bg-violet-500 text-white' : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground'}`}
+              onClick={() => {
+                setValue("mode", "student");
+                setValue("targetId", "");
+              }}
+              className={`flex-1 py-2 transition-colors ${mode === "student" ? "bg-violet-500 text-white" : "bg-card text-muted-foreground hover:bg-accent hover:text-foreground"}`}
             >
               Dla ucznia
             </button>
             <button
               type="button"
-              onClick={() => { setValue('mode', 'group'); setValue('targetId', ''); }}
-              className={`flex-1 py-2 transition-colors ${mode === 'group' ? 'bg-violet-500 text-white' : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground'}`}
+              onClick={() => {
+                setValue("mode", "group");
+                setValue("targetId", "");
+              }}
+              className={`flex-1 py-2 transition-colors ${mode === "group" ? "bg-violet-500 text-white" : "bg-card text-muted-foreground hover:bg-accent hover:text-foreground"}`}
             >
               Dla grupy (bulk)
             </button>
           </div>
 
           {/* Target selector */}
-          {mode === 'student' ? (
+          {mode === "student" ? (
             <div className="space-y-1">
               <Label>Uczeń</Label>
-              <Select onValueChange={(v: string | null) => v && setValue('targetId', v)}>
+              <Select
+                onValueChange={(v: string | null) =>
+                  v && setValue("targetId", v)
+                }
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Wybierz ucznia" />
                 </SelectTrigger>
@@ -105,7 +146,11 @@ export function PaymentFormModal({ open, onClose }: Props) {
           ) : (
             <div className="space-y-1">
               <Label>Grupa</Label>
-              <Select onValueChange={(v: string | null) => v && setValue('targetId', v)}>
+              <Select
+                onValueChange={(v: string | null) =>
+                  v && setValue("targetId", v)
+                }
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Wybierz grupę" />
                 </SelectTrigger>
@@ -129,12 +174,24 @@ export function PaymentFormModal({ open, onClose }: Props) {
                 step="0.01"
                 min="0.01"
                 placeholder="200.00"
-                {...register('amount', { required: true, min: 0.01 })}
+                {...register("amount", { required: true, min: 0.01 })}
               />
             </div>
             <div className="space-y-1">
               <Label htmlFor="dueDate">Termin płatności</Label>
-              <Input id="dueDate" type="date" {...register('dueDate', { required: true })} />
+              <Controller
+                control={control}
+                name="dueDate"
+                rules={{ required: true }}
+                render={({ field }) => (
+                  <DatePicker
+                    id="dueDate"
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="Wybierz termin"
+                  />
+                )}
+              />
             </div>
           </div>
 
@@ -143,27 +200,60 @@ export function PaymentFormModal({ open, onClose }: Props) {
             <Input
               id="description"
               placeholder="Lekcje — czerwiec 2026"
-              {...register('description', { required: true })}
+              {...register("description", { required: true })}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="periodStart">Okres od (opcjonalnie)</Label>
-              <Input id="periodStart" type="date" {...register('periodStart')} />
+              <Controller
+                control={control}
+                name="periodStart"
+                render={({ field }) => (
+                  <DatePicker
+                    id="periodStart"
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="periodEnd">Okres do (opcjonalnie)</Label>
-              <Input id="periodEnd" type="date" {...register('periodEnd')} />
+              <Controller
+                control={control}
+                name="periodEnd"
+                render={({ field }) => (
+                  <DatePicker
+                    id="periodEnd"
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
             </div>
           </div>
 
           <div className="flex gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={onClose} className="flex-1">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onClose}
+              className="flex-1"
+            >
               Anuluj
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="flex-1 bg-violet-500 hover:bg-violet-600 text-white">
-              {isSubmitting ? 'Tworzenie...' : mode === 'group' ? 'Utwórz dla grupy' : 'Utwórz płatność'}
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 bg-violet-500 hover:bg-violet-600 text-white"
+            >
+              {isSubmitting
+                ? "Tworzenie..."
+                : mode === "group"
+                  ? "Utwórz dla grupy"
+                  : "Utwórz płatność"}
             </Button>
           </div>
         </form>

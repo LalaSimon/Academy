@@ -157,8 +157,23 @@ attendance/    → Ewidencja obecności
 materials/     → Upload/download plików (MinIO), treści
 payments/      → Faktury, statusy, webhook bramki płatności
 notifications/ → Email (Nodemailer), in-app notifications
-reports/       → Raporty frekwencji i finansowe (faza 2)
+reports/       → Eksport XLSX: płatności, frekwencja, użytkownicy (ADMIN)
 ```
+
+## Raporty (eksport XLSX)
+
+Moduł `reports/` generuje pliki Excel **server-side** (ma dostęp do danych i auth) i strumieniuje je do przeglądarki. Wszystkie endpointy są ADMIN-only.
+
+| Endpoint | Filtry | Zawartość |
+|----------|--------|-----------|
+| `GET /reports/payments` | status, grupa, `from`/`to` | Płatności + podsumowanie kwot wg statusu |
+| `GET /reports/attendance` | grupa, `from`/`to` | Frekwencja per uczeń, % = (obecny + spóźniony) / razem |
+| `GET /reports/students` | rola, wiek, szukaj | Użytkownicy + powiązanie rodzic-dziecko |
+
+- **Biblioteka:** `exceljs` (czysty JS, bez headless browsera) — nowa zależność `apps/api`, wymaga rebuildu obrazu.
+- **Wspólny styl:** `reports/xlsx-builder.ts` — jeden builder dla wszystkich raportów: blok tytułowy + opis filtrów + data generowania, nagłówek (biały na fioletowym, zamrożony), formaty (waluta `#,##0.00 zł`, data, procent), kolor tła statusu, wiersze podsumowania, auto-szerokość kolumn.
+- **Walidacja:** DTO z `@IsDateString` (zły `from`/`to` → 400) — ten sam wzorzec co `QueryStatsDto`. Inline typ = brak walidacji (patrz sekcja logowania).
+- **Frontend:** `ReportsPage` (3 karty filtrów + „Generuj XLSX"), hook `useReportDownload` pobiera blob i czyta nazwę pliku z nagłówka `Content-Disposition` (jak streaming materiałów — nie presigned URL).
 
 ## Autoryzacja i role
 

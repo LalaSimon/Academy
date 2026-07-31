@@ -9,6 +9,7 @@ import {
   ClipboardList,
   FolderOpen,
   CreditCard,
+  FileSpreadsheet,
   LogOut,
   Sun,
   Moon,
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { to: '/admin/attendance', label: 'Frekwencja', icon: ClipboardList },
   { to: '/admin/materials', label: 'Materiały', icon: FolderOpen },
   { to: '/admin/payments', label: 'Płatności', icon: CreditCard },
+  { to: '/admin/reports', label: 'Raporty', icon: FileSpreadsheet },
 ];
 
 export function AdminLayout() {

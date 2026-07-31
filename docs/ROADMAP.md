@@ -325,6 +325,24 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [x] Front: `useNotifications` (TanStack Query, polling licznika + invalidacja), `NotificationBell` (base-ui Popover, ikony/kolory per typ, relatywny czas)
 - [x] Testy: jednostkowe `InAppNotificationsService` + `NotificationsService`; live (curl + Playwright): dzwonek + badge + panel + mark-all-read, triggery płatności i anulowania zajęć zweryfikowane end-to-end
 
+### 4.3 — Raporty (eksport XLSX) ✅
+
+- [x] Moduł `reports` (`modules/reports/`) — endpointy **ADMIN-only** generujące pliki Excel (exceljs)
+- [x] `GET /reports/payments` — płatności z filtrami (status, grupa, zakres dat) + podsumowanie kwot wg statusu (RAZEM / Zapłacone / Zaległe / Oczekujące)
+- [x] `GET /reports/attendance` — frekwencja per uczeń (grupa, zakres dat); % = (obecny + spóźniony) / razem
+- [x] `GET /reports/students` — użytkownicy (rola, wiek, szukaj) z powiązaniem rodzic-dziecko
+- [x] Wspólny builder `xlsx-builder.ts` — blok tytułowy, opis zastosowanych filtrów, nagłówek (biały na fioletowym, zamrożony), format walutowy/dat/procent, kolor tła statusu, wiersze podsumowania, auto-szerokość kolumn
+- [x] DTO z walidacją (zły `from`/`to` → 400, brak admina → 401/403) — analogicznie do `QueryStatsDto`
+- [x] Frontend: `ReportsPage` (3 karty z filtrami + „Generuj XLSX"), hook `useReportDownload` (pobranie blob + nazwa z `Content-Disposition`), trasa `/admin/reports` + link „Raporty" w nawigacji admina
+- [x] Testy jednostkowe serwisu (4): agregacja płatności/frekwencji, mapowanie ról/wieku/rodzica, przełożenie filtrów na zapytanie Prisma
+- [x] Zweryfikowane na żywo: curl (200 + XLSX, 400 zły date, 401 bez auth) oraz Playwright (render 3 kart + realne pobranie pliku)
+
+### 4.4 — Date-picker (shadcn/react-day-picker) ✅
+
+- [x] `DatePicker` (`components/ui/date-picker.tsx`) + `calendar.tsx` + `popover.tsx` — zastępuje natywne `<input type="date">`
+- [x] Wdrożony w `ClassFormModal`, `PaymentFormModal`, `GroupDetailPage`, `StudentProfilePage`, `TeacherProfilePage`, `ReportsPage`
+- [x] Fix: kalendarz renderowany w portalu (Popover) nie rozpycha już formularza po otwarciu
+
 ### ⚠ Znane luki (wykryte w audycie 2026-07-31)
 
 - [ ] **Portal nauczyciela — NIE ISTNIEJE.** `/teacher` to placeholder `<div>Teacher Dashboard — WIP</div>` w `App.tsx`; nie ma `TeacherLayout` ani żadnej strony nauczyciela
@@ -340,6 +358,7 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [x] ~~Branch protection niedostępne~~ — zamknięte 2026-07-31: repo upublicznione, ochrona `main` włączona (szczegóły w Fazie 0). Odblokowało też darmowe dla repo publicznych: **secret scanning + push protection** (GitHub blokuje push zawierający sekret) oraz **Dependabot alerts + automated security fixes**. Minuty Actions przestały być limitowane, więc CI na każdym pushu nic nie kosztuje
 - [x] **Podatności zależności — 12 → 6** (2026-07-31). Naprawione przez celowe podniesienie dwóch bezpośrednich zależności (`@nestjs/platform-express` 11.1.27→11.1.28, `vite` 8.1.0→8.2.0) i `npm update` trzech tranzytywnych. Zamknięte: **multer** (DoS przy uploadzie — jedyna podatność na ścieżce przyjmującej dane od użytkownika), **postcss** (path traversal), **fast-xml-parser** (przez `minio`, też runtime), **js-yaml**, **fast-uri**
   - ⚠ `npm audit fix` jest tu **szkodliwe** — podbija liczbę podatności z 12 do 32 (kaskada przez `brace-expansion`). Nie używać; podnosić zależności celowo
+  - Po scaleniu 4.3 doszedł `uuid@8.3.2` (moderate) — zapinowany przez `exceljs@4.4.0` (najnowszy), więc bez podniesienia `exceljs` nie da się go ruszyć; dotyczy generowania plików po stronie serwera
   - Pozostałe 6 świadomie nienaprawione, wszystkie poza ścieżką produkcyjną: `react-router` (dotyczy trybu RSC, którego SPA nie używa; łatka dopiero w v8, a `react-router-dom` nie ma linii 8.x — wymaga migracji), `brace-expansion` i `js-yaml` w dev-toolingu (łatka tylko w wyższym majorze, w drzewie równolegle 3 linie), `esbuild` (low, dev-server na Windowsie), `@hono/node-server` (przez CLI `shadcn`)
 - [x] Higiena sekretów zweryfikowana przed upublicznieniem (2026-07-31): `.env` nigdy nie był w historii, brak kluczy Stripe/Resend w commitach, brak plików `.pem`/`.key`, `.env.example` zawiera wyłącznie placeholdery
 
@@ -349,7 +368,7 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [ ] Testy poziomujące (quiz builder)
 - [ ] Tracking postępów ucznia
 - [ ] Google Calendar API (automatyczne Meet linki)
-- [ ] Raporty i eksport CSV/PDF
+- [ ] Raporty: dodatkowe typy + eksport PDF
 - [ ] Aplikacja mobilna (React Native lub PWA)
 - [ ] Czat wewnętrzny (nauczyciel ↔ uczeń)
 
@@ -357,7 +376,7 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ## ▶ Co robimy teraz?
 
-**Faza 4 domknięta** — powiadomienia email (4.1) i in-app (4.2) działają, finansowe alerty admina świadomie pominięte.
+**Faza 4 domknięta** — powiadomienia email (4.1), in-app (4.2), raporty XLSX (4.3) i date-picker (4.4) działają; finansowe alerty admina świadomie pominięte.
 
 **Rekomendacja po audycie 2026-07-31: portal nauczyciela.** To jedyna rola produktowa bez interfejsu — backend jest gotowy (zajęcia, frekwencja, statystyki godzin), więc brakuje wyłącznie warstwy UI. Każde kolejne rozszerzenie buduje na systemie, w którym jedna z trzech ról nadal nie może z niego korzystać.
 

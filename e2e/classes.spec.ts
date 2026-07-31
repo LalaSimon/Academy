@@ -17,7 +17,8 @@ test.describe('Classes — list view', () => {
   test('creates a single class and shows it in the list', async ({ page }) => {
     await page.getByRole('button', { name: 'Dodaj zajęcia' }).click();
 
-    const modal = page.getByRole('dialog');
+    // Uwaga: kalendarz DatePickera też ma role="dialog" — zawężamy po nazwie
+    const modal = page.getByRole('dialog', { name: 'Nowe zajęcia' });
     await expect(modal).toBeVisible();
 
     const title = `E2E Nowe Zajęcia ${Date.now()}`;
@@ -27,12 +28,14 @@ test.describe('Classes — list view', () => {
     await modal.getByRole('combobox').first().click();
     await page.getByRole('option', { name: /E2E Angielski/i }).click();
 
-    // Set date (tomorrow at 11:00)
+    // Set date (tomorrow at 11:00) — date przez kalendarz (data-day), godzina osobno
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const pad = (n: number) => String(n).padStart(2, '0');
-    const dateStr = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}T11:00`;
-    await modal.getByLabel('Data i godzina').fill(dateStr);
+    const dayKey = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}`;
+    await modal.getByLabel('Data i godzina').click();
+    await page.locator(`td[data-day="${dayKey}"] button`).click();
+    await modal.getByLabel('Godzina', { exact: true }).fill('11:00');
 
     await modal.getByRole('button', { name: 'Utwórz zajęcia' }).click();
 
