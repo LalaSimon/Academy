@@ -48,3 +48,11 @@ test-results/
 # Turbo
 .turbo/
 e2e/.auth/
+
+# Konfiguracja narzędzi AI (lokalna — repo solo, nie ma z kim dzielić)
+.claude/
+.agents/
+skills-lock.json
+
+# Pobrane binarki CLI (odtwarzalne — Stripe CLI leci i tak w docker compose)
+*.tar.gz

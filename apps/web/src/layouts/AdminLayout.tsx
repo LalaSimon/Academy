@@ -16,6 +16,7 @@ import {
 import { useAuthStore } from '@/store/auth.store';
 import { useLogout } from '@/hooks/useAuth';
 import { useThemeStore } from '@/store/theme.store';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 const NAV_ITEMS = [
   { to: '/admin/teachers', label: 'Nauczyciele', icon: Users },
@@ -49,7 +50,7 @@ export function AdminLayout() {
       {/* Sidebar */}
       <aside className="w-[220px] flex-shrink-0 flex flex-col border-r border-border h-screen sticky top-0" style={{ background: 'var(--sidebar)' }}>
         {/* Logo */}
-        <div className="px-5 py-[18px] border-b border-border">
+        <div className="px-5 py-[18px] border-b border-border flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <div
               className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -62,6 +63,7 @@ export function AdminLayout() {
             </div>
             <span className="font-semibold text-foreground tracking-tight text-[15px]">Academy</span>
           </div>
+          <NotificationBell />
         </div>
 
         {/* Nav */}

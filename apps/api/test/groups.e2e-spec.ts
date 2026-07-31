@@ -59,6 +59,8 @@ describe('Groups (e2e)', () => {
           firstName: 'Admin',
           lastName: 'G',
           role: Role.ADMIN,
+          // Login odrzuca konta niezweryfikowane (Faza 3.6)
+          emailVerified: true,
         },
       }),
       prisma.user.create({
