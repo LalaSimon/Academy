@@ -21,6 +21,10 @@ import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import {
+  AccessControlService,
+  type RequestUser,
+} from '../../common/access/access-control.service';
 import { MaterialsService } from './materials.service';
 import { CreateMaterialDto } from './dto/create-material.dto';
 import { MaterialQueryDto } from './dto/material-query.dto';
@@ -29,7 +33,10 @@ import type { Request } from 'express';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('materials')
 export class MaterialsController {
-  constructor(private readonly materialsService: MaterialsService) {}
+  constructor(
+    private readonly materialsService: MaterialsService,
+    private readonly access: AccessControlService,
+  ) {}
 
   @Get()
   @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT)
@@ -93,9 +100,15 @@ export class MaterialsController {
     return this.materialsService.removeFromClass(id, classId);
   }
 
+  // PARENT dodany: portal rodzica wołał ten endpoint od Fazy 3.2, ale roli
+  // brakowało na liście, więc zakładka „Materiały" dziecka zwracała 403.
   @Get('group/:groupId')
-  @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT)
-  getForGroup(@Param('groupId') groupId: string) {
+  @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT, Role.PARENT)
+  async getForGroup(
+    @Param('groupId') groupId: string,
+    @Req() req: Request & { user: RequestUser },
+  ) {
+    await this.access.assertCanReadGroup(req.user, groupId);
     return this.materialsService.getForGroup(groupId);
   }
 

@@ -120,9 +120,13 @@ describe('ClassesService', () => {
       expect(prismaMock.class.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            OR: [
-              { teacherId: 'teacher-1' },
-              { teacherId: null, group: { teacherId: 'teacher-1' } },
+            AND: [
+              {
+                OR: [
+                  { teacherId: 'teacher-1' },
+                  { teacherId: null, group: { teacherId: 'teacher-1' } },
+                ],
+              },
             ],
           }),
         }),
@@ -140,9 +144,64 @@ describe('ClassesService', () => {
         expect.objectContaining({
           where: expect.objectContaining({
             status: ClassStatus.SCHEDULED,
-            OR: [
-              { teacherId: 'teacher-1' },
-              { teacherId: null, group: { teacherId: 'teacher-1' } },
+            AND: [
+              {
+                OR: [
+                  { teacherId: 'teacher-1' },
+                  { teacherId: null, group: { teacherId: 'teacher-1' } },
+                ],
+              },
+            ],
+          }),
+        }),
+      );
+    });
+
+    // Uczeń/rodzic: zajęcia grupowe ORAZ 1:1. Te drugie nie mają `groupId`,
+    // więc sam filtr po grupach by je zgubił.
+    it('scopes a learner to their groups and their own 1:1 classes', async () => {
+      prismaMock.class.findMany.mockResolvedValue([]);
+      prismaMock.class.count.mockResolvedValue(0);
+      await service.findAll({}, { groupIds: ['g1', 'g2'], studentIds: ['s1'] });
+      expect(prismaMock.class.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: [
+              {
+                OR: [
+                  { groupId: { in: ['g1', 'g2'] } },
+                  { studentId: { in: ['s1'] } },
+                ],
+              },
+            ],
+          }),
+        }),
+      );
+    });
+
+    it('keeps the teacher and learner scopes independent in AND', async () => {
+      prismaMock.class.findMany.mockResolvedValue([]);
+      prismaMock.class.count.mockResolvedValue(0);
+      await service.findAll(
+        { teacherId: 't1' },
+        { groupIds: ['g1'], studentIds: ['s1'] },
+      );
+      const call = prismaMock.class.findMany.mock.calls[0][0] as {
+        where: { AND: unknown[] };
+      };
+      // Oba zawężenia muszą współistnieć — drugie nie może nadpisać pierwszego.
+      expect(call.where.AND).toHaveLength(2);
+    });
+
+    it('a learner with no groups still sees their 1:1 classes', async () => {
+      prismaMock.class.findMany.mockResolvedValue([]);
+      prismaMock.class.count.mockResolvedValue(0);
+      await service.findAll({}, { groupIds: [], studentIds: ['s1'] });
+      expect(prismaMock.class.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: [
+              { OR: [{ groupId: { in: [] } }, { studentId: { in: ['s1'] } }] },
             ],
           }),
         }),

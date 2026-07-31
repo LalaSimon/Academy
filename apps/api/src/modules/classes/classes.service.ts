@@ -51,7 +51,14 @@ export class ClassesService {
     private notifications: InAppNotificationsService,
   ) {}
 
-  async findAll(query: ClassQueryDto) {
+  /**
+   * Ograniczenie widoczności dla ucznia i rodzica. Przekazywane osobno od
+   * `query`, bo pochodzi z tokenu, a nie od klienta — nie da się go podrobić.
+   */
+  async findAll(
+    query: ClassQueryDto,
+    learnerScope?: { groupIds: string[]; studentIds: string[] },
+  ) {
     const {
       groupId,
       studentId,
@@ -64,16 +71,34 @@ export class ClassesService {
     } = query;
     const skip = (page - 1) * limit;
 
+    // Warunki zawężające trafiają do AND, żeby kolejne `OR` się nie nadpisywały.
+    const and: Record<string, unknown>[] = [];
+
+    // `Class.teacherId` bywa null — wtedy prowadzącym jest nauczyciel grupy.
+    // Ten sam wzorzec co w `getTeacherStats`, inaczej nauczyciel nie zobaczy
+    // zajęć odziedziczonych po grupie.
+    if (teacherId) {
+      and.push({
+        OR: [{ teacherId }, { teacherId: null, group: { teacherId } }],
+      });
+    }
+
+    if (learnerScope) {
+      // Zajęcia grupowe ucznia ORAZ jego zajęcia 1:1 (te nie mają `groupId`,
+      // więc sam filtr po grupach by je zgubił).
+      and.push({
+        OR: [
+          { groupId: { in: learnerScope.groupIds } },
+          { studentId: { in: learnerScope.studentIds } },
+        ],
+      });
+    }
+
     const where = {
       ...(groupId && { groupId }),
       ...(studentId && { studentId }),
       ...(status && { status }),
-      // `Class.teacherId` bywa null — wtedy prowadzącym jest nauczyciel grupy.
-      // Ten sam wzorzec co w `getTeacherStats`, inaczej nauczyciel nie zobaczy
-      // zajęć odziedziczonych po grupie.
-      ...(teacherId && {
-        OR: [{ teacherId }, { teacherId: null, group: { teacherId } }],
-      }),
+      ...(and.length > 0 && { AND: and }),
       ...((from || to) && {
         scheduledAt: {
           ...(from && { gte: new Date(from) }),
