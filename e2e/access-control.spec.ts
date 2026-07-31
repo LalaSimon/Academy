@@ -63,11 +63,23 @@ test.describe('Kontrola dostępu — odczyt', () => {
     // Seed CI ma tylko grupę ucznia, więc bez tego testy „cudzej grupy" byłyby
     // pomijane i nie miałyby mocy dokładnie tam, gdzie są najbardziej potrzebne.
     if (!foreignGroupId) {
+      const teacherMe = await (
+        await request.get('/api/v1/auth/me', { headers: auth(teacherToken) })
+      ).json();
+
       const created = await request.post('/api/v1/groups', {
         headers: auth(adminToken),
-        data: { name: `ACL obca grupa ${Date.now()}`, language: 'EN' },
+        data: {
+          name: `ACL obca grupa ${Date.now()}`,
+          language: 'EN',
+          // `teacherId` jest wymagany przez CreateGroupDto.
+          teacherId: teacherMe.id,
+        },
       });
-      expect(created.ok()).toBeTruthy();
+      expect(
+        created.ok(),
+        `nie udało się utworzyć grupy kontrolnej: ${created.status()} ${await created.text()}`,
+      ).toBeTruthy();
       foreignGroupId = (await created.json()).id;
       createdForeignGroup = true;
     }
