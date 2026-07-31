@@ -25,19 +25,45 @@ export class MaterialsService {
     private minio: MinioService,
   ) {}
 
-  async findAll(query: MaterialQueryDto) {
+  /**
+   * `scope` pochodzi z tokenu (nie od klienta) i ogranicza bibliotekę do
+   * materiałów, które użytkownik ma prawo widzieć. Brak `scope` = widok admina.
+   */
+  async findAll(
+    query: MaterialQueryDto,
+    scope?: { groupIds: string[]; classIds: string[]; uploaderId?: string },
+  ) {
     const { type, search, classId, page = 1, limit = 20 } = query;
     const skip = (page - 1) * limit;
 
-    const where = {
-      ...(type && { type }),
-      ...(search && {
+    // Warunki zawężające idą do AND, żeby `OR` wyszukiwarki i `OR` zakresu
+    // dostępu się nie nadpisywały.
+    const and: Record<string, unknown>[] = [];
+
+    if (search) {
+      and.push({
         OR: [
           { title: { contains: search, mode: 'insensitive' as const } },
           { description: { contains: search, mode: 'insensitive' as const } },
         ],
-      }),
+      });
+    }
+
+    if (scope) {
+      and.push({
+        OR: [
+          { isPublic: true },
+          { groups: { some: { groupId: { in: scope.groupIds } } } },
+          { classes: { some: { classId: { in: scope.classIds } } } },
+          ...(scope.uploaderId ? [{ uploadedBy: scope.uploaderId }] : []),
+        ],
+      });
+    }
+
+    const where = {
+      ...(type && { type }),
       ...(classId && { classes: { some: { classId } } }),
+      ...(and.length > 0 && { AND: and }),
     };
 
     const [data, total] = await Promise.all([

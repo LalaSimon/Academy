@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -79,5 +83,109 @@ export class AccessControlService {
       }
       throw new ForbiddenException();
     }
+  }
+
+  /**
+   * Rzuca 403, jeśli użytkownik nie ma prawa dotknąć tych zajęć — używane
+   * także dla ZAPISU (zmiana statusu, frekwencja), gdzie skutki są trwałe:
+   * odwołanie zajęć rozsyła powiadomienia uczniom.
+   */
+  async assertCanAccessClass(
+    user: RequestUser,
+    classId: string,
+  ): Promise<void> {
+    if (user.role === Role.ADMIN) return;
+
+    const cls = await this.prisma.class.findUnique({
+      where: { id: classId },
+      select: {
+        teacherId: true,
+        groupId: true,
+        studentId: true,
+        group: { select: { teacherId: true } },
+      },
+    });
+    if (!cls) throw new NotFoundException(`Class ${classId} not found`);
+
+    if (user.role === Role.TEACHER) {
+      // `Class.teacherId` bywa null — prowadzącym jest wtedy nauczyciel grupy.
+      const leads =
+        cls.teacherId === user.id ||
+        (cls.teacherId === null && cls.group?.teacherId === user.id);
+      if (!leads) throw new ForbiddenException();
+      return;
+    }
+
+    const studentIds = await this.getVisibleStudentIds(user);
+    if (cls.studentId && studentIds.includes(cls.studentId)) return;
+
+    if (cls.groupId) {
+      const groupIds = await this.getAccessibleGroupIds(user);
+      if (groupIds?.includes(cls.groupId)) return;
+    }
+    throw new ForbiddenException();
+  }
+
+  /**
+   * Materiał jest dostępny, gdy jest publiczny albo powiązany z grupą lub
+   * zajęciami, do których użytkownik ma dostęp. Nauczyciel widzi dodatkowo to,
+   * co sam wgrał — także zanim przypisze materiał gdziekolwiek.
+   */
+  async assertCanReadMaterial(
+    user: RequestUser,
+    materialId: string,
+  ): Promise<void> {
+    if (user.role === Role.ADMIN) return;
+
+    const material = await this.prisma.material.findUnique({
+      where: { id: materialId },
+      select: {
+        isPublic: true,
+        uploadedBy: true,
+        groups: { select: { groupId: true } },
+        classes: { select: { classId: true } },
+      },
+    });
+    if (!material)
+      throw new NotFoundException(`Material ${materialId} not found`);
+
+    if (material.isPublic) return;
+    if (user.role === Role.TEACHER && material.uploadedBy === user.id) return;
+
+    const groupIds = (await this.getAccessibleGroupIds(user)) ?? [];
+    if (material.groups.some((g) => groupIds.includes(g.groupId))) return;
+
+    if (material.classes.length > 0) {
+      const classIds = await this.getAccessibleClassIds(user);
+      if (material.classes.some((c) => classIds.includes(c.classId))) return;
+    }
+
+    throw new ForbiddenException();
+  }
+
+  /** Zajęcia, które użytkownik ma prawo oglądać (dla filtrowania list). */
+  async getAccessibleClassIds(user: RequestUser): Promise<string[]> {
+    const where =
+      user.role === Role.TEACHER
+        ? {
+            OR: [
+              { teacherId: user.id },
+              { teacherId: null, group: { teacherId: user.id } },
+            ],
+          }
+        : {
+            OR: [
+              {
+                groupId: { in: (await this.getAccessibleGroupIds(user)) ?? [] },
+              },
+              { studentId: { in: await this.getVisibleStudentIds(user) } },
+            ],
+          };
+
+    const classes = await this.prisma.class.findMany({
+      where,
+      select: { id: true },
+    });
+    return classes.map((c) => c.id);
   }
 }
