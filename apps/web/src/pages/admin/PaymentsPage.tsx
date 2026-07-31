@@ -243,7 +243,10 @@ export function PaymentsPage() {
                       onValueChange={(v: string | null) => v && handleStatusChange(p.id, v)}
                     >
                       <SelectTrigger className={`h-7 w-36 text-xs border rounded-full px-3 font-medium ${STATUS_COLORS[p.status]}`}>
-                        <SelectValue />
+                        {/* @base-ui Select.Value renderuje surową wartość, więc
+                            bez tego mapowania w polu widniałoby „PAID" zamiast
+                            „Zapłacone" (ten sam wzorzec co w ReportsPage). */}
+                        <SelectValue>{(v: string) => STATUS_LABELS[v] ?? v}</SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {Object.entries(STATUS_LABELS).map(([k, v]) => (
