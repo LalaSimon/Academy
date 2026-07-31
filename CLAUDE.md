@@ -63,7 +63,8 @@ gh api -X DELETE repos/LalaSimon/Academy/branches/main/protection/enforce_admins
 
 - **Nigdy nie commitujemy bezpośrednio na `main`.** Każda praca = nowy branch utworzony z aktualnego `main`.
 - Nazwa brancha wg Conventional Commits: `feat/...`, `fix/...`, `docs/...`, `chore/...`, `refactor/...` (np. `feat/parent-child-links`).
-- Wypychamy branch (`git push -u origin <branch>`). **Pull requesty i merge na GitHubie robi właściciel ręcznie** — nie mergujemy ani nie tworzymy PR-ów automatycznie.
+- Wypychamy branch (`git push -u origin <branch>`). **PR-y i merge do `main` można robić przez CLI** (`gh pr create` → `gh pr merge`) — zgoda właściciela z 2026-07-31. Wcześniej obowiązywał zakaz; został zniesiony, bo `main` jest teraz chroniony po stronie GitHuba i merge i tak nie przejdzie bez zielonego CI.
+- Merge dopiero po zielonych checkach — nigdy `--admin` ani `--force` na obejście ochrony `main`.
 - Przed nowym zadaniem: `git checkout main && git pull` → dopiero potem `git checkout -b <nowy-branch>`.
 
 ## Docker — ważne zasady
