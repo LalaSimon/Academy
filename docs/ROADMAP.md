@@ -334,7 +334,10 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [ ] Testy E2E procesu płatności (z 2.0) — wciąż otwarte
 - [ ] Brak testów jednostkowych frontendu poza `pages/auth` i `ParentSetupPage` (42 testy, 4 pliki) — panele admina/ucznia/rodzica bez pokrycia
 - [x] ~~Testy frontendu poza obowiązkowym flow~~ — naprawione 2026-07-31: `npm test` w `apps/web` dodany jako krok 5 w `CLAUDE.md`. Przy okazji poprawiony skrypt, który uruchamiał Vitest w trybie **watch** (`vitest` zamiast `vitest run`) — dlatego lokalnie nikt go nie wołał, bo wieszał terminal. CI łapało te testy od początku (`npx vitest run`), więc realny koszt był taki, że o awarii dowiadywano się dopiero po pushu
-- [ ] Testy integracyjne API (`npm run test:e2e`) **nie są uruchamiane w CI** — jedyne pokrycie to lokalne, świadome wywołanie
+- [x] ~~Testy integracyjne API nie są uruchamiane w CI~~ — naprawione 2026-07-31 (job `api`, krok „Integration tests"). **Przy okazji okazało się, że były zepsute: 38 z 45 failowało.** Regresja z Fazy 3.6 — login zaczął odrzucać konta z `emailVerified: false`, a testy tworzą userów bezpośrednio przez Prisma z domyślnym `false`, więc `beforeAll` nie dostawał tokenu i cały suite leciał na 401. Nikt tego nie zauważył, bo testy nie były ani we flow, ani w CI. Dodatkowo naprawiona idempotencja `users.e2e-spec` (cleanup pomijał `delete.me@` i `parent.link@`, więc drugie uruchomienie na tej samej bazie padało na unique(email))
+- [x] ~~CI nie odpalało się na feature branchach~~ — naprawione 2026-07-31: trigger `push: branches: ["**"]` + `concurrency` z `cancel-in-progress`. Wcześniej `on.push` był ograniczony do `main`, więc pushe na branche nie uruchamiały **niczego** aż do otwarcia PR
+- [x] ~~Brak warstwy wymuszającej flow~~ — dodany `.githooks/pre-push` (kroki 1-6, bez E2E i integracyjnych, które wymagają Dockera); aktywowany automatycznie przez `prepare` → `core.hooksPath`
+- [ ] **Branch protection niedostępne** — `403: Upgrade to GitHub Pro` dla prywatnego repo. Nie da się wymusić zielonych checków przed merge; pre-push hook to obejście, ale `--no-verify` je omija. Do rozwiązania tylko przez GitHub Pro albo upublicznienie repo
 
 ### Pozostałe rozszerzenia (przyszłość)
 
@@ -360,10 +363,11 @@ Alternatywy, gdy portal nauczyciela nie jest priorytetem biznesowym: zadania dom
 
 ## Stan testów (2026-07-31)
 
-| Zestaw | Liczba | Komenda |
-|---|---|---|
-| API — jednostkowe (11 suite'ów) | 146 | `cd apps/api && npm test` |
-| Web — jednostkowe (4 pliki, Vitest) | 42 | `cd apps/web && npx vitest run` |
-| E2E — Playwright (3 spec) | 19 | `npx playwright test` |
+| Zestaw | Liczba | Komenda | We flow | W CI |
+|---|---|---|---|---|
+| API — jednostkowe (11 suite'ów) | 146 | `cd apps/api && npm test` | ✅ | ✅ |
+| API — integracyjne (5 spec) | 45 | `cd apps/api && npm run test:e2e` | ❌ (Docker) | ✅ |
+| Web — jednostkowe (4 pliki, Vitest) | 42 | `cd apps/web && npm test` | ✅ | ✅ |
+| E2E — Playwright (3 spec) | 19 | `npx playwright test` | ❌ (Docker) | ✅ |
 
-Testy integracyjne API (`test/*.e2e-spec.ts` — auth, users, groups, classes) opisane w Fazach 1.1–1.4 mają osobny config i **nie wchodzą w skład `npm test`** — uruchamia je `npm run test:e2e` przy podniesionym `docker-compose.test.yml`. Obowiązkowe flow w `CLAUDE.md` ich nie obejmuje.
+**Razem 252 testy, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.

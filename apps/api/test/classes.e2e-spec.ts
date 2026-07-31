@@ -56,6 +56,8 @@ describe('Classes (e2e)', () => {
           firstName: 'Admin',
           lastName: 'C',
           role: Role.ADMIN,
+          // Login odrzuca konta niezweryfikowane (Faza 3.6)
+          emailVerified: true,
         },
       }),
       prisma.user.create({
@@ -65,6 +67,7 @@ describe('Classes (e2e)', () => {
           firstName: 'Teacher',
           lastName: 'C',
           role: Role.TEACHER,
+          emailVerified: true,
         },
       }),
     ]);

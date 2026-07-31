@@ -41,7 +41,17 @@ git add ... && git commit ... && git push -u origin feat/nazwa-zadania
 Jeśli lint/test/build failuje — napraw przed commitem. Nie commituj "będzie naprawione w następnym commicie".
 
 **Poza flow** (uruchamiaj świadomie, gdy dotykasz warstwy API):
-- Testy integracyjne API — `cd apps/api && npm run test:e2e` (wymaga `docker-compose.test.yml`, baza na porcie 5433). Nie wchodzą w skład `npm test` i nie ma ich w CI.
+- Testy integracyjne API — `cd apps/api && npm run test:e2e` (wymaga `docker compose -f docker-compose.test.yml up -d`, baza na porcie 5433 + `npx prisma migrate deploy` z `DATABASE_URL` na 5433). Nie wchodzą w skład `npm test`, ale **od 2026-07-31 są w CI**.
+
+## Automatyzacja — co pilnuje flow za ciebie
+
+Trzy warstwy, bo `main` nie da się chronić po stronie GitHuba (branch protection wymaga Pro, repo jest prywatne):
+
+1. **Pre-push hook** (`.githooks/pre-push`) — blokuje `git push`, jeśli kroki 1-6 nie przechodzą. Włącza się sam przez `prepare` w root `package.json` (`core.hooksPath`), więc po świeżym klonie wystarczy `npm install`. E2E i testy integracyjne są z niego wyłączone, bo wymagają Dockera. Awaryjnie: `git push --no-verify`.
+2. **CI na każdym pushu** (`.github/workflows/ci.yml`) — dowolny branch, nie tylko `main`; PR-y dodatkowo testują wynik merge'a. `concurrency` anuluje poprzedni przebieg tego samego brancha.
+3. **Pełne pokrycie w CI** — joby `api` (lint, build, unit, **integracyjne**), `web` (lint, build, unit), `e2e` (Playwright).
+
+Hook jest jedyną warstwą, która realnie *zatrzymuje* zły kod przed wyjściem na zewnątrz — CI raportuje po fakcie.
 
 ## Wersjonowanie — ZAWSZE nowy branch
 

@@ -28,6 +28,15 @@ describe('Users (e2e)', () => {
     role: Role.STUDENT,
   };
 
+  // Wszystkie konta dotykane przez ten suite — czyszczone przed i po przebiegu,
+  // żeby powtórne uruchomienie na tej samej bazie nie padało na unique(email).
+  const testEmails = [
+    admin.email,
+    student.email,
+    'delete.me@test.com',
+    'parent.link@test.com',
+  ];
+
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -44,13 +53,15 @@ describe('Users (e2e)', () => {
     prisma = app.get(PrismaService);
 
     await prisma.user.deleteMany({
-      where: { email: { in: [admin.email, student.email] } },
+      where: { email: { in: testEmails } },
     });
     await prisma.user.create({
       data: {
         ...admin,
         passwordHash: await argon2.hash(admin.password),
         password: undefined,
+        // Login odrzuca konta niezweryfikowane (Faza 3.6)
+        emailVerified: true,
       } as never,
     });
 
@@ -62,7 +73,7 @@ describe('Users (e2e)', () => {
 
   afterAll(async () => {
     await prisma.user.deleteMany({
-      where: { email: { in: [admin.email, student.email] } },
+      where: { email: { in: testEmails } },
     });
     await app.close();
   });
