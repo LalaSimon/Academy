@@ -45,13 +45,19 @@ Jeśli lint/test/build failuje — napraw przed commitem. Nie commituj "będzie 
 
 ## Automatyzacja — co pilnuje flow za ciebie
 
-Trzy warstwy, bo `main` nie da się chronić po stronie GitHuba (branch protection wymaga Pro, repo jest prywatne):
+Cztery warstwy (repo jest **publiczne** od 2026-07-31, co odblokowało ochronę `main`):
 
 1. **Pre-push hook** (`.githooks/pre-push`) — blokuje `git push`, jeśli kroki 1-6 nie przechodzą. Włącza się sam przez `prepare` w root `package.json` (`core.hooksPath`), więc po świeżym klonie wystarczy `npm install`. E2E i testy integracyjne są z niego wyłączone, bo wymagają Dockera. Awaryjnie: `git push --no-verify`.
-2. **CI na każdym pushu** (`.github/workflows/ci.yml`) — dowolny branch, nie tylko `main`; PR-y dodatkowo testują wynik merge'a. `concurrency` anuluje poprzedni przebieg tego samego brancha.
+2. **CI na każdym pushu** (`.github/workflows/ci.yml`) — dowolny branch, nie tylko `main`; PR-y dodatkowo testują wynik merge'a. `concurrency` anuluje poprzedni przebieg tego samego brancha. Repo publiczne = minuty Actions bez limitu.
 3. **Pełne pokrycie w CI** — joby `api` (lint, build, unit, **integracyjne**), `web` (lint, build, unit), `e2e` (Playwright).
+4. **Branch protection na `main`** — merge tylko z zielonymi `API` / `Web` / `E2E`, tryb `strict` (branch musi być zaktualizowany o `main`), zakaz force-pusha i kasowania brancha, `enforce_admins` obejmuje właściciela. **To jedyna warstwa, której nie da się ominąć** — `--no-verify` omija hook, ale nie ominie GitHuba.
 
-Hook jest jedyną warstwą, która realnie *zatrzymuje* zły kod przed wyjściem na zewnątrz — CI raportuje po fakcie.
+Dodatkowo aktywne: **secret scanning z push protection** (push zawierający klucz API zostanie odrzucony) i **Dependabot** (alerty + automatyczne poprawki bezpieczeństwa).
+
+Konsekwencja `enforce_admins`: bezpośredni push na `main` jest zablokowany także dla ciebie — każda zmiana idzie przez PR. Gdyby to przeszkadzało:
+```bash
+gh api -X DELETE repos/LalaSimon/Academy/branches/main/protection/enforce_admins
+```
 
 ## Wersjonowanie — ZAWSZE nowy branch
 

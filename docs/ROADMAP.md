@@ -9,7 +9,7 @@
 - [x] Dokumentacja projektu (`docs/`) — OVERVIEW, BUSINESS, ARCHITECTURE, TESTING, API, DATABASE, DOCKER
 - [x] Inicjalizacja repozytorium Git + push na GitHub → https://github.com/LalaSimon/Academy (prywatne)
 - [x] Konfiguracja `.gitignore` — chroni .env, node_modules, dist, coverage, playwright-report
-- [~] Ochrona brancha `main` — wymaga GitHub Pro (niedostępne na darmowym planie dla prywatnych repo)
+- [x] Ochrona brancha `main` — **włączona 2026-07-31** po upublicznieniu repo (wcześniej blokowana: `403 Upgrade to GitHub Pro` dla repo prywatnego). Wymagane zielone `API`, `Web`, `E2E`; `strict` (branch musi być zaktualizowany o `main` przed merge); force-push i kasowanie `main` zablokowane; `enforce_admins` obejmuje właściciela
 - [x] Setup monorepo — Turborepo + npm workspaces; `apps/api` (NestJS), `apps/web` (React), `packages/shared` (typy TS)
 - [x] Docker Compose (`docker-compose.yml`) — PostgreSQL 16, Redis 7, MinIO; `docker-compose.test.yml` — izolowana baza testowa port 5433 tmpfs
 - [x] NestJS boilerplate (`apps/api/src/`) — ValidationPipe, CORS, cookie-parser, global prefix `/api/v1`
@@ -337,7 +337,8 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [x] ~~Testy integracyjne API nie są uruchamiane w CI~~ — naprawione 2026-07-31 (job `api`, krok „Integration tests"). **Przy okazji okazało się, że były zepsute: 38 z 45 failowało.** Regresja z Fazy 3.6 — login zaczął odrzucać konta z `emailVerified: false`, a testy tworzą userów bezpośrednio przez Prisma z domyślnym `false`, więc `beforeAll` nie dostawał tokenu i cały suite leciał na 401. Nikt tego nie zauważył, bo testy nie były ani we flow, ani w CI. Dodatkowo naprawiona idempotencja `users.e2e-spec` (cleanup pomijał `delete.me@` i `parent.link@`, więc drugie uruchomienie na tej samej bazie padało na unique(email))
 - [x] ~~CI nie odpalało się na feature branchach~~ — naprawione 2026-07-31: trigger `push: branches: ["**"]` + `concurrency` z `cancel-in-progress`. Wcześniej `on.push` był ograniczony do `main`, więc pushe na branche nie uruchamiały **niczego** aż do otwarcia PR
 - [x] ~~Brak warstwy wymuszającej flow~~ — dodany `.githooks/pre-push` (kroki 1-6, bez E2E i integracyjnych, które wymagają Dockera); aktywowany automatycznie przez `prepare` → `core.hooksPath`
-- [ ] **Branch protection niedostępne** — `403: Upgrade to GitHub Pro` dla prywatnego repo. Nie da się wymusić zielonych checków przed merge; pre-push hook to obejście, ale `--no-verify` je omija. Do rozwiązania tylko przez GitHub Pro albo upublicznienie repo
+- [x] ~~Branch protection niedostępne~~ — zamknięte 2026-07-31: repo upublicznione, ochrona `main` włączona (szczegóły w Fazie 0). Odblokowało też darmowe dla repo publicznych: **secret scanning + push protection** (GitHub blokuje push zawierający sekret) oraz **Dependabot alerts + automated security fixes**. Minuty Actions przestały być limitowane, więc CI na każdym pushu nic nie kosztuje
+- [x] Higiena sekretów zweryfikowana przed upublicznieniem (2026-07-31): `.env` nigdy nie był w historii, brak kluczy Stripe/Resend w commitach, brak plików `.pem`/`.key`, `.env.example` zawiera wyłącznie placeholdery
 
 ### Pozostałe rozszerzenia (przyszłość)
 
