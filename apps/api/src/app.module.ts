@@ -7,6 +7,7 @@ import {
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
+import { AccessControlModule } from './common/access/access-control.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { GroupsModule } from './modules/groups/groups.module';
@@ -24,6 +25,7 @@ import { RequestLoggerMiddleware } from './common/middleware/request-logger.midd
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     PrismaModule,
+    AccessControlModule,
     MailModule,
     AuthModule,
     UsersModule,

@@ -343,6 +343,29 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [x] Wdrożony w `ClassFormModal`, `PaymentFormModal`, `GroupDetailPage`, `StudentProfilePage`, `TeacherProfilePage`, `ReportsPage`
 - [x] Fix: kalendarz renderowany w portalu (Popover) nie rozpycha już formularza po otwarciu
 
+### 5.2 — Kontrola dostępu w warstwie odczytu ✅
+
+Audyt przy okazji portalu nauczyciela wykazał, że `@Roles()` przepuszczał **rolę**, ale nikt nie sprawdzał, **czyj** jest zasób.
+
+**Co przeciekało (potwierdzone realnymi żądaniami, nie teorią):**
+- `GET /groups/:id` → uczeń pobierał **dowolną** grupę razem z imionami, nazwiskami i **e-mailami** jej uczniów (dane osobowe)
+- `GET /classes` → uczeń i rodzic dostawali **harmonogram całej szkoły** (69 z 69 zajęć)
+- `GET /materials/group/:id` → materiały dowolnej grupy
+
+**Rozwiązanie:** `AccessControlService` (`common/access/`, `@Global` jak Prisma) — jedno miejsce odpowiadające na pytanie „do czyich danych ten użytkownik ma prawo zajrzeć", zamiast kopiowania self-checków do kolejnych kontrolerów.
+- `getAccessibleGroupIds` — `null` dla admina (bez ograniczeń), celowo różne od `[]` („żadne")
+- `assertCanReadGroup` — rzuca 403; nauczyciel prowadzący pojedyncze zajęcia grupy też ma dostęp, choć nie jest do niej przypisany
+- `GET /classes` dla ucznia/rodzica: `AND` z `OR: [groupId in …, studentId in …]` — **zajęcia 1:1 nie mają `groupId`**, więc sam filtr po grupach by je zgubił
+- Warunki przeniesione z `OR` na `AND`, żeby scope nauczyciela i ucznia się nie nadpisywały
+- `GET /groups` zawężone dla nauczyciela (nadpisanie `teacherId` z query)
+
+**Naprawiony przy okazji bug funkcjonalny:** `GET /materials/group/:id` nie miał roli `PARENT`, choć portal rodzica woła ten endpoint od Fazy 3.2 — zakładka „Materiały" dziecka zwracała 403.
+
+- [x] 13 testów jednostkowych `AccessControlService` + 3 na strukturę `WHERE` w `classes`
+- [x] 7 testów E2E (`e2e/access-control.spec.ts`) — cudze zasoby zwracają 403, własne 200, `teacherId` z URL-a nie zmienia widoczności
+- [x] Zweryfikowane na żywo dla wszystkich ról: uczeń (własna grupa 200 / cudza 403, zajęcia 55 z 70), rodzic (grupa i materiały dziecka 200, cudza 403, zajęcia 43 z 70), nauczyciel (1 grupa z 3, 42 zajęcia z 70), admin bez zmian
+- [x] Sprawdzone, że uczeń nie stracił zajęć 1:1 (utworzone i zweryfikowane na żywo)
+
 ### ⚠ Znane luki (wykryte w audycie 2026-07-31)
 
 - [x] ~~**Portal nauczyciela — NIE ISTNIEJE**~~ — zamknięte 2026-07-31, patrz Faza 5
@@ -387,7 +410,7 @@ Zamyka najpoważniejszą lukę z audytu: `/teacher` był placeholderem `<div>Tea
 - [x] 5 testów E2E (`e2e/teacher.spec.ts`): redirect po logowaniu, nawigacja, lista zajęć, rozliczenie godzin, brak dostępu do panelu admina. Stabilność potwierdzona trzema przebiegami
 - [x] Zweryfikowane na żywo (curl): nauczyciel widzi 39 zajęć, admin 66; podanie cudzego `teacherId` w URL nie zmienia wyniku; własne statystyki 200, cudze 403
 
-**Do zrobienia w 5.2:** materiały grupy z poziomu nauczyciela, podgląd listy uczniów w grupie.
+**Do zrobienia dalej:** widok materiałów i listy uczniów grupy w portalu nauczyciela (backend gotowy po 5.2).
 
 ### Pozostałe rozszerzenia (przyszłość)
 
@@ -405,7 +428,7 @@ Zamyka najpoważniejszą lukę z audytu: `/teacher` był placeholderem `<div>Tea
 
 **Faza 4 domknięta**; **Faza 5.1 (portal nauczyciela) ukończona** — wszystkie trzy role produktowe mają wreszcie UI.
 
-**Następne do wyboru:** 5.2 (materiały grupy i lista uczniów dla nauczyciela), zadania domowe, tracking postępów ucznia, Google Calendar API.
+**Następne do wyboru:** widok grup i materiałów w portalu nauczyciela (UI — backend gotowy po 5.2), zadania domowe, tracking postępów ucznia, Google Calendar API.
 
 ---
 
@@ -413,9 +436,9 @@ Zamyka najpoważniejszą lukę z audytu: `/teacher` był placeholderem `<div>Tea
 
 | Zestaw | Liczba | Komenda | We flow | W CI |
 |---|---|---|---|---|
-| API — jednostkowe (12 suite'ów) | 153 | `cd apps/api && npm test` | ✅ | ✅ |
+| API — jednostkowe (13 suite'ów) | 169 | `cd apps/api && npm test` | ✅ | ✅ |
 | API — integracyjne (5 spec) | 45 | `cd apps/api && npm run test:e2e` | ❌ (Docker) | ✅ |
 | Web — jednostkowe (6 plików, Vitest) | 65 | `cd apps/web && npm test` | ✅ | ✅ |
-| E2E — Playwright (5 spec) | 28 | `npx playwright test` | ❌ (Docker) | ✅ |
+| E2E — Playwright (6 spec) | 35 | `npx playwright test` | ❌ (Docker) | ✅ |
 
-**Razem 291 testów, wszystkich w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
+**Razem 314 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.

@@ -14,6 +14,10 @@ import { Request } from 'express';
 import { ClassStatus, Role } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import {
+  AccessControlService,
+  type RequestUser,
+} from '../../common/access/access-control.service';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ClassesService, UpdateBatchDto } from './classes.service';
 import { CreateClassDto } from './dto/create-class.dto';
@@ -58,19 +62,35 @@ class UpdateBatchBodyDto implements UpdateBatchDto {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('classes')
 export class ClassesController {
-  constructor(private readonly classesService: ClassesService) {}
+  constructor(
+    private readonly classesService: ClassesService,
+    private readonly access: AccessControlService,
+  ) {}
 
   @Get()
   @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT, Role.PARENT)
-  findAll(
+  async findAll(
     @Query() query: ClassQueryDto,
-    @Req() req: Request & { user: { id: string; role: string } },
+    @Req() req: Request & { user: RequestUser },
   ) {
     // Nauczyciel widzi wyłącznie własne zajęcia — nadpisujemy `teacherId`
     // z query, żeby nie dało się go obejść parametrem w URL-u.
     if (req.user.role === Role.TEACHER) {
       return this.classesService.findAll({ ...query, teacherId: req.user.id });
     }
+
+    // Uczeń i rodzic bez zawężenia widzieli harmonogram całej szkoły.
+    if (req.user.role === Role.STUDENT || req.user.role === Role.PARENT) {
+      const [groupIds, studentIds] = await Promise.all([
+        this.access.getAccessibleGroupIds(req.user),
+        this.access.getVisibleStudentIds(req.user),
+      ]);
+      return this.classesService.findAll(query, {
+        groupIds: groupIds ?? [],
+        studentIds,
+      });
+    }
+
     return this.classesService.findAll(query);
   }
 
