@@ -29,6 +29,7 @@ test.describe('Kontrola dostępu — odczyt', () => {
   let teacherToken = '';
   let ownGroupId = '';
   let foreignGroupId = '';
+  let createdForeignGroup = false;
 
   test.beforeAll(async ({ playwright, baseURL }) => {
     const request = await playwright.request.newContext({ baseURL });
@@ -59,11 +60,32 @@ test.describe('Kontrola dostępu — odczyt', () => {
       if (!belongs && !foreignGroupId) foreignGroupId = g.id;
     }
 
+    // Seed CI ma tylko grupę ucznia, więc bez tego testy „cudzej grupy" byłyby
+    // pomijane i nie miałyby mocy dokładnie tam, gdzie są najbardziej potrzebne.
+    if (!foreignGroupId) {
+      const created = await request.post('/api/v1/groups', {
+        headers: auth(adminToken),
+        data: { name: `ACL obca grupa ${Date.now()}`, language: 'EN' },
+      });
+      expect(created.ok()).toBeTruthy();
+      foreignGroupId = (await created.json()).id;
+      createdForeignGroup = true;
+    }
+
+    await request.dispose();
+  });
+
+  test.afterAll(async ({ playwright, baseURL }) => {
+    if (!createdForeignGroup) return;
+    const request = await playwright.request.newContext({ baseURL });
+    const t = await token(request, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await request.delete(`/api/v1/groups/${foreignGroupId}`, {
+      headers: auth(t),
+    });
     await request.dispose();
   });
 
   test('uczeń NIE pobierze cudzej grupy', async ({ request }) => {
-    test.skip(!foreignGroupId, 'brak grupy, do której uczeń nie należy');
     const res = await request.get(`/api/v1/groups/${foreignGroupId}`, {
       headers: auth(studentToken),
     });
@@ -79,23 +101,43 @@ test.describe('Kontrola dostępu — odczyt', () => {
   });
 
   test('uczeń NIE pobierze materiałów cudzej grupy', async ({ request }) => {
-    test.skip(!foreignGroupId, 'brak grupy, do której uczeń nie należy');
     const res = await request.get(`/api/v1/materials/group/${foreignGroupId}`, {
       headers: auth(studentToken),
     });
     expect(res.status()).toBe(403);
   });
 
-  test('uczeń widzi mniej zajęć niż admin', async ({ request }) => {
-    const [studentRes, adminRes] = await Promise.all([
-      request.get('/api/v1/classes?limit=200', { headers: auth(studentToken) }),
-      request.get('/api/v1/classes?limit=200', { headers: auth(adminToken) }),
-    ]);
-    const studentTotal = (await studentRes.json()).total as number;
-    const adminTotal = (await adminRes.json()).total as number;
+  test('uczeń nie widzi żadnych zajęć spoza swoich grup i lekcji 1:1', async ({
+    request,
+  }) => {
+    const me = await (
+      await request.get('/api/v1/auth/me', { headers: auth(studentToken) })
+    ).json();
 
-    // Uczeń nie może dostać harmonogramu całej szkoły.
-    expect(studentTotal).toBeLessThan(adminTotal);
+    const profile = await (
+      await request.get(`/api/v1/users/${me.id}`, { headers: auth(studentToken) })
+    ).json();
+    const myGroupIds = (
+      (profile.studentGroups ?? []) as { group: { id: string } }[]
+    ).map((g) => g.group.id);
+
+    const res = await request.get('/api/v1/classes?limit=200', {
+      headers: auth(studentToken),
+    });
+    const classes = (await res.json()).data as {
+      id: string;
+      group: { id: string } | null;
+      student: { id: string } | null;
+    }[];
+
+    // Niezmiennik odporny na zawartość bazy: liczba zajęć zależy od seeda,
+    // ale KAŻDE widziane zajęcie musi być z grupy ucznia albo jego lekcją 1:1.
+    const foreign = classes.filter(
+      (c) =>
+        !(c.group && myGroupIds.includes(c.group.id)) &&
+        !(c.student && c.student.id === me.id),
+    );
+    expect(foreign).toEqual([]);
   });
 
   test('nauczyciel widzi tylko własne zajęcia, także po podaniu cudzego teacherId', async ({
