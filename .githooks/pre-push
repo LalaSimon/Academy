@@ -1,0 +1,43 @@
+#!/bin/sh
+#
+# Pre-push: obowiązkowe flow z CLAUDE.md (kroki 1-6).
+#
+# Dlaczego pre-push, a nie pre-commit: pełny przebieg trwa ~1,5 min — na każdy
+# commit byłoby to nie do zniesienia, a i tak liczy się dopiero to, co trafia
+# na zdalne repo.
+#
+# Czego tu NIE ma i dlaczego:
+#   - E2E (Playwright)        — wymaga `docker compose up -d`; hook padałby
+#                               przy zgaszonym stacku. Pilnuje ich CI.
+#   - Testy integracyjne API  — wymagają `docker-compose.test.yml`. Też CI.
+#
+# Pominięcie w nagłym wypadku: git push --no-verify
+# (branch protection jest niedostępne na tym planie GitHuba, więc ten hook jest
+# jedyną warstwą, która realnie blokuje — używaj --no-verify świadomie.)
+
+set -e
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+printf '\n[pre-push] Uruchamiam obowiązkowe flow...\n\n'
+
+printf '[1/6] API — lint\n'
+(cd apps/api && npx eslint "{src,apps,libs,test}/**/*.ts")
+
+printf '[2/6] API — testy\n'
+(cd apps/api && npm test --silent)
+
+printf '[3/6] API — build\n'
+(cd apps/api && npm run build --silent)
+
+printf '[4/6] Web — lint\n'
+(cd apps/web && npm run lint --silent)
+
+printf '[5/6] Web — testy\n'
+(cd apps/web && npm test --silent)
+
+printf '[6/6] Web — build\n'
+(cd apps/web && npm run build --silent)
+
+printf '\n[pre-push] Flow OK — pushuję.\n\n'

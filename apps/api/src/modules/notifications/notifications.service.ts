@@ -2,6 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { InAppNotificationsService } from './in-app-notifications.service';
+import {
+  formatPlDateTime,
+  formatPlDate,
+  formatPlTime,
+} from '../../common/utils/format-date';
 
 interface Recipient {
   email: string;
@@ -9,14 +15,15 @@ interface Recipient {
 }
 
 /**
- * Centralizuje powiadomienia email o zdarzeniach dotyczących ucznia.
+ * Orkiestrator powiadomień o zdarzeniach dotyczących ucznia. Dla każdego
+ * zdarzenia uruchamia DWA kanały:
+ *  - e-mail (`MailService`) — routing wg pełnoletności (minor → rodzic),
+ *  - in-app (`InAppNotificationsService`) — wiersz w tabeli `Notification`
+ *    dla ucznia i powiązanych rodziców (dzwonek na froncie).
  *
- * Kluczowa zasada routingu: uczeń niepełnoletni ma GENEROWANY login
- * (@academy.pl, nie realna skrzynka), więc powiadomienia o nim trafiają na
- * email RODZICA. Uczeń pełnoletni dostaje je na własny adres.
- *
- * Metody event-driven (notify*) są wywoływane z innych serwisów i NIGDY nie
- * rzucają wyjątku do wywołującego — błąd maila nie może zepsuć logiki biznesowej.
+ * Zapis in-app jest niezależny od dostarczalności maila (minor bez rodzica i
+ * tak dostaje wpis in-app). Metody `notify*` NIGDY nie rzucają wyjątku do
+ * wywołującego — błąd powiadomienia nie może zepsuć logiki biznesowej.
  */
 @Injectable()
 export class NotificationsService {
@@ -25,9 +32,10 @@ export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
+    private readonly inApp: InAppNotificationsService,
   ) {}
 
-  // ── Routing odbiorcy ────────────────────────────────────────────────────────
+  // ── Routing odbiorcy e-mail ─────────────────────────────────────────────────
 
   private async resolveRecipient(studentId: string): Promise<Recipient | null> {
     const student = await this.prisma.user.findUnique({
@@ -48,7 +56,7 @@ export class NotificationsService {
     });
     if (!link) {
       this.logger.warn(
-        `Uczeń niepełnoletni ${studentId} bez powiązanego rodzica — pomijam powiadomienie`,
+        `Uczeń niepełnoletni ${studentId} bez powiązanego rodzica — pomijam e-mail`,
       );
       return null;
     }
@@ -62,6 +70,12 @@ export class NotificationsService {
     cls: { title: string; scheduledAt: Date },
   ): Promise<void> {
     try {
+      await this.inApp.notifyStudents(
+        [studentId],
+        'ATTENDANCE_ALERT',
+        'Odnotowano nieobecność',
+        `Odnotowano nieobecność na zajęciach „${cls.title}" (${formatPlDateTime(cls.scheduledAt)}).`,
+      );
       const r = await this.resolveRecipient(studentId);
       if (!r) return;
       await this.mail.sendAbsenceNotification({
@@ -83,6 +97,12 @@ export class NotificationsService {
     payment: { amount: string; currency: string; description: string },
   ): Promise<void> {
     try {
+      await this.inApp.notifyStudents(
+        [studentId],
+        'PAYMENT_REMINDER',
+        'Płatność zaksięgowana',
+        `Zaksięgowano płatność ${Number(payment.amount).toFixed(2)} ${payment.currency} (${payment.description}).`,
+      );
       const r = await this.resolveRecipient(studentId);
       if (!r) return;
       await this.mail.sendPaymentConfirmation({
@@ -110,6 +130,12 @@ export class NotificationsService {
     },
   ): Promise<void> {
     try {
+      await this.inApp.notifyStudents(
+        [studentId],
+        'PAYMENT_REMINDER',
+        'Zaległa płatność',
+        `Płatność ${Number(payment.amount).toFixed(2)} ${payment.currency} (termin ${formatPlDate(payment.dueDate)}) jest zaległa. Prosimy o uregulowanie.`,
+      );
       const r = await this.resolveRecipient(studentId);
       if (!r) return;
       await this.mail.sendPaymentOverdue({
@@ -130,7 +156,7 @@ export class NotificationsService {
 
   // ── Crony ───────────────────────────────────────────────────────────────────
 
-  /** Przypomnienie ~30 min przed zajęciami. Granulacja co 5 min. */
+  /** Przypomnienie ~30 min przed zajęciami (mail + in-app). Granulacja co 5 min. */
   @Cron(CronExpression.EVERY_5_MINUTES)
   async sendUpcomingClassReminders(): Promise<void> {
     const now = new Date();
@@ -172,6 +198,14 @@ export class NotificationsService {
           ? [cls.student.id]
           : [];
 
+      // in-app: jeden zapis dla wszystkich uczniów + rodziców
+      await this.inApp.notifyStudents(
+        studentIds,
+        'CLASS_REMINDER',
+        'Przypomnienie o zajęciach',
+        `Zajęcia „${cls.title}" zaczynają się o ${formatPlTime(cls.scheduledAt)}.`,
+      );
+
       for (const studentId of studentIds) {
         try {
           const r = await this.resolveRecipient(studentId);
@@ -206,7 +240,7 @@ export class NotificationsService {
     }
   }
 
-  /** Przypomnienie o płatności z terminem za <= 3 dni. Raz dziennie. */
+  /** Przypomnienie o płatności z terminem za <= 3 dni (mail + in-app). Raz dziennie. */
   @Cron(CronExpression.EVERY_DAY_AT_9AM)
   async sendUpcomingPaymentReminders(): Promise<void> {
     const now = new Date();
@@ -230,6 +264,12 @@ export class NotificationsService {
 
     for (const p of payments) {
       try {
+        await this.inApp.notifyStudents(
+          [p.studentId],
+          'PAYMENT_REMINDER',
+          'Zbliża się termin płatności',
+          `Płatność ${Number(p.amount).toFixed(2)} ${p.currency} (${p.description}) — termin ${formatPlDate(p.dueDate)}.`,
+        );
         const r = await this.resolveRecipient(p.studentId);
         if (r) {
           await this.mail.sendPaymentReminder({

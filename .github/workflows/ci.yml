@@ -1,10 +1,19 @@
 name: CI
 
 on:
+  # Każdy push na dowolny branch — feedback od razu, nie dopiero przy PR.
   push:
-    branches: [main]
+    branches: ["**"]
+  # PR dodatkowo testuje wynik merge'a z main (wyłapuje konflikty semantyczne,
+  # których sam branch nie pokazuje).
   pull_request:
     branches: [main]
+
+# Nowy push na ten sam ref anuluje poprzedni przebieg — oszczędza minuty
+# Actions przy serii szybkich pushy.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # ─── API ──────────────────────────────────────────────────────────────────
@@ -31,6 +40,12 @@ jobs:
       DATABASE_URL: postgresql://academy:academy@localhost:5432/academy_test
       JWT_SECRET: ci-test-secret
       JWT_REFRESH_SECRET: ci-test-refresh-secret
+      # Testy integracyjne ładują cały AppModule, więc potrzebują kompletu
+      # zmiennych (unit testy mockują Stripe i Resend, integracyjne nie).
+      STRIPE_SECRET_KEY: sk_test_ci_dummy
+      STRIPE_WEBHOOK_SECRET: whsec_ci_dummy
+      RESEND_API_KEY: re_ci_dummy
+      MAIL_FROM: noreply@academy.pl
 
     steps:
       - uses: actions/checkout@v4
@@ -59,6 +74,9 @@ jobs:
 
       - name: Unit tests
         run: npm test --workspace=apps/api
+
+      - name: Integration tests
+        run: npm run test:e2e --workspace=apps/api
 
   # ─── Web ──────────────────────────────────────────────────────────────────
   web:

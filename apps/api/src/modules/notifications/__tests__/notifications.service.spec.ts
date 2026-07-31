@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { NotificationsService } from '../notifications.service';
+import { InAppNotificationsService } from '../in-app-notifications.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MailService } from '../../mail/mail.service';
 
@@ -18,6 +19,8 @@ const mailMock = {
   sendPaymentReminder: jest.fn().mockResolvedValue(undefined),
 };
 
+const inAppMock = { notifyStudents: jest.fn().mockResolvedValue({ count: 0 }) };
+
 describe('NotificationsService', () => {
   let service: NotificationsService;
 
@@ -27,6 +30,7 @@ describe('NotificationsService', () => {
         NotificationsService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: MailService, useValue: mailMock },
+        { provide: InAppNotificationsService, useValue: inAppMock },
       ],
     }).compile();
     service = module.get(NotificationsService);

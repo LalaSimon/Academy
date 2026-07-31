@@ -43,6 +43,9 @@ describe('Auth (e2e)', () => {
         firstName: testUser.firstName,
         lastName: testUser.lastName,
         role: testUser.role,
+        // Login odrzuca konta niezweryfikowane (Faza 3.6) — konta testowe
+        // powstają z pominięciem flow rejestracji, więc flagę ustawiamy wprost
+        emailVerified: true,
       },
     });
   });
