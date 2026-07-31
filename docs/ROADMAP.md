@@ -346,8 +346,8 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 ### ⚠ Znane luki (wykryte w audycie 2026-07-31)
 
 - [x] ~~**Portal nauczyciela — NIE ISTNIEJE**~~ — zamknięte 2026-07-31, patrz Faza 5
-- [ ] Testy E2E procesu płatności (z 2.0) — wciąż otwarte
-- [ ] Brak testów jednostkowych frontendu poza `pages/auth` i `ParentSetupPage` (42 testy, 4 pliki) — panele admina/ucznia/rodzica bez pokrycia
+- [x] ~~Testy E2E procesu płatności (z 2.0)~~ — zamknięte 2026-07-31: `e2e/payments.spec.ts` (4 testy). Dane zakłada API, bo formularz używa DatePickera w popoverze, a celem jest proces płatniczy, nie obsługa kalendarza. **Test wykrył realny defekt**: Select statusu pokazywał `PAID` zamiast `Zapłacone` — ten sam błąd `@base-ui Select.Value`, który naprawiono wcześniej w `ReportsPage`. Sam redirect do Stripe pozostaje poza pokryciem (zewnętrzna domena)
+- [~] Testy jednostkowe frontendu: **65 testów w 6 plikach** (było 42 w 4). Dodane `PaymentsPage` (12 — arytmetyka kwot na wykresie, filtr, `confirm` przy usuwaniu, powrót ze Stripe) i `TeacherClassesPage` (11 — podział na zakładki, przejścia statusów, zajęcia odwołane). Nadal bez pokrycia: panele grup, materiałów, użytkowników oraz dashboardy ucznia i rodzica
 - [x] ~~Testy frontendu poza obowiązkowym flow~~ — naprawione 2026-07-31: `npm test` w `apps/web` dodany jako krok 5 w `CLAUDE.md`. Przy okazji poprawiony skrypt, który uruchamiał Vitest w trybie **watch** (`vitest` zamiast `vitest run`) — dlatego lokalnie nikt go nie wołał, bo wieszał terminal. CI łapało te testy od początku (`npx vitest run`), więc realny koszt był taki, że o awarii dowiadywano się dopiero po pushu
 - [x] ~~Testy integracyjne API nie są uruchamiane w CI~~ — naprawione 2026-07-31 (job `api`, krok „Integration tests"). **Przy okazji okazało się, że były zepsute: 38 z 45 failowało.** Regresja z Fazy 3.6 — login zaczął odrzucać konta z `emailVerified: false`, a testy tworzą userów bezpośrednio przez Prisma z domyślnym `false`, więc `beforeAll` nie dostawał tokenu i cały suite leciał na 401. Nikt tego nie zauważył, bo testy nie były ani we flow, ani w CI. Dodatkowo naprawiona idempotencja `users.e2e-spec` (cleanup pomijał `delete.me@` i `parent.link@`, więc drugie uruchomienie na tej samej bazie padało na unique(email))
 - [x] ~~CI nie odpalało się na feature branchach~~ — naprawione 2026-07-31: trigger `push: branches: ["**"]` + `concurrency` z `cancel-in-progress`. Wcześniej `on.push` był ograniczony do `main`, więc pushe na branche nie uruchamiały **niczego** aż do otwarcia PR
@@ -415,7 +415,7 @@ Zamyka najpoważniejszą lukę z audytu: `/teacher` był placeholderem `<div>Tea
 |---|---|---|---|---|
 | API — jednostkowe (12 suite'ów) | 153 | `cd apps/api && npm test` | ✅ | ✅ |
 | API — integracyjne (5 spec) | 45 | `cd apps/api && npm run test:e2e` | ❌ (Docker) | ✅ |
-| Web — jednostkowe (4 pliki, Vitest) | 42 | `cd apps/web && npm test` | ✅ | ✅ |
-| E2E — Playwright (4 spec) | 24 | `npx playwright test` | ❌ (Docker) | ✅ |
+| Web — jednostkowe (6 plików, Vitest) | 65 | `cd apps/web && npm test` | ✅ | ✅ |
+| E2E — Playwright (5 spec) | 28 | `npx playwright test` | ❌ (Docker) | ✅ |
 
-**Razem 264 testy, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
+**Razem 291 testów, wszystkich w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
