@@ -127,7 +127,7 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
   - `useAddStudentToGroup` / `useRemoveStudentFromGroup` → invalidują `['users', studentId]`
   - `useAssignMaterialToClass` → invaliduje `['materials','group']` (cascade GroupMaterial)
   - `useUnassignMaterial*` → invalidują `['materials']`
-- [x] 73 testy jednostkowe przechodzą (8 suite'ów)
+- [x] 73 testy jednostkowe przechodzą (8 suite'ów) — *stan na koniec Fazy 1; aktualne liczby w sekcji „Stan testów" na końcu pliku*
 
 **Cel Fazy 1:** Szkoła może działać operacyjnie — prowadzić zajęcia, zarządzać uczniami, zaznaczać obecność, zarządzać materiałami, rozliczać nauczycieli.
 
@@ -141,8 +141,10 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [x] `e2e/helpers/seed.js` — fixture'y przez Prisma (upsert, idempotentne)
 - [x] `auth.spec.ts` — formularz logowania, błędne dane, redirect do /admin, ochrona tras, wylogowanie, sesja po reload
 - [x] `classes.spec.ts` — lista zajęć, tworzenie klasy, zmiana statusu, modal obecności, toggle trybu grupowego/1:1
+- [x] `registration.spec.ts` — rejestracja ucznia pełnoletniego (weryfikacja + login), blokada logowania przed weryfikacją, resend z banera, rejestracja rodzica + setup dziecka, login dziecka na `@academy.pl` (dodane w 3.6)
 - [x] CI e2e job — postgres service, build API + start, build web + serve, wait-on, run Playwright, upload HTML report jako artifact
-- [ ] Testy E2E: proces płatności (mock bramki) — do dodania po Fazie 2.1
+- **Stan: 19 testów E2E przechodzi** (auth + classes + registration)
+- [ ] Testy E2E: proces płatności (mock bramki) — nadal niezrobione; wymaga mocka Stripe Checkout (redirect na zewnętrzną domenę)
 
 ### 2.1 — Płatności ✅
 
@@ -206,7 +208,7 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [x] `StudentLayout` ukrywa zakładkę "Płatności" gdy `user.isMinor = true`
 - [x] API `POST /users` obsługuje `isMinor` + opcjonalne `parentData` / `existingParentId` (tworzy i linkuje rodzica w jednej transakcji)
 - [x] `isMinor` w JWT response (`login`, `getMe`) + Zustand store + `AuthUser` interface
-- [x] Testy jednostkowe: isMinor flag, linkowanie przez existingParentId, tworzenie nowego rodzica, konflikt emaila rodzica (99 testów łącznie)
+- [x] Testy jednostkowe: isMinor flag, linkowanie przez existingParentId, tworzenie nowego rodzica, konflikt emaila rodzica (99 testów łącznie *— stan na Fazę 3.1*)
 - [x] CI fix: dummy `STRIPE_SECRET_KEY` w E2E job + `jest.mock('stripe')` w unit testach
 
 ### 3.2 — Portal rodzica ✅
@@ -271,6 +273,26 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ---
 
+### 3.6 — Rejestracja publiczna, weryfikacja email i onboarding dziecka ✅
+
+> Uzupełnione wstecznie 2026-07-31 podczas audytu — funkcjonalność była zaimplementowana i pokryta testami, ale nie miała wpisu w ROADMAP (wcześniej wspominana tylko mimochodem jako bugfix w 3.5).
+
+- [x] Migracja `20260626120000_add_email_verification` — `emailVerified`, `emailVerificationToken` (unique), `emailVerificationExpiry`
+- [x] `POST /auth/register` — samodzielna rejestracja; `accountType: 'student' | 'parent'` mapowany na rolę STUDENT/PARENT (admina i nauczyciela zakłada wyłącznie admin)
+  - Token weryfikacyjny 32B hex, ważny 24 h; konto powstaje z `emailVerified: false`
+  - Konflikt emaila → `ConflictException('EMAIL_TAKEN')`
+- [x] `GET /auth/verify-email?token=` + `POST /auth/resend-verification` (brak enumeracji — zawsze `{ message: 'ok' }`)
+- [x] **Login blokowany przed weryfikacją** — warunek `!emailVerified && !isMinor`; niepełnoletni są wyłączeni, bo `@academy.pl` to nie skrzynka
+- [x] `POST /auth/setup-child` — rodzic zakłada konto dziecka po rejestracji
+  - Login generowany automatycznie na domenie `CHILD_EMAIL_DOMAIN` (domyślnie `@academy.pl`), `isMinor: true`, `emailVerified: true` z automatu
+  - Limit: jedno dziecko na rodzica (`CHILD_ALREADY_SET`) — do rozszerzenia gdy pojawi się case rodzeństwa
+  - Dane logowania dziecka lecą mailem do RODZICA (`sendChildCredentials`)
+- [x] **Mail do admina o nowej rejestracji** (`sendAdminNewRegistration`) — wysyłany gdy ustawiony `ADMIN_EMAIL`
+- [x] Frontend: `RegisterPage`, `VerifyEmailPage`, `ParentSetupPage` (trasy publiczne), `useRegister` hook, baner „zweryfikuj email" z resendem na loginie
+- [x] Testy: 42 jednostkowe frontendu (Vitest) + E2E `registration.spec.ts`
+
+---
+
 ## Faza 4 — Rozszerzenia
 
 ### 4.1 — Powiadomienia email (uczeń pełnoletni + rodzic) ✅
@@ -288,7 +310,8 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
   - **Reset hasła dziecka:** gdy login należy do niepełnoletniego (`@academy.pl` = nie skrzynka), link resetu idzie na email RODZICA (z kontekstem `forChildName`); token siedzi na koncie dziecka, więc resetuje hasło dziecka. Bez powiązanego rodzica — brak wysyłki
 - [x] 3 nowe szablony HTML (zaległość, dane dziecka, reset) spójne z `baseLayout`
 - [x] Testy: 14 nowych (routing odbiorcy, crony, reset hasła); zweryfikowane na żywo (reset end-to-end, potwierdzenie płatności, strony resetu)
-- **Powiadomienia dla admina — świadomie pominięte** (decyzja 2026-07-31). Rozważane były: nieudana płatność, narastające zaległości, dzienny digest. Brak realnego case'u — admin i tak widzi te dane w panelu (`/admin/payments` + statystyki), a alert bez konkretnej akcji do podjęcia to tylko szum. Do rewizji dopiero gdy pojawi się skala, przy której przeglądanie panelu przestanie wystarczać
+- [x] **Powiadomienie admina o nowej rejestracji** — `sendAdminNewRegistration` na `ADMIN_EMAIL` (zaimplementowane w 3.6). To jedyny kanał admina i na razie wystarcza
+- **Finansowe alerty dla admina — świadomie pominięte** (decyzja 2026-07-31). Rozważane były: nieudana płatność, narastające zaległości, dzienny digest. Brak realnego case'u — admin widzi te dane w panelu (`/admin/payments` + statystyki), a alert bez konkretnej akcji do podjęcia to tylko szum. Do rewizji dopiero przy skali, w której przeglądanie panelu przestanie wystarczać
 
 ### 4.2 — Powiadomienia in-app (dzwonek w navbarze) ✅
 
@@ -301,6 +324,16 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [x] Zapis in-app jest niezależny od dostarczalności maila — niepełnoletni bez powiązanego rodzica i tak dostaje wpis in-app
 - [x] Front: `useNotifications` (TanStack Query, polling licznika + invalidacja), `NotificationBell` (base-ui Popover, ikony/kolory per typ, relatywny czas)
 - [x] Testy: jednostkowe `InAppNotificationsService` + `NotificationsService`; live (curl + Playwright): dzwonek + badge + panel + mark-all-read, triggery płatności i anulowania zajęć zweryfikowane end-to-end
+
+### ⚠ Znane luki (wykryte w audycie 2026-07-31)
+
+- [ ] **Portal nauczyciela — NIE ISTNIEJE.** `/teacher` to placeholder `<div>Teacher Dashboard — WIP</div>` w `App.tsx`; nie ma `TeacherLayout` ani żadnej strony nauczyciela
+  - Rola `TEACHER` jest w pełni obecna w backendzie (przypisanie do zajęć i grup, `GET /users/:id/stats`, fallback `Class.teacherId → group.teacherId`) i admin widzi statystyki nauczyciela w `TeacherProfilePage` — ale sam nauczyciel po zalogowaniu nie widzi nic
+  - Minimalny zakres do użyteczności: lista swoich zajęć, modal obecności, materiały grupy, własne statystyki godzin
+  - **To najpoważniejszy brak w projekcie** — jedna z trzech ról produktowych nie ma UI, mimo że Fazy 1–3 są oznaczone jako ukończone
+- [ ] Testy E2E procesu płatności (z 2.0) — wciąż otwarte
+- [ ] Brak testów jednostkowych frontendu poza `pages/auth` i `ParentSetupPage` (42 testy, 4 pliki) — panele admina/ucznia/rodzica bez pokrycia
+- [ ] `apps/web` ma skrypt `test` (Vitest), ale obowiązkowe flow w `CLAUDE.md` go nie uruchamia — testy frontendu mogą się zepsuć niezauważone
 
 ### Pozostałe rozszerzenia (przyszłość)
 
@@ -316,12 +349,20 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ## ▶ Co robimy teraz?
 
-**Powiadomienia email (4.1) i in-app (4.2) ukonczone.** Nastepne kroki:
-1. ~~Logowanie i obserwowalność backendu (3.5)~~ ✅
-2. ~~Powiazania rodzic-dziecko w panelu admina (3.3)~~ ✅
-3. ~~Powiadomienia email: uczeń pełnoletni + rodzic (4.1)~~ ✅
-4. ~~Powiadomienia in-app: dzwonek + triggery (4.2)~~ ✅
-5. ~~Powiadomienia dla admina~~ — pominięte świadomie, brak case'u (patrz 4.1)
+**Faza 4 domknięta** — powiadomienia email (4.1) i in-app (4.2) działają, finansowe alerty admina świadomie pominięte.
 
-**Faza 4 domknięta.** Nastepny temat do wyboru z „Pozostałe rozszerzenia" ← **do ustalenia**
-5. Pozostałe rozszerzenia Fazy 4 (in-app, zadania domowe, raporty…)
+**Rekomendacja po audycie 2026-07-31: portal nauczyciela.** To jedyna rola produktowa bez interfejsu — backend jest gotowy (zajęcia, frekwencja, statystyki godzin), więc brakuje wyłącznie warstwy UI. Każde kolejne rozszerzenie buduje na systemie, w którym jedna z trzech ról nadal nie może z niego korzystać.
+
+Alternatywy, gdy portal nauczyciela nie jest priorytetem biznesowym: zadania domowe, tracking postępów ucznia, Google Calendar API.
+
+---
+
+## Stan testów (2026-07-31)
+
+| Zestaw | Liczba | Komenda |
+|---|---|---|
+| API — jednostkowe (11 suite'ów) | 146 | `cd apps/api && npm test` |
+| Web — jednostkowe (4 pliki, Vitest) | 42 | `cd apps/web && npx vitest run` |
+| E2E — Playwright (3 spec) | 19 | `npx playwright test` |
+
+Testy integracyjne API (`test/*.e2e-spec.ts` — auth, users, groups, classes) opisane w Fazach 1.1–1.4 mają osobny config i **nie wchodzą w skład `npm test`** — uruchamia je `npm run test:e2e` przy podniesionym `docker-compose.test.yml`. Obowiązkowe flow w `CLAUDE.md` ich nie obejmuje.
