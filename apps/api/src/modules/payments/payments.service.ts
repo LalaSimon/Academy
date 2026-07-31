@@ -17,7 +17,6 @@ import { QueryPaymentsDto } from './dto/query-payments.dto';
 import { QueryStatsDto } from './dto/query-stats.dto';
 import { PaymentStatus } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
-import { formatPlDate } from '../../common/utils/format-date';
 import Stripe from 'stripe';
 
 @Injectable()
@@ -30,10 +29,6 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
   ) {}
-
-  private money(amount: unknown, currency: string) {
-    return `${Number(amount).toFixed(2)} ${currency}`;
-  }
 
   async findAll(query: QueryPaymentsDto) {
     const {
@@ -146,7 +141,7 @@ export class PaymentsService {
     if (!student)
       throw new NotFoundException(`Student ${dto.studentId} not found`);
 
-    const payment = await this.prisma.payment.create({
+    return this.prisma.payment.create({
       data: {
         studentId: dto.studentId,
         amount: dto.amount,
@@ -162,15 +157,6 @@ export class PaymentsService {
         },
       },
     });
-
-    await this.notifications.notifyStudents(
-      [payment.studentId],
-      'PAYMENT_REMINDER',
-      'Nowa płatność',
-      `Wystawiono płatność ${this.money(payment.amount, payment.currency)} — termin ${formatPlDate(payment.dueDate)}.`,
-    );
-
-    return payment;
   }
 
   async createBulk(dto: CreateBulkPaymentsDto) {
@@ -207,7 +193,7 @@ export class PaymentsService {
 
   async updateStatus(id: string, dto: UpdatePaymentStatusDto) {
     await this.findOne(id);
-    return this.prisma.payment.update({
+    const payment = await this.prisma.payment.update({
       where: { id },
       data: {
         status: dto.status as PaymentStatus,
@@ -219,6 +205,16 @@ export class PaymentsService {
         },
       },
     });
+
+    if (dto.status === 'PAID') {
+      await this.notifications.notifyPaymentConfirmation(payment.studentId, {
+        amount: payment.amount.toString(),
+        currency: payment.currency,
+        description: payment.description,
+      });
+    }
+
+    return payment;
   }
 
   async update(id: string, dto: UpdatePaymentDto) {
@@ -306,7 +302,7 @@ export class PaymentsService {
       const paymentId = session.metadata?.paymentId;
       if (!paymentId) return { received: true };
 
-      await this.prisma.payment.update({
+      const payment = await this.prisma.payment.update({
         where: { id: paymentId },
         data: {
           status: 'PAID',
@@ -314,6 +310,12 @@ export class PaymentsService {
           externalId: session.id,
           paymentProvider: 'stripe',
         },
+      });
+
+      await this.notifications.notifyPaymentConfirmation(payment.studentId, {
+        amount: payment.amount.toString(),
+        currency: payment.currency,
+        description: payment.description,
       });
     }
 
@@ -324,32 +326,31 @@ export class PaymentsService {
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async markOverdue() {
-    const where = {
-      status: PaymentStatus.PENDING,
-      dueDate: { lt: new Date() },
-    };
-
-    // Pobieramy przed updateMany, żeby wiedzieć kogo powiadomić.
+    // Pobierz przed update, by powiadomić tylko nowo zaległe (updateMany nie zwraca wierszy)
     const becomingOverdue = await this.prisma.payment.findMany({
-      where,
-      select: { studentId: true, amount: true, currency: true, dueDate: true },
+      where: { status: 'PENDING', dueDate: { lt: new Date() } },
+      select: {
+        studentId: true,
+        amount: true,
+        currency: true,
+        description: true,
+        dueDate: true,
+      },
     });
 
     const result = await this.prisma.payment.updateMany({
-      where,
+      where: { status: 'PENDING', dueDate: { lt: new Date() } },
       data: { status: 'OVERDUE' },
     });
 
-    await Promise.all(
-      becomingOverdue.map((p) =>
-        this.notifications.notifyStudents(
-          [p.studentId],
-          'PAYMENT_REMINDER',
-          'Zaległa płatność',
-          `Płatność ${this.money(p.amount, p.currency)} (termin ${formatPlDate(p.dueDate)}) jest zaległa. Prosimy o uregulowanie.`,
-        ),
-      ),
-    );
+    for (const p of becomingOverdue) {
+      await this.notifications.notifyPaymentOverdue(p.studentId, {
+        amount: p.amount.toString(),
+        currency: p.currency,
+        description: p.description,
+        dueDate: p.dueDate,
+      });
+    }
 
     return result;
   }

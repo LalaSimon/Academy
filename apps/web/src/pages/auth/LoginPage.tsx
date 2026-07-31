@@ -72,7 +72,15 @@ export function LoginPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1.5">Hasło</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-medium text-zinc-400">Hasło</label>
+              <Link
+                to="/forgot-password"
+                className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
+              >
+                Zapomniałeś hasła?
+              </Link>
+            </div>
             <div className="relative">
               <input
                 id="password"

@@ -4,6 +4,11 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 
+const notificationsMock = {
+  notifyPaymentConfirmation: jest.fn(),
+  notifyPaymentOverdue: jest.fn(),
+};
+
 jest.mock('stripe', () => {
   return jest.fn().mockImplementation(() => ({
     checkout: {
@@ -61,8 +66,6 @@ const prismaMock = {
   },
   $transaction: jest.fn(),
 };
-
-const notificationsMock = { notifyStudents: jest.fn() };
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -270,6 +273,7 @@ describe('PaymentsService', () => {
 
   describe('markOverdue (cron)', () => {
     it('marks PENDING past-due payments as OVERDUE', async () => {
+      prismaMock.payment.findMany.mockResolvedValue([]);
       prismaMock.payment.updateMany.mockResolvedValue({ count: 3 });
 
       await service.markOverdue();
@@ -278,6 +282,22 @@ describe('PaymentsService', () => {
         where: { status: 'PENDING', dueDate: { lt: expect.any(Date) } },
         data: { status: 'OVERDUE' },
       });
+    });
+
+    it('notifies each newly overdue payment', async () => {
+      prismaMock.payment.findMany.mockResolvedValue([mockPayment]);
+      prismaMock.payment.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.markOverdue();
+
+      expect(notificationsMock.notifyPaymentOverdue).toHaveBeenCalledWith(
+        'stu1',
+        expect.objectContaining({
+          amount: '200.00',
+          currency: 'PLN',
+          description: 'Lekcje — maj 2026',
+        }),
+      );
     });
   });
 

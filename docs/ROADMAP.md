@@ -271,15 +271,39 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ---
 
-## Faza 4 — Rozszerzenia (przyszłość)
+## Faza 4 — Rozszerzenia
 
-- [ ] Powiadomienia email (BullMQ + Nodemailer) — nieobecności, przypomnienia o płatnościach, 30 min przed zajęciami
-- [x] In-app powiadomienia (bell icon w navbarze) — moduł `notifications` (REST + polling co 45 s), dzwonek z licznikiem nieprzeczytanych w layoutach admina/ucznia/rodzica, panel z listą i „oznacz wszystkie"
-  - Model `Notification` już w schemacie (z Fazy 0); `NotificationsService` (`create`/`createMany`/`notifyStudents`/`findAll`/`unreadCount`/`markRead`/`markAllRead`) + `NotificationsController` (GET `/notifications`, GET `/unread-count`, PATCH `/:id/read`, PATCH `/read-all`) scoped do zalogowanego usera przez `JwtAuthGuard`
-  - Triggery w istniejących serwisach: `CLASS_CANCELLED` (anulowanie zajęć), `ATTENDANCE_ALERT` (nieobecność), `PAYMENT_REMINDER` (nowa płatność + zaległość z crona), `CLASS_REMINDER` (cron `EVERY_5_MINUTES`, okno 30–35 min przed zajęciami — bez flagi w DB)
-  - `notifyStudents` powiadamia ucznia ORAZ powiązanych rodziców (dzwonek rodzica dostaje zdarzenia dziecka)
-  - Front: `useNotifications` (TanStack Query, polling licznika + invalidacja), `NotificationBell` (base-ui Popover, ikony/kolory per typ, relatywny czas)
-  - Testy: 6 jednostkowych `NotificationsService`; live (curl + Playwright): dzwonek + badge + panel + mark-all-read, triggery płatności i anulowania zajęć zweryfikowane end-to-end
+### 4.1 — Powiadomienia email (uczeń pełnoletni + rodzic) ✅
+
+- [x] `NotificationsService` (`modules/notifications/`) — centralizuje powiadomienia; deps Prisma + Mail (oba `@Global`)
+- [x] **Routing odbiorcy:** niepełnoletni → email RODZICA (login dziecka @academy.pl to nie skrzynka), pełnoletni → własny adres. Helper `resolveRecipient`
+- [x] Metody event-driven NIGDY nie rzucają wyjątku do wywołującego (błąd maila nie psuje logiki biznesowej)
+- [x] **Potwierdzenie płatności** — webhook Stripe (`checkout.session.completed`) + ręczne oznaczenie PAID
+- [x] **Nieobecność** — przy zapisie `ABSENT` w `attendance.bulkUpdate`; flaga `Attendance.absenceNotifiedAt` (idempotencja, reset przy zmianie statusu)
+- [x] **Zaległość płatności** — w cronie `markOverdue` (pobiera przed update, powiadamia nowo zaległe)
+- [x] **Przypomnienie o zajęciach (~30 min)** — cron co 5 min; flaga `Class.reminderSentAt`; uczniowie grupy + zajęcia 1:1
+- [x] **Przypomnienie o płatności (termin <= 3 dni)** — cron dzienny; flaga `Payment.reminderSentAt`
+- [x] **Dane logowania dziecka** — mail do rodzica po `setup-child`
+- [x] **Reset hasła** — migracja (`passwordResetToken/Expiry`), endpointy `POST /auth/forgot-password` + `/auth/reset-password` (token 1h, unieważnia sesje, brak enumeracji emaili), szablon maila, frontend `ForgotPasswordPage` + `ResetPasswordPage` + link na loginie
+  - **Reset hasła dziecka:** gdy login należy do niepełnoletniego (`@academy.pl` = nie skrzynka), link resetu idzie na email RODZICA (z kontekstem `forChildName`); token siedzi na koncie dziecka, więc resetuje hasło dziecka. Bez powiązanego rodzica — brak wysyłki
+- [x] 3 nowe szablony HTML (zaległość, dane dziecka, reset) spójne z `baseLayout`
+- [x] Testy: 14 nowych (routing odbiorcy, crony, reset hasła); zweryfikowane na żywo (reset end-to-end, potwierdzenie płatności, strony resetu)
+- [ ] **Powiadomienia dla admina** — do ustalenia osobno (nieudana płatność, narastające zaległości, digest)
+
+### 4.2 — Powiadomienia in-app (dzwonek w navbarze) ✅
+
+- [x] Moduł `notifications` (REST + polling co 45 s), dzwonek z licznikiem nieprzeczytanych w layoutach admina/ucznia/rodzica, panel z listą i „oznacz wszystkie"
+- [x] **Podział odpowiedzialności** (po merge z 4.1): `InAppNotificationsService` = zapis/odczyt wierszy `Notification` (`create`/`createMany`/`notifyStudents`/`findAll`/`unreadCount`/`markRead`/`markAllRead`), `NotificationsService` = orkiestrator zdarzeń ucznia wołający OBA kanały (e-mail + in-app)
+- [x] `NotificationsController` (GET `/notifications`, GET `/unread-count`, PATCH `/:id/read`, PATCH `/read-all`) scoped do zalogowanego usera przez `JwtAuthGuard`
+- [x] Model `Notification` już w schemacie (z Fazy 0)
+- [x] Triggery: `CLASS_CANCELLED` (anulowanie zajęć), `ATTENDANCE_ALERT` (nieobecność), `PAYMENT_REMINDER` (nowa płatność + zaległość + zbliżający się termin z crona), `CLASS_REMINDER` (cron co 5 min, ~30 min przed zajęciami)
+- [x] `notifyStudents` powiadamia ucznia ORAZ powiązanych rodziców (dzwonek rodzica dostaje zdarzenia dziecka)
+- [x] Zapis in-app jest niezależny od dostarczalności maila — niepełnoletni bez powiązanego rodzica i tak dostaje wpis in-app
+- [x] Front: `useNotifications` (TanStack Query, polling licznika + invalidacja), `NotificationBell` (base-ui Popover, ikony/kolory per typ, relatywny czas)
+- [x] Testy: jednostkowe `InAppNotificationsService` + `NotificationsService`; live (curl + Playwright): dzwonek + badge + panel + mark-all-read, triggery płatności i anulowania zajęć zweryfikowane end-to-end
+
+### Pozostałe rozszerzenia (przyszłość)
+
 - [ ] Zadania domowe (upload, ocenianie)
 - [ ] Testy poziomujące (quiz builder)
 - [ ] Tracking postępów ucznia
@@ -292,9 +316,10 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 
 ## ▶ Co robimy teraz?
 
-**Faza 3 ukonczona w całości (3.1–3.5).** Nastepne kroki:
-1. ~~Portal rodzica z widokiem per-dziecko (3.2)~~ ✅
-2. ~~Landing page szkoly jezykowej (3.4)~~ ✅
-3. ~~Logowanie i obserwowalność backendu (3.5)~~ ✅
-4. ~~Powiazania rodzic-dziecko w panelu admina (3.3)~~ ✅
-5. Powiadomienia email i rozszerzenia (Faza 4) ← **nastepne**
+**Powiadomienia email (4.1) i in-app (4.2) ukonczone.** Nastepne kroki:
+1. ~~Logowanie i obserwowalność backendu (3.5)~~ ✅
+2. ~~Powiazania rodzic-dziecko w panelu admina (3.3)~~ ✅
+3. ~~Powiadomienia email: uczeń pełnoletni + rodzic (4.1)~~ ✅
+4. ~~Powiadomienia in-app: dzwonek + triggery (4.2)~~ ✅
+5. Powiadomienia email dla admina ← **do ustalenia osobno**
+5. Pozostałe rozszerzenia Fazy 4 (in-app, zadania domowe, raporty…)

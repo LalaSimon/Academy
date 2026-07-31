@@ -3,7 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { ClassStatus } from '@prisma/client';
 import { ClassesService } from '../classes.service';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { NotificationsService } from '../../notifications/notifications.service';
+import { InAppNotificationsService } from '../../notifications/in-app-notifications.service';
 
 const mockClass = {
   id: 'cls1',
@@ -57,7 +57,7 @@ describe('ClassesService', () => {
       providers: [
         ClassesService,
         { provide: PrismaService, useValue: prismaMock },
-        { provide: NotificationsService, useValue: notificationsMock },
+        { provide: InAppNotificationsService, useValue: notificationsMock },
       ],
     }).compile();
     service = module.get(ClassesService);

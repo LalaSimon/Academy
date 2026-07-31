@@ -1,20 +1,25 @@
 import { Test } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
 import { NotificationsService } from '../notifications.service';
+import { InAppNotificationsService } from '../in-app-notifications.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { MailService } from '../../mail/mail.service';
 
 const prismaMock = {
-  notification: {
-    create: jest.fn(),
-    createMany: jest.fn(),
-    findMany: jest.fn(),
-    count: jest.fn(),
-    updateMany: jest.fn(),
-  },
-  parentStudent: {
-    findMany: jest.fn().mockResolvedValue([]),
-  },
+  user: { findUnique: jest.fn() },
+  parentStudent: { findFirst: jest.fn() },
+  class: { findMany: jest.fn(), update: jest.fn() },
+  payment: { findMany: jest.fn(), update: jest.fn() },
 };
+
+const mailMock = {
+  sendAbsenceNotification: jest.fn().mockResolvedValue(undefined),
+  sendPaymentConfirmation: jest.fn().mockResolvedValue(undefined),
+  sendPaymentOverdue: jest.fn().mockResolvedValue(undefined),
+  sendClassReminder: jest.fn().mockResolvedValue(undefined),
+  sendPaymentReminder: jest.fn().mockResolvedValue(undefined),
+};
+
+const inAppMock = { notifyStudents: jest.fn().mockResolvedValue({ count: 0 }) };
 
 describe('NotificationsService', () => {
   let service: NotificationsService;
@@ -24,124 +29,167 @@ describe('NotificationsService', () => {
       providers: [
         NotificationsService,
         { provide: PrismaService, useValue: prismaMock },
+        { provide: MailService, useValue: mailMock },
+        { provide: InAppNotificationsService, useValue: inAppMock },
       ],
     }).compile();
     service = module.get(NotificationsService);
     jest.clearAllMocks();
-    prismaMock.parentStudent.findMany.mockResolvedValue([]);
   });
 
-  describe('create', () => {
-    it('creates a notification for a single user', async () => {
-      prismaMock.notification.create.mockResolvedValue({ id: 'n1' });
-      await service.create('u1', 'GENERAL', 'Tytuł', 'Treść');
-      expect(prismaMock.notification.create).toHaveBeenCalledWith({
-        data: { userId: 'u1', type: 'GENERAL', title: 'Tytuł', body: 'Treść' },
+  const cls = {
+    title: 'Angielski B1',
+    scheduledAt: new Date('2026-07-01T10:00:00Z'),
+  };
+
+  describe('routing odbiorcy (notifyAbsence)', () => {
+    it('uczeń pełnoletni → mail na jego własny adres', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        firstName: 'Jan',
+        lastName: 'Nowak',
+        email: 'jan@example.com',
+        isMinor: false,
       });
-    });
-  });
 
-  describe('createMany', () => {
-    it('deduplicates user ids and maps rows', async () => {
-      prismaMock.notification.createMany.mockResolvedValue({ count: 2 });
-      await service.createMany(['u1', 'u1', 'u2'], 'GENERAL', 'T', 'B');
-      expect(prismaMock.notification.createMany).toHaveBeenCalledWith({
-        data: [
-          { userId: 'u1', type: 'GENERAL', title: 'T', body: 'B' },
-          { userId: 'u2', type: 'GENERAL', title: 'T', body: 'B' },
-        ],
-      });
-    });
+      await service.notifyAbsence('stu1', cls);
 
-    it('no-ops on empty list without hitting prisma', async () => {
-      const res = await service.createMany([], 'GENERAL', 'T', 'B');
-      expect(res).toEqual({ count: 0 });
-      expect(prismaMock.notification.createMany).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('notifyStudents', () => {
-    it('also notifies linked parents', async () => {
-      prismaMock.parentStudent.findMany.mockResolvedValue([{ parentId: 'p1' }]);
-      prismaMock.notification.createMany.mockResolvedValue({ count: 2 });
-
-      await service.notifyStudents(['stu1'], 'CLASS_CANCELLED', 'T', 'B');
-
-      expect(prismaMock.parentStudent.findMany).toHaveBeenCalledWith({
-        where: { studentId: { in: ['stu1'] } },
-        select: { parentId: true },
-      });
-      const arg = prismaMock.notification.createMany.mock.calls[0][0];
-      const ids = arg.data.map((d: { userId: string }) => d.userId);
-      expect(ids).toEqual(['stu1', 'p1']);
-    });
-
-    it('no-ops on empty student list', async () => {
-      const res = await service.notifyStudents([], 'GENERAL', 'T', 'B');
-      expect(res).toEqual({ count: 0 });
-      expect(prismaMock.parentStudent.findMany).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('findAll', () => {
-    it('scopes to the user and returns pagination + unread count', async () => {
-      prismaMock.notification.findMany.mockResolvedValue([{ id: 'n1' }]);
-      prismaMock.notification.count
-        .mockResolvedValueOnce(5) // total
-        .mockResolvedValueOnce(3); // unread
-
-      const res = await service.findAll('u1', { page: 1, limit: 20 });
-
-      expect(prismaMock.notification.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { userId: 'u1' } }),
+      expect(mailMock.sendAbsenceNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'jan@example.com',
+          studentName: 'Jan Nowak',
+        }),
       );
-      expect(res).toEqual({
-        data: [{ id: 'n1' }],
-        total: 5,
-        page: 1,
-        limit: 20,
-        unreadCount: 3,
-      });
+      expect(prismaMock.parentStudent.findFirst).not.toHaveBeenCalled();
     });
 
-    it('filters unread when requested', async () => {
-      prismaMock.notification.findMany.mockResolvedValue([]);
-      prismaMock.notification.count.mockResolvedValue(0);
-      await service.findAll('u1', { unread: true });
-      expect(prismaMock.notification.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { userId: 'u1', isRead: false } }),
+    it('uczeń niepełnoletni → mail na adres rodzica', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        firstName: 'Mały',
+        lastName: 'Jasiek',
+        email: 'jasiek@academy.pl',
+        isMinor: true,
+      });
+      prismaMock.parentStudent.findFirst.mockResolvedValue({
+        parent: { email: 'rodzic@example.com' },
+      });
+
+      await service.notifyAbsence('stu2', cls);
+
+      expect(mailMock.sendAbsenceNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'rodzic@example.com',
+          studentName: 'Mały Jasiek',
+        }),
       );
     });
-  });
 
-  describe('markRead', () => {
-    it('marks own notification as read', async () => {
-      prismaMock.notification.updateMany.mockResolvedValue({ count: 1 });
-      const res = await service.markRead('n1', 'u1');
-      expect(prismaMock.notification.updateMany).toHaveBeenCalledWith({
-        where: { id: 'n1', userId: 'u1' },
-        data: { isRead: true },
+    it('niepełnoletni bez rodzica → nie wysyła maila', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        firstName: 'Sierota',
+        lastName: 'Bezrodzic',
+        email: 'x@academy.pl',
+        isMinor: true,
       });
-      expect(res).toEqual({ ok: true });
+      prismaMock.parentStudent.findFirst.mockResolvedValue(null);
+
+      await service.notifyAbsence('stu3', cls);
+
+      expect(mailMock.sendAbsenceNotification).not.toHaveBeenCalled();
     });
 
-    it('throws when the notification is not the user’s (count 0)', async () => {
-      prismaMock.notification.updateMany.mockResolvedValue({ count: 0 });
-      await expect(service.markRead('n1', 'u2')).rejects.toThrow(
-        NotFoundException,
+    it('nieistniejący uczeń → nie wysyła maila', async () => {
+      prismaMock.user.findUnique.mockResolvedValue(null);
+
+      await service.notifyAbsence('ghost', cls);
+
+      expect(mailMock.sendAbsenceNotification).not.toHaveBeenCalled();
+    });
+
+    it('błąd maila nie propaguje do wywołującego', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        firstName: 'Jan',
+        lastName: 'Nowak',
+        email: 'jan@example.com',
+        isMinor: false,
+      });
+      mailMock.sendAbsenceNotification.mockRejectedValueOnce(
+        new Error('SMTP down'),
+      );
+
+      await expect(service.notifyAbsence('stu1', cls)).resolves.toBeUndefined();
+    });
+  });
+
+  describe('sendUpcomingClassReminders (cron)', () => {
+    it('wysyła przypomnienia uczniom grupy i oznacza zajęcia', async () => {
+      prismaMock.class.findMany.mockResolvedValue([
+        {
+          id: 'cls1',
+          title: 'Hiszpański A2',
+          scheduledAt: new Date(),
+          meetLink: 'https://meet/abc',
+          teacher: { firstName: 'Anna', lastName: 'Kowalska' },
+          student: null,
+          group: {
+            teacher: null,
+            students: [{ studentId: 'stu1' }],
+          },
+        },
+      ]);
+      prismaMock.user.findUnique.mockResolvedValue({
+        firstName: 'Jan',
+        lastName: 'Nowak',
+        email: 'jan@example.com',
+        isMinor: false,
+      });
+
+      await service.sendUpcomingClassReminders();
+
+      expect(mailMock.sendClassReminder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'jan@example.com',
+          teacherName: 'Anna Kowalska',
+        }),
+      );
+      expect(prismaMock.class.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'cls1' },
+          data: { reminderSentAt: expect.any(Date) },
+        }),
       );
     });
   });
 
-  describe('markAllRead', () => {
-    it('marks all unread of the user as read', async () => {
-      prismaMock.notification.updateMany.mockResolvedValue({ count: 4 });
-      const res = await service.markAllRead('u1');
-      expect(prismaMock.notification.updateMany).toHaveBeenCalledWith({
-        where: { userId: 'u1', isRead: false },
-        data: { isRead: true },
+  describe('sendUpcomingPaymentReminders (cron)', () => {
+    it('wysyła przypomnienia i oznacza płatności', async () => {
+      prismaMock.payment.findMany.mockResolvedValue([
+        {
+          id: 'pay1',
+          studentId: 'stu1',
+          amount: '150.00',
+          currency: 'PLN',
+          description: 'Lipiec',
+          dueDate: new Date(),
+        },
+      ]);
+      prismaMock.user.findUnique.mockResolvedValue({
+        firstName: 'Jan',
+        lastName: 'Nowak',
+        email: 'jan@example.com',
+        isMinor: false,
       });
-      expect(res).toEqual({ count: 4 });
+
+      await service.sendUpcomingPaymentReminders();
+
+      expect(mailMock.sendPaymentReminder).toHaveBeenCalledWith(
+        expect.objectContaining({ to: 'jan@example.com', amount: '150.00' }),
+      );
+      expect(prismaMock.payment.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'pay1' },
+          data: { reminderSentAt: expect.any(Date) },
+        }),
+      );
     });
   });
 });

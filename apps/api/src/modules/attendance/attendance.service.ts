@@ -1,8 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { NotificationsService } from '../notifications/notifications.service';
-import { formatPlDateTime } from '../../common/utils/format-date';
 import { BulkUpdateAttendanceDto } from './dto/bulk-update-attendance.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const ATTENDANCE_SELECT = {
   id: true,
@@ -102,25 +101,52 @@ export class AttendanceService {
             status: item.status,
             note: item.note,
             markedAt: new Date(),
+            // Reset flagi powiadomienia gdy uczeń przestaje być nieobecny
+            // → kolejna nieobecność wyśle maila ponownie
+            ...(item.status !== 'ABSENT' && { absenceNotifiedAt: null }),
           },
           select: ATTENDANCE_SELECT,
         }),
       ),
     );
 
-    const absentStudentIds = dto.items
-      .filter((item) => item.status === 'ABSENT')
-      .map((item) => item.studentId);
-    if (absentStudentIds.length > 0) {
-      await this.notifications.notifyStudents(
-        absentStudentIds,
-        'ATTENDANCE_ALERT',
-        'Odnotowano nieobecność',
-        `Odnotowano nieobecność na zajęciach „${cls.title}" (${formatPlDateTime(cls.scheduledAt)}).`,
-      );
-    }
+    await this.notifyNewAbsences(cls, dto);
 
     return this.getForClass(dto.classId);
+  }
+
+  /** Wysyła powiadomienie o nieobecności tylko dla nowo oznaczonych ABSENT (idempotentnie). */
+  private async notifyNewAbsences(
+    cls: { title: string; scheduledAt: Date },
+    dto: BulkUpdateAttendanceDto,
+  ) {
+    const absentIds = dto.items
+      .filter((i) => i.status === 'ABSENT')
+      .map((i) => i.studentId);
+    if (absentIds.length === 0) return;
+
+    const toNotify = await this.prisma.attendance.findMany({
+      where: {
+        classId: dto.classId,
+        status: 'ABSENT',
+        absenceNotifiedAt: null,
+        studentId: { in: absentIds },
+      },
+      select: { id: true, studentId: true },
+    });
+    if (toNotify.length === 0) return;
+
+    for (const a of toNotify) {
+      await this.notifications.notifyAbsence(a.studentId, {
+        title: cls.title,
+        scheduledAt: cls.scheduledAt,
+      });
+    }
+
+    await this.prisma.attendance.updateMany({
+      where: { id: { in: toNotify.map((a) => a.id) } },
+      data: { absenceNotifiedAt: new Date() },
+    });
   }
 
   async getStudentStats(studentId: string, range?: { from?: Date; to?: Date }) {

@@ -5,6 +5,8 @@ import { AttendanceService } from '../attendance.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 
+const notificationsMock = { notifyAbsence: jest.fn() };
+
 const mockAttendance = {
   id: 'att1',
   status: AttendanceStatus.PRESENT,
@@ -40,14 +42,13 @@ const prismaMock = {
     findMany: jest.fn(),
     createMany: jest.fn(),
     upsert: jest.fn(),
+    updateMany: jest.fn(),
   },
   groupStudent: {
     findMany: jest.fn().mockResolvedValue([]),
   },
   $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
 };
-
-const notificationsMock = { notifyStudents: jest.fn() };
 
 describe('AttendanceService', () => {
   let service: AttendanceService;
