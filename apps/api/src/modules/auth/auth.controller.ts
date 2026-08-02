@@ -17,6 +17,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { SetupChildDto } from './dto/setup-child.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -34,7 +35,10 @@ const COOKIE_OPTIONS = {
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  // Brute force haseł.
   @Post('login')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ auth: {} })
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() dto: LoginDto,
@@ -46,7 +50,10 @@ export class AuthController {
     return { accessToken, user };
   }
 
+  // Wysyła DWA maile (weryfikacja + powiadomienie admina).
   @Post('register')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ mail: {} })
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
@@ -59,6 +66,8 @@ export class AuthController {
   }
 
   @Post('resend-verification')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ mail: {} })
   @HttpCode(HttpStatus.OK)
   async resendVerification(@Body('email') email: string) {
     return this.authService.resendVerification(email);
@@ -75,13 +84,19 @@ export class AuthController {
     return this.authService.setupChild(req.user.id, dto);
   }
 
+  // Bez limitu działa jak otwarty relay: dowolny adres, nasze konto Resend.
   @Post('forgot-password')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ mail: {} })
   @HttpCode(HttpStatus.OK)
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.requestPasswordReset(dto.email);
   }
 
+  // Zgadywanie tokenu resetu.
   @Post('reset-password')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ auth: {} })
   @HttpCode(HttpStatus.OK)
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.password);

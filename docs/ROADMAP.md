@@ -399,6 +399,21 @@ Systematyczny przegląd `apps/api/src` (nie diff — audyt na czystym `main`), z
 
 **Poza zakresem:** infrastruktura (MinIO, sieć Dockera), zależności third-party (Dependabot), rate limiting i DoS.
 
+### 5.5 — Utwardzenie pod produkcję ✅
+
+Cztery pozycje wskazane po security review jako „potrzebne przed publikacją", nie będące podatnościami w kodzie, ale realnym ryzykiem na produkcji.
+
+- [x] **Rate limiting na endpointach auth** (`@nestjs/throttler`). Guard **nie jest globalny** — celuje tylko w auth, żeby nie dławić normalnego korzystania z aplikacji. Dwie niezależne pule:
+  - `auth` (10/min) — `login`, `reset-password`: brute force hasła i zgadywanie tokenu
+  - `mail` (3/min) — `register`, `resend-verification`, `forgot-password`: bez tego endpoint działa jak **otwarty relay** na cudze adresy przez nasze konto Resend
+  - Zweryfikowane na żywo: przy limicie 2/min trzecie żądanie dostaje `429`, a pule działają niezależnie od siebie
+  - `AUTH_THROTTLE_LIMIT` / `MAIL_THROTTLE_LIMIT` podniesione do 1000 w `docker-compose.yml` i w jobie E2E — zestaw testów loguje się kilkanaście razy z jednego IP. **Produkcja nie ustawia tych zmiennych** i zostaje przy wartościach z kodu
+- [x] **Domyślne hasła infrastruktury usunięte** — `${POSTGRES_PASSWORD:-academy}` i `${MINIO_ROOT_PASSWORD:-minioadmin}` zamienione na `:?`. Dokładnie ten sam wzorzec fail-open co przy sekrecie Stripe (5.4): brak zmiennej cicho podstawiał znane hasło. Teraz compose odmawia startu z czytelnym komunikatem — zweryfikowane przez tymczasowe usunięcie zmiennej z `.env`
+- [x] **E-maile znikają z logów** — `RequestLoggerMiddleware` logował adres użytkownika przy każdym żądaniu. Zamienione na `id`: do diagnostyki wystarcza, a logi wędrują dalej niż baza
+- [x] **Nagłówki bezpieczeństwa** (`helmet`) — `X-Frame-Options`, `nosniff`, HSTS potwierdzone na żywo. `nosniff` domyka wektor uploadu, który dotąd trzymał się wyłącznie na `Content-Disposition`. CSP wyłączone: API zwraca JSON i pliki, nie HTML
+
+**Pozostaje przed publikacją** (poza zakresem tej zmiany): porty `5432`/`6379`/`9000`/`9001` są mapowane na hosta — w dev wygodne, na produkcji baza, Redis i storage nie powinny być publiczne; sekrety w GitHub Actions; kopie zapasowe i szyfrowanie w spoczynku; przegląd frontendu.
+
 ### ⚠ Znane luki (wykryte w audycie 2026-07-31)
 
 - [x] ~~**Portal nauczyciela — NIE ISTNIEJE**~~ — zamknięte 2026-07-31, patrz Faza 5

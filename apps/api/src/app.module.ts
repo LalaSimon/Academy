@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { AccessControlModule } from './common/access/access-control.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -24,6 +25,24 @@ import { RequestLoggerMiddleware } from './common/middleware/request-logger.midd
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
+    // Limity dotyczą wyłącznie endpointów auth (patrz AuthController) — guard
+    // nie jest globalny, żeby nie dławić normalnego korzystania z aplikacji.
+    // `AUTH_THROTTLE_LIMIT` podnosimy w dev i CI, bo zestaw E2E loguje się
+    // kilkanaście razy w ciągu minuty; produkcja zostaje przy domyślnych 10.
+    ThrottlerModule.forRoot([
+      {
+        name: 'auth',
+        ttl: 60_000,
+        limit: Number(process.env.AUTH_THROTTLE_LIMIT ?? 10),
+      },
+      {
+        // Osobno i ostrzej dla akcji, które WYSYŁAJĄ MAILA — bez tego endpoint
+        // działa jak otwarty relay na cudze adresy przez nasze konto Resend.
+        name: 'mail',
+        ttl: 60_000,
+        limit: Number(process.env.MAIL_THROTTLE_LIMIT ?? 3),
+      },
+    ]),
     PrismaModule,
     AccessControlModule,
     MailModule,

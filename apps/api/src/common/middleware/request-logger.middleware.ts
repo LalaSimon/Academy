@@ -22,7 +22,10 @@ export class RequestLoggerMiddleware implements NestMiddleware {
     res.on('finish', () => {
       const { statusCode } = res;
       const duration = Date.now() - start;
-      const user = req.user ? `${req.user.email} [${req.user.role}]` : 'anon';
+      // `id`, nie `email` — logi wędrują dalej niż baza (agregatory, kopie),
+      // a adres e-mail to dane osobowe. Do diagnostyki id wystarcza, bo i tak
+      // prowadzi do rekordu użytkownika.
+      const user = req.user ? `${req.user.id} [${req.user.role}]` : 'anon';
       const message = `${method} ${originalUrl} ${statusCode} ${duration}ms — ${user}`;
 
       if (statusCode >= 500) {
