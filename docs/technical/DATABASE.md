@@ -85,7 +85,8 @@ model Class {
   description   String?
   scheduledAt   DateTime
   durationMin   Int           @default(60)
-  meetLink      String?       // Google Meet URL
+  meetLink      String?       // Google Meet URL (generowany automatycznie lub wpisany ręcznie)
+  googleEventId String?       // ID wydarzenia w Kalendarzu Google — pozwala je zmienić/usunąć
   status        ClassStatus   @default(SCHEDULED)
   cancelReason  String?
   createdAt     DateTime      @default(now())
@@ -94,6 +95,12 @@ model Class {
   attendances   Attendance[]
   materials     ClassMaterial[]
 }
+
+> **`googleEventId`** przechowuje identyfikator wydarzenia w Kalendarzu Google.
+> Bez niego nie dałoby się przesunąć wydarzenia po zmianie terminu ani usunąć go
+> przy kasowaniu zajęć — `meetLink` sam w sobie nie identyfikuje wydarzenia.
+> `null` oznacza brak powiązania: integracja wyłączona albo link wpisany ręcznie.
+> Szczegóły cyklu życia: [GOOGLE_MEET.md](../GOOGLE_MEET.md).
 
 enum ClassStatus {
   SCHEDULED

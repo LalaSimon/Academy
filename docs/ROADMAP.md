@@ -538,18 +538,25 @@ Zamiast osobnej zakładki — wzmocnienie dashboardów, bo tam użytkownik lądu
 
 ## ▶ Co robimy teraz?
 
-**Fazy 1–5 zamknięte.** Wszystkie trzy role produktowe mają UI, kontrola dostępu przeszła systematyczny audyt, aplikacja jest utwardzona pod produkcję.
+**Fazy 1–5 zamknięte** (stan 2026-08-02). Wszystkie trzy role produktowe mają pełne UI, kontrola dostępu przeszła systematyczny audyt, aplikacja jest utwardzona pod produkcję, a zajęcia dostają automatyczne linki Google Meet z pełnym cyklem życia wydarzeń.
 
 **Publikacja NIE jest jeszcze planowana** — przed nami kolejny etap developmentu. Przygotowania wdrożeniowe robimy zawczasu, żeby sam deploy był formalnością (patrz „Przygotowanie do produkcji" niżej).
 
-**Portal nauczyciela domknięty (5.6).** Następne do wyboru — produkt:
-1. **Zadania domowe** (upload + ocenianie) — pierwszy naprawdę nowy obszar produktowy
-2. **Tracking postępów ucznia**
+**Zamknięte w Fazie 5:** portal nauczyciela (5.1, 5.6), kontrola dostępu i audyt bezpieczeństwa (5.2–5.5), Google Meet z pełnym cyklem życia (5.7–5.8), widok „Dzisiaj" na dashboardach (5.9).
 
+**Następne do wyboru — produkt:**
+1. **Zadania domowe** (upload + ocenianie) — pierwszy naprawdę nowy obszar produktowy; naturalne rozwinięcie materiałów i portalu nauczyciela
+2. **Tracking postępów ucznia**
+3. **Czat wewnętrzny** (nauczyciel ↔ uczeń)
 
 **Następne do wyboru — jakość:**
-- Testy jednostkowe paneli bez pokrycia: grupy, materiały, użytkownicy, dashboardy ucznia i rodzica (dziś 65 testów w 6 plikach, wszystkie z `pages/auth`, `PaymentsPage` i `TeacherClassesPage`)
+- Testy jednostkowe paneli bez pokrycia: grupy, materiały, użytkownicy, dashboardy admina (dziś 86 testów w 8 plikach — `pages/auth`, `PaymentsPage`, `TeacherClassesPage`, `TeacherGroupDetailPage`, `TodaySchedule`, `ParentSetupPage`)
 - Migracja `react-router` v7 → v8 — zamknęłaby 2 z 3 pozostałych alertów Dependabota. **Nadal odradzana**: major z realną pracą na routingu, a podatność dotyczy trybu RSC, którego to SPA nie używa
+
+**Drobiazgi odnotowane po drodze:**
+- `Material.isPublic` istnieje w modelu i działa w kontroli dostępu, ale **nic w UI nie pozwala go ustawić** — mechanizm czeka nieużywany
+- `RecurringClassModal` (tworzenie serii przez `POST /classes/bulk`) **nie jest podpięty do żadnej strony** od Fazy 2.4 — martwy komponent i endpoint utrzymywany „na wszelki wypadek"
+- Synchronizacja z Kalendarzem Google jest **jednokierunkowa**: ręczna zmiana w kalendarzu nie wróci do aplikacji i zostanie nadpisana przy najbliższej edycji zajęć
 
 ---
 

@@ -1,13 +1,31 @@
 # Strategia Testowania
 
-## Aktualne pokrycie (2026-06-26)
+## Aktualne pokrycie (2026-08-02)
 
-| Poziom | Narzędzie | Liczba testów | Status |
-|--------|-----------|--------------|--------|
-| Backend (unit) | Jest | 119 | ✅ |
-| Frontend (unit) | Vitest + Testing Library | 42 | ✅ |
-| E2E | Playwright | 6 | ✅ |
-| **Razem** | | **167** | ✅ |
+| Poziom | Narzędzie | Liczba | Komenda | We flow | W CI |
+|--------|-----------|--------|---------|---------|------|
+| Backend (unit) | Jest | 208 | `cd apps/api && npm test` | ✅ | ✅ |
+| Backend (integracyjne) | Jest + Postgres | 45 | `cd apps/api && npm run test:e2e` | ❌ (Docker) | ✅ |
+| Frontend (unit) | Vitest + Testing Library | 86 | `cd apps/web && npm test` | ✅ | ✅ |
+| E2E | Playwright | 42 | `npx playwright test` | ❌ (Docker) | ✅ |
+| **Razem** | | **381** | | | ✅ |
+
+**Testy integracyjne** mają osobny config (`test/jest-e2e.json`) i nie wchodzą
+w skład `npm test`. Wymagają `docker compose -f docker-compose.test.yml up -d`
+(Postgres na 5433, tmpfs) oraz `npx prisma migrate deploy`.
+
+> ⚠ Do 2026-07-31 testy integracyjne nie były uruchamiane w CI i **38 z 45
+> failowało** — regresja z Fazy 3.6 (login zaczął odrzucać `emailVerified: false`,
+> a suity tworzą userów wprost przez Prisma). Od tamtej pory biegną przy każdym
+> pushu, więc taka cisza już się nie powtórzy.
+
+### Limity żądań a testy
+
+Endpointy auth mają throttling (10/min, 3/min dla akcji wysyłających maile).
+Zestawy testów logują się kilkanaście razy z jednego IP, dlatego
+`AUTH_THROTTLE_LIMIT` i `MAIL_THROTTLE_LIMIT` są podnoszone do 1000
+w `docker-compose.yml` oraz w **obu** jobach CI (`api` i `e2e`).
+Produkcja tych zmiennych nie ustawia.
 
 ---
 
@@ -15,9 +33,11 @@
 
 ```
         /\
-       /e2e\          ← 6 testów, Playwright, krytyczne ścieżki
+       /e2e\          ← 42 testy, Playwright, krytyczne ścieżki
       /──────\
-     /  unit  \       ← 161 testów, Jest + Vitest, izolowane
+     / integr.\       ← 45 testów, Jest + realny Postgres
+    /──────────\
+   /    unit    \     ← 294 testy, Jest + Vitest, izolowane
     /──────────\
 ```
 

@@ -151,3 +151,13 @@ gh api -X DELETE repos/LalaSimon/Academy/branches/main/protection/enforce_admins
 - `invalidateQueries` — zawsze invaliduj wszystkie powiązane klucze: zmiana klasy → `['users']` (stats nauczyciela) + `['attendance','student']`; zmiana grupy → `['classes']`; zmiana przynależności do grupy → `['users', studentId]`.
 - `Class.teacherId` może być null — statystyki i zapytania muszą obsługiwać fallback przez `group.teacherId` (`OR: [{ teacherId }, { teacherId: null, group: { teacherId } }]`).
 - Testy jednostkowe mockują `findMany` — weryfikuj strukturę WHERE (np. OR branches), nie tylko logikę agregacji na zwróconych danych.
+
+### Pułapki wyłapane w praktyce (sierpień 2026)
+
+- **Kolejność tras w NestJS ma znaczenie** — trasa statyczna musi być zadeklarowana **przed** parametryczną. `@Get('by-classes')` po `@Get(':id')` zostanie przechwycone jako `id = "by-classes"`.
+- **`create` w `classes.service` ma DWA wyjścia** (gałąź grupowa i 1:1). Zmiana obejmująca „koniec metody" pomija pierwszą — tak powstał brak linków Meet dla zajęć grupowych. Przy zmianach w tworzeniu zajęć sprawdź **wszystkie** `prisma.class.create` w repo (są cztery: dwa w `classes.service`, jeden w `createBulk`, jeden w `groups.generateClasses`).
+- **Po zmianie `schema.prisma` kontener wymaga własnego `generate`** — `docker compose exec api npx prisma generate`. Sam rebuild nie wystarczy, bo kontener ma osobne `node_modules`. Objaw: `Property 'x' does not exist on type` mimo poprawnego kodu lokalnie.
+- **`vi.mock` jest hoistowany ponad deklaracje** — wszystko, czego używa fabryka, musi powstać w `vi.hoisted()`. Objaw: `Cannot access 'mockX' before initialization`.
+- **`npm test` w `apps/web` to `vitest run`** (nie watch) — watch jest pod `test:watch`. Zmiana z 2026-07-31; wcześniej `npm test` wieszał terminal.
+- **`timeout` nie istnieje na macOS** — w skryptach używaj `until … do sleep … done` albo uruchamiania w tle.
+- **Zajęcia 1:1 nie mają `groupId`** — filtrowanie po samych grupach je gubi. Pytając o zajęcia użytkownika, korzystaj ze scoped `GET /classes` (backend sam zawęża) zamiast `useQueries` per grupa.

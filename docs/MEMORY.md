@@ -3,6 +3,7 @@
 ## Startuj tutaj
 
 - [OVERVIEW.md](OVERVIEW.md) — Co to jest, aktorzy, moduły, status
+- [GOOGLE_MEET.md](GOOGLE_MEET.md) — automatyczne linki Meet: konfiguracja i cykl życia wydarzeń
 - [BUSINESS.md](BUSINESS.md) — Założenia biznesowe, model, ograniczenia
 - [ARCHITECTURE.md](ARCHITECTURE.md) — Stack, diagram, struktura projektu, bezpieczeństwo
 - [ROADMAP.md](ROADMAP.md) — Fazy, checklisty, od czego zaczynamy
