@@ -192,7 +192,12 @@ export class ClassesService {
           ),
         );
       }
-      return cls;
+
+      // Gałąź grupowa ma własne wyjście z metody — łatwo ją przeoczyć przy
+      // zmianach obejmujących „koniec create" (tak powstał brak linków dla
+      // zajęć grupowych po Fazie 5.8).
+      await this.calendar.attach([cls.id]);
+      return this.findOne(cls.id);
     }
 
     // --- individual student class ---
@@ -240,18 +245,26 @@ export class ClassesService {
 
   async update(id: string, dto: UpdateClassDto) {
     await this.assertExists(id);
-    const updated = await this.prisma.class.update({
+    await this.prisma.class.update({
       where: { id },
       data: dto,
       select: CLASS_SELECT,
     });
+
+    // Zajęcia sprzed włączenia integracji nie mają wydarzenia — edycja jest
+    // naturalnym momentem, żeby je uzupełnić. `attach` sam pomija te, które
+    // link już mają, więc nie nadpisze ręcznie wpisanego adresu.
+    await this.calendar.attach([id]);
 
     // Zmiana terminu, czasu trwania lub tytułu musi trafić do kalendarza —
     // inaczej wydarzenie zostaje ze starą datą.
     if (dto.scheduledAt || dto.durationMin || dto.title || dto.description) {
       await this.calendar.sync([id]);
     }
-    return updated;
+
+    // `updated` pochodzi sprzed synchronizacji — odczytujemy ponownie, żeby
+    // front dostał świeży link.
+    return this.findOne(id);
   }
 
   async remove(id: string) {

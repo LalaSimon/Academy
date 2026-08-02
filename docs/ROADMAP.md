@@ -505,6 +505,11 @@ Analiza flow tworzenia zajęć wykazała, że 5.7 pokryła **niewłaściwe ście
 
 Synchronizacja jest **jednokierunkowa** (Academy → Kalendarz). Dwukierunkowa wymagałaby webhooków Google i rozstrzygania konfliktów — nieproporcjonalne przy jednoosobowej szkole.
 
+**Hotfix 5.8.1** — zgłoszone przez właściciela: zajęcia utworzone przez formularz nie miały linku. Przyczyna: `create` ma **dwa wyjścia** (gałąź grupowa i 1:1), a zmiana z 5.8 objęła tylko drugie. Zajęcia 1:1 i generowane z harmonogramu działały, grupowe nie — czyli najczęstszy przypadek. Przy okazji:
+- `update` woła teraz `attach`, więc zajęcia sprzed włączenia integracji dostają link przy edycji (`attach` sam pomija te, które link już mają)
+- `create` i `update` zwracają dane odczytane **po** dopięciu spotkania, żeby front dostał link od razu w odpowiedzi
+- testy regresyjne na **obie** gałęzie `create` oraz na uzupełnianie przy edycji
+
 ### Pozostałe rozszerzenia (przyszłość)
 
 - [ ] Zadania domowe (upload, ocenianie)
@@ -576,9 +581,9 @@ Rozważyć **managed Postgres** (Neon, Supabase) zamiast kontenera — zdejmuje 
 
 | Zestaw | Liczba | Komenda | We flow | W CI |
 |---|---|---|---|---|
-| API — jednostkowe (15 suite'ów) | 205 | `cd apps/api && npm test` | ✅ | ✅ |
+| API — jednostkowe (15 suite'ów) | 208 | `cd apps/api && npm test` | ✅ | ✅ |
 | API — integracyjne (5 spec) | 45 | `cd apps/api && npm run test:e2e` | ❌ (Docker) | ✅ |
 | Web — jednostkowe (7 plików, Vitest) | 72 | `cd apps/web && npm test` | ✅ | ✅ |
 | E2E — Playwright (6 spec) | 42 | `npx playwright test` | ❌ (Docker) | ✅ |
 
-**Razem 364 testy, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
+**Razem 367 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
