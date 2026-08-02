@@ -9,6 +9,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { AccessControlModule } from './common/access/access-control.module';
+import { GoogleCalendarModule } from './modules/google/google-calendar.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { GroupsModule } from './modules/groups/groups.module';
@@ -45,6 +46,7 @@ import { RequestLoggerMiddleware } from './common/middleware/request-logger.midd
     ]),
     PrismaModule,
     AccessControlModule,
+    GoogleCalendarModule,
     MailModule,
     AuthModule,
     UsersModule,

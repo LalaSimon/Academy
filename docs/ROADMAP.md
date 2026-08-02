@@ -472,12 +472,24 @@ Domyka rolę nauczyciela. Backend był gotowy po 5.2–5.3 (scoping `GET /groups
 - [x] 7 testów jednostkowych (`TeacherGroupDetailPage`) + 2 E2E
 - [x] Zweryfikowane realnym żądaniem per rola (zgodnie z regułą 8 z `CLAUDE.md`): nauczyciel widzi 1 grupę z 3, własna grupa i jej materiały 200, cudza grupa i jej materiały **403**
 
+### 5.7 — Automatyczne linki Google Meet ✅
+
+**Uwaga: połowa tej funkcji już istniała.** `Class.meetLink` był w modelu od Fazy 1, a przycisk „Dołącz" renderował się we wszystkich czterech portalach (nauczyciel, uczeń — `SCHEDULED` i `ONGOING`, rodzic — `SCHEDULED`, admin). Brakowało wyłącznie **automatycznego generowania** — link wpisywał ręcznie admin.
+
+- [x] `GoogleCalendarService` (`modules/google/`, `@Global`) — OAuth2 + refresh token. Meet nie pozwala zbudować linku z identyfikatora; jedyna droga to wydarzenie w Kalendarzu z `conferenceData`, skąd Google odsyła `hangoutLink`. **Service account nie zadziała** bez Workspace z domain-wide delegation
+- [x] Integracja **opcjonalna i domyślnie wyłączona** (`GOOGLE_CALENDAR_ENABLED`). Dopiero po włączeniu wymagany jest komplet sekretów przez `getOrThrow` — połowicznie skonfigurowana integracja ma zatrzymać start, a nie „prawie działać"
+- [x] Ręcznie wpisany link ma **pierwszeństwo** — admin może wskazać Zoom albo stały pokój
+- [x] `createMeetLink` **nigdy nie rzuca**: gdy Google odmówi, zajęcia powstają bez linku, a błąd trafia do logów. Brak linku nie może zablokować utworzenia lekcji
+- [x] Działa dla zajęć pojedynczych i całych serii (`POST /classes/bulk`) — każde zajęcia dostają własne spotkanie
+- [x] 9 testów jednostkowych + instrukcja konfiguracji w `docs/GOOGLE_MEET.md`
+
+⚠ **Niezweryfikowane na żywo:** brak credentials Google, więc prawdziwe wywołanie do Calendar API nie zostało wykonane. Przetestowane jest wszystko poza nim: zachowanie z wyłączoną integracją (na żywo — zajęcia powstają, aplikacja startuje), pierwszeństwo ręcznego linku (na żywo), oraz kształt żądania, obsługa błędów i wymóg sekretów (testy z zamockowanym `googleapis`). **Pierwsze włączenie wymaga sprawdzenia, czy Google faktycznie zwraca `hangoutLink`.**
+
 ### Pozostałe rozszerzenia (przyszłość)
 
 - [ ] Zadania domowe (upload, ocenianie)
 - [ ] Testy poziomujące (quiz builder)
 - [ ] Tracking postępów ucznia
-- [ ] Google Calendar API (automatyczne Meet linki)
 - [ ] Raporty: dodatkowe typy + eksport PDF
 - [ ] Aplikacja mobilna (React Native lub PWA)
 - [ ] Czat wewnętrzny (nauczyciel ↔ uczeń)
@@ -493,7 +505,7 @@ Domyka rolę nauczyciela. Backend był gotowy po 5.2–5.3 (scoping `GET /groups
 **Portal nauczyciela domknięty (5.6).** Następne do wyboru — produkt:
 1. **Zadania domowe** (upload + ocenianie) — pierwszy naprawdę nowy obszar produktowy
 2. **Tracking postępów ucznia**
-3. **Google Calendar API** — automatyczne linki Meet
+
 
 **Następne do wyboru — jakość:**
 - Testy jednostkowe paneli bez pokrycia: grupy, materiały, użytkownicy, dashboardy ucznia i rodzica (dziś 65 testów w 6 plikach, wszystkie z `pages/auth`, `PaymentsPage` i `TeacherClassesPage`)
@@ -544,9 +556,9 @@ Rozważyć **managed Postgres** (Neon, Supabase) zamiast kontenera — zdejmuje 
 
 | Zestaw | Liczba | Komenda | We flow | W CI |
 |---|---|---|---|---|
-| API — jednostkowe (13 suite'ów) | 181 | `cd apps/api && npm test` | ✅ | ✅ |
+| API — jednostkowe (14 suite'ów) | 190 | `cd apps/api && npm test` | ✅ | ✅ |
 | API — integracyjne (5 spec) | 45 | `cd apps/api && npm run test:e2e` | ❌ (Docker) | ✅ |
 | Web — jednostkowe (7 plików, Vitest) | 72 | `cd apps/web && npm test` | ✅ | ✅ |
 | E2E — Playwright (6 spec) | 42 | `npx playwright test` | ❌ (Docker) | ✅ |
 
-**Razem 340 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
+**Razem 349 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.

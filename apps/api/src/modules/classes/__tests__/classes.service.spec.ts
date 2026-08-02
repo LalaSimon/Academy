@@ -4,6 +4,7 @@ import { ClassStatus } from '@prisma/client';
 import { ClassesService } from '../classes.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { InAppNotificationsService } from '../../notifications/in-app-notifications.service';
+import { GoogleCalendarService } from '../../google/google-calendar.service';
 
 const mockClass = {
   id: 'cls1',
@@ -49,6 +50,12 @@ const prismaMock = {
 
 const notificationsMock = { notifyStudents: jest.fn() };
 
+// Domyślnie integracja wyłączona — tak jak na produkcji bez konfiguracji.
+const googleMock = {
+  isEnabled: false,
+  createMeetLink: jest.fn().mockResolvedValue(null),
+};
+
 describe('ClassesService', () => {
   let service: ClassesService;
 
@@ -58,6 +65,7 @@ describe('ClassesService', () => {
         ClassesService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: InAppNotificationsService, useValue: notificationsMock },
+        { provide: GoogleCalendarService, useValue: googleMock },
       ],
     }).compile();
     service = module.get(ClassesService);
