@@ -12,7 +12,6 @@ const MATERIAL_STUB = {
   type: MaterialType.PDF,
   url: 'http://example.com/file.pdf',
   fileKey: null,
-  isPublic: false,
   createdAt: new Date(),
   uploader: { id: 'u1', firstName: 'Admin', lastName: 'User' },
 };

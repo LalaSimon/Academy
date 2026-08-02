@@ -175,7 +175,7 @@ Cała logika „kto co może zobaczyć" siedzi w `common/access/access-control.s
 | `getAccessibleClassIds(user)` | Filtrowanie list zajęć i materiałów |
 | `assertCanReadGroup(user, id)` | 403 na cudzą grupę |
 | `assertCanAccessClass(user, id)` | Także dla **zapisu** (status, frekwencja) |
-| `assertCanReadMaterial(user, id)` | Publiczny / z grupy / z zajęć / własne wgranie |
+| `assertCanReadMaterial(user, id)` | Z grupy / z zajęć / własne wgranie (nauczyciel) |
 | `getVisibleStudentIds(user)` | Uczeń → on sam, rodzic → jego dzieci |
 
 Każdy nowy endpoint przyjmujący `:id` lub zwracający listę **musi** z tego korzystać. Szczegółowe reguły: `CLAUDE.md`, sekcja „Bezpieczeństwo".

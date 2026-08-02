@@ -11,7 +11,6 @@ export interface Material {
   type: MaterialType;
   url: string;
   fileKey: string | null;
-  isPublic: boolean;
   createdAt: string;
   uploader: { id: string; firstName: string; lastName: string };
 }

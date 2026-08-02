@@ -143,7 +143,6 @@ model Material {
   type        MaterialType
   url         String        // MinIO URL lub zewnętrzny link
   fileKey     String?       // klucz w MinIO
-  isPublic    Boolean       @default(false)
   uploadedBy  String
   createdAt   DateTime      @default(now())
 

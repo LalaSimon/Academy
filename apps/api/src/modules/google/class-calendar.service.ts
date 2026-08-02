@@ -5,8 +5,8 @@ import { GoogleCalendarService } from './google-calendar.service';
 /**
  * Utrzymuje Kalendarz Google w zgodzie z zajęciami w Academy.
  *
- * Powstało po analizie, która wykazała trzy niezależne ścieżki tworzenia zajęć
- * (`classes.create`, `classes.createBulk`, `groups.generateClasses`) i pięć
+ * Powstało po analizie, która wykazała niezależne ścieżki tworzenia zajęć
+ * (`classes.create` dla grup i 1:1 oraz `groups.generateClasses`) i pięć
  * ścieżek modyfikacji — a integracja Meet obsługiwała tylko dwie pierwsze.
  * Logika siedzi tu, a nie w `classes.service` i `groups.service`, żeby kolejne
  * miejsce tworzące zajęcia nie musiało jej odkrywać od nowa (dokładnie ten sam

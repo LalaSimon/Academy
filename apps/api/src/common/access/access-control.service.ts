@@ -127,9 +127,9 @@ export class AccessControlService {
   }
 
   /**
-   * Materiał jest dostępny, gdy jest publiczny albo powiązany z grupą lub
-   * zajęciami, do których użytkownik ma dostęp. Nauczyciel widzi dodatkowo to,
-   * co sam wgrał — także zanim przypisze materiał gdziekolwiek.
+   * Materiał jest dostępny, gdy jest powiązany z grupą lub zajęciami, do
+   * których użytkownik ma dostęp. Nauczyciel widzi dodatkowo to, co sam wgrał
+   * — także zanim przypisze materiał gdziekolwiek.
    */
   async assertCanReadMaterial(
     user: RequestUser,
@@ -140,7 +140,6 @@ export class AccessControlService {
     const material = await this.prisma.material.findUnique({
       where: { id: materialId },
       select: {
-        isPublic: true,
         uploadedBy: true,
         groups: { select: { groupId: true } },
         classes: { select: { classId: true } },
@@ -149,7 +148,6 @@ export class AccessControlService {
     if (!material)
       throw new NotFoundException(`Material ${materialId} not found`);
 
-    if (material.isPublic) return;
     if (user.role === Role.TEACHER && material.uploadedBy === user.id) return;
 
     const groupIds = (await this.getAccessibleGroupIds(user)) ?? [];

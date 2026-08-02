@@ -1,5 +1,4 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { randomUUID } from 'crypto';
 import { ClassStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InAppNotificationsService } from '../notifications/in-app-notifications.service';
@@ -273,83 +272,6 @@ export class ClassesService {
     await this.calendar.detach([id]);
     await this.prisma.attendance.deleteMany({ where: { classId: id } });
     await this.prisma.class.delete({ where: { id } });
-  }
-
-  async createBulk(items: CreateClassDto[]) {
-    const batchId = randomUUID();
-    const prepared = await Promise.all(
-      items.map(async (item) => {
-        let { teacherId } = item;
-        if (!teacherId && item.groupId) {
-          const group = await this.prisma.group.findUnique({
-            where: { id: item.groupId },
-            select: { teacherId: true },
-          });
-          teacherId = group?.teacherId;
-        }
-        return {
-          title: item.title,
-          description: item.description,
-          scheduledAt: item.scheduledAt,
-          durationMin: item.durationMin,
-          meetLink: item.meetLink,
-          pricePerClass: item.pricePerClass,
-          groupId: item.groupId,
-          studentId: item.studentId,
-          teacherId,
-          batchId,
-        };
-      }),
-    );
-
-    const created = await this.prisma.$transaction(
-      prepared.map((data) =>
-        this.prisma.class.create({ data, select: CLASS_SELECT }),
-      ),
-    );
-
-    // Auto-payment for manually added classes that have a price
-    const pricePerClass = items[0]?.pricePerClass;
-    const groupId = items[0]?.groupId;
-    if (pricePerClass && groupId) {
-      const total = (Number(pricePerClass) * items.length).toFixed(2);
-      const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      const first = new Date(items[0].scheduledAt);
-      const last = new Date(items[items.length - 1].scheduledAt);
-      const fmt = (d: Date) =>
-        d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
-      const description = `${items[0].title} — ${fmt(first)}${items.length > 1 ? ` – ${fmt(last)}` : ''} (${items.length} lekcji × ${Number(pricePerClass).toFixed(0)} PLN)`;
-
-      const group = await this.prisma.group.findUnique({
-        where: { id: groupId },
-        include: {
-          students: { where: { isActive: true }, select: { studentId: true } },
-        },
-      });
-
-      if (group?.students.length) {
-        await this.prisma.$transaction(
-          group.students.map((gs) =>
-            this.prisma.payment.create({
-              data: {
-                studentId: gs.studentId,
-                amount: total,
-                currency: 'PLN',
-                description,
-                dueDate,
-              },
-            }),
-          ),
-        );
-      }
-    }
-
-    await this.calendar.attach(created.map((c) => c.id));
-    return this.prisma.class.findMany({
-      where: { id: { in: created.map((c) => c.id) } },
-      select: CLASS_SELECT,
-      orderBy: { scheduledAt: 'asc' },
-    });
   }
 
   async updateBatch(batchId: string, dto: UpdateBatchDto) {

@@ -78,7 +78,7 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 ### 1.4 — Zajęcia ✅
 
 - [x] `ClassesModule`
-  - CRUD + `updateStatus` + bulk create (`POST /classes/bulk`) + bulk delete (`DELETE /classes/batch/:batchId`)
+  - CRUD + `updateStatus` + bulk create (`POST /classes/bulk` — **usunięty w 5.10**) + bulk delete (`DELETE /classes/batch/:batchId`)
   - `PATCH /classes/batch/:batchId` — bulk edit serii: title, description, teacherId, durationMin, meetLink; `scheduledAtTemplate` przesuwa wszystkie daty proporcjonalnie (dayShift + nowa godzina)
   - Auto-fallback: `Class.teacherId` null → nauczyciel dziedziczony z grupy (spójność z listą i statystykami)
   - `Class.groupId` nullable — zajęcia mogą być grupowe lub indywidualne (1:1)
@@ -423,7 +423,7 @@ Pytanie „czy jest już szczelne?" skłoniło do przeglądu **wszystkich** endp
 **Odczyt:**
 - [x] `GET /payments/:id` — uczeń widział **cudzą płatność** (kwota, opis, dane). Lista miała self-check od 2.1, pojedyncza płatność nie
 - [x] `GET /payments` — **nauczyciel widział finanse całej szkoły**; rola `TEACHER` usunięta z płatności (brak przypadku użycia, zasada najmniejszych uprawnień)
-- [x] `GET /materials`, `/materials/:id`, `/materials/:id/file` — dostęp do dowolnego materiału i pobranie pliku; biblioteka filtrowana przez `isPublic` / grupy / zajęcia / własne wgranie (nauczyciel)
+- [x] `GET /materials`, `/materials/:id`, `/materials/:id/file` — dostęp do dowolnego materiału i pobranie pliku; biblioteka filtrowana przez grupy / zajęcia / własne wgranie (nauczyciel). *Filtr `isPublic` usunięty w 5.10*
 - [x] `GET /materials/class/:classId`, `GET /classes/:id`, `GET /attendance?classId` — scope zajęć
 
 `AccessControlService` rozszerzony o `assertCanAccessClass` (używane też przy zapisie), `assertCanReadMaterial` i `getAccessibleClassIds`.
@@ -480,7 +480,7 @@ Domyka rolę nauczyciela. Backend był gotowy po 5.2–5.3 (scoping `GET /groups
 - [x] Integracja **opcjonalna i domyślnie wyłączona** (`GOOGLE_CALENDAR_ENABLED`). Dopiero po włączeniu wymagany jest komplet sekretów przez `getOrThrow` — połowicznie skonfigurowana integracja ma zatrzymać start, a nie „prawie działać"
 - [x] Ręcznie wpisany link ma **pierwszeństwo** — admin może wskazać Zoom albo stały pokój
 - [x] `createMeetLink` **nigdy nie rzuca**: gdy Google odmówi, zajęcia powstają bez linku, a błąd trafia do logów. Brak linku nie może zablokować utworzenia lekcji
-- [x] Działa dla zajęć pojedynczych i całych serii (`POST /classes/bulk`) — każde zajęcia dostają własne spotkanie
+- [x] Działa dla zajęć pojedynczych i całych serii (`POST /classes/bulk` — *endpoint usunięty w 5.10*) — każde zajęcia dostają własne spotkanie
 - [x] 9 testów jednostkowych + instrukcja konfiguracji w `docs/GOOGLE_MEET.md`
 
 ⚠ **Niezweryfikowane na żywo:** brak credentials Google, więc prawdziwe wywołanie do Calendar API nie zostało wykonane. Przetestowane jest wszystko poza nim: zachowanie z wyłączoną integracją (na żywo — zajęcia powstają, aplikacja startuje), pierwszeństwo ręcznego linku (na żywo), oraz kształt żądania, obsługa błędów i wymóg sekretów (testy z zamockowanym `googleapis`). **Pierwsze włączenie wymaga sprawdzenia, czy Google faktycznie zwraca `hangoutLink`.**
@@ -492,7 +492,7 @@ Analiza flow tworzenia zajęć wykazała, że 5.7 pokryła **niewłaściwe ście
 - [x] Migracja `add_class_google_event_id` — `Class.googleEventId`; bez niego nie da się wskazać wydarzenia do zmiany ani usunięcia
 - [x] `ClassCalendarService` (`modules/google/`, `@Global`) — jedno miejsce utrzymujące kalendarz w zgodzie z zajęciami. Ten sam wzorzec co `AccessControlService`: logika w jednym serwisie, żeby kolejne miejsce tworzące zajęcia nie musiało jej odkrywać od nowa
 - [x] `GoogleCalendarService` rozszerzony o `updateEvent` i `deleteEvent`; `createEvent` zwraca teraz **link ORAZ id**
-- [x] **Osiem ścieżek pokrytych:** `create`, `createBulk`, **`groups.generateClasses`**, `update`, `updateBatch`, `updateStatus(CANCELLED)`, `remove`, `removeBatch`
+- [x] **Osiem ścieżek pokrytych:** `create`, `createBulk` (*usunięty w 5.10*), **`groups.generateClasses`**, `update`, `updateBatch`, `updateStatus(CANCELLED)`, `remove`, `removeBatch`
 - [x] `detach` woła się **przed** usunięciem zajęć — potem nie ma skąd wziąć `googleEventId`
 - [x] Zasada bez zmian: Google **nigdy nie blokuje** operacji w Academy; nieudana synchronizacja trafia do logów
 - [x] 24 testy jednostkowe (13 klienta + 11 warstwy domenowej)
@@ -525,6 +525,15 @@ Zamiast osobnej zakładki — wzmocnienie dashboardów, bo tam użytkownik lądu
 - Rodzic **nie miał przycisku „Dołącz" w ogóle**, mimo że przy niepełnoletnich to zwykle on sadza dziecko do komputera
 - Uczeń pytał tylko o `SCHEDULED`, więc trwające zajęcia znikały mu z widoku
 
+### 5.10 — Usunięcie martwego kodu ✅
+
+Dwie pozycje odnotowane przy porządkowaniu dokumentacji, obie rozstrzygnięte decyzją właściciela.
+
+- [x] **`Material.isPublic` usunięte z modelu** (migracja `remove_material_is_public`). Pole istniało od Fazy 1, ale **nic w UI nie pozwalało go ustawić**, więc żaden materiał nigdy nie był publiczny. Kontrola dostępu opiera się teraz wyłącznie na powiązaniu z grupą/zajęciami i na tym, kto materiał wgrał
+- [x] **`RecurringClassModal` (389 linii) + `POST /classes/bulk` usunięte.** Komponent nie był podpięty do żadnej strony od Fazy 2.4, gdy zastąpił go workflow `GroupSchedule → Generuj zajęcia`
+
+**Dlaczego to nie był tylko porządek:** martwy kod aktywnie wprowadzał w błąd. Przy integracji Meet (5.7) pokryłem ścieżkę `bulk` — martwą — a **pominąłem generowanie z harmonogramu**, czyli tę faktycznie używaną. Usunięcie zmniejsza liczbę miejsc tworzących zajęcia z czterech do trzech.
+
 ### Pozostałe rozszerzenia (przyszłość)
 
 - [ ] Zadania domowe (upload, ocenianie)
@@ -554,8 +563,6 @@ Zamiast osobnej zakładki — wzmocnienie dashboardów, bo tam użytkownik lądu
 - Migracja `react-router` v7 → v8 — zamknęłaby 2 z 3 pozostałych alertów Dependabota. **Nadal odradzana**: major z realną pracą na routingu, a podatność dotyczy trybu RSC, którego to SPA nie używa
 
 **Drobiazgi odnotowane po drodze:**
-- `Material.isPublic` istnieje w modelu i działa w kontroli dostępu, ale **nic w UI nie pozwala go ustawić** — mechanizm czeka nieużywany
-- `RecurringClassModal` (tworzenie serii przez `POST /classes/bulk`) **nie jest podpięty do żadnej strony** od Fazy 2.4 — martwy komponent i endpoint utrzymywany „na wszelki wypadek"
 - Synchronizacja z Kalendarzem Google jest **jednokierunkowa**: ręczna zmiana w kalendarzu nie wróci do aplikacji i zostanie nadpisana przy najbliższej edycji zajęć
 
 ---
@@ -603,9 +610,9 @@ Rozważyć **managed Postgres** (Neon, Supabase) zamiast kontenera — zdejmuje 
 
 | Zestaw | Liczba | Komenda | We flow | W CI |
 |---|---|---|---|---|
-| API — jednostkowe (15 suite'ów) | 208 | `cd apps/api && npm test` | ✅ | ✅ |
+| API — jednostkowe (15 suite'ów) | 207 | `cd apps/api && npm test` | ✅ | ✅ |
 | API — integracyjne (5 spec) | 45 | `cd apps/api && npm run test:e2e` | ❌ (Docker) | ✅ |
 | Web — jednostkowe (8 plików, Vitest) | 86 | `cd apps/web && npm test` | ✅ | ✅ |
 | E2E — Playwright (6 spec) | 42 | `npx playwright test` | ❌ (Docker) | ✅ |
 
-**Razem 381 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
+**Razem 380 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
