@@ -204,6 +204,30 @@ export class MaterialsService {
     });
   }
 
+  /**
+   * Materiały dla wielu zajęć naraz — JEDNO zapytanie zamiast pętli po
+   * lekcjach. Widok „Dzisiaj" potrzebuje ich dla każdej pozycji, a przy
+   * kilku lekcjach dziennie osobne zapytania mnożyłyby się bez potrzeby.
+   *
+   * Zwraca mapę `classId → materiały`; zajęcia bez materiałów po prostu nie
+   * mają klucza, więc front nie musi rozróżniać „brak" od „nie pytaliśmy".
+   */
+  async getForClasses(classIds: string[]): Promise<Record<string, unknown[]>> {
+    if (classIds.length === 0) return {};
+
+    const links = await this.prisma.classMaterial.findMany({
+      where: { classId: { in: classIds } },
+      select: { classId: true, material: { select: MATERIAL_SELECT } },
+      orderBy: { order: 'asc' },
+    });
+
+    const byClass: Record<string, unknown[]> = {};
+    for (const link of links) {
+      (byClass[link.classId] ??= []).push(link.material);
+    }
+    return byClass;
+  }
+
   async assignToGroup(materialId: string, groupId: string) {
     await this.assertMaterialExists(materialId);
     return this.prisma.groupMaterial.upsert({

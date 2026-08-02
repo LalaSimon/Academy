@@ -510,6 +510,21 @@ Synchronizacja jest **jednokierunkowa** (Academy → Kalendarz). Dwukierunkowa w
 - `create` i `update` zwracają dane odczytane **po** dopięciu spotkania, żeby front dostał link od razu w odpowiedzi
 - testy regresyjne na **obie** gałęzie `create` oraz na uzupełnianie przy edycji
 
+### 5.9 — Widok „Dzisiaj" na dashboardach ✅
+
+Zamiast osobnej zakładki — wzmocnienie dashboardów, bo tam użytkownik ląduje po zalogowaniu. Nauczyciel miał już sekcję „Dzisiaj", uczeń i rodzic nie.
+
+- [x] `TodaySchedule` — **jeden komponent dla trzech portali**: godzina, tytuł, opis, grupa lub uczeń, **materiały przypięte do lekcji** i przycisk „Dołącz"
+- [x] Zajęcia **trwające zostają na liście** — znikałyby dokładnie wtedy, gdy link jest najbardziej potrzebny
+- [x] `GET /materials/by-classes?classIds=…` — **jedno zapytanie** dla wszystkich dzisiejszych lekcji zamiast osobnego na pozycję. Backend przecina listę z zajęciami dostępnymi dla użytkownika, więc podanie cudzego `classId` nic nie da (zweryfikowane realnym żądaniem)
+- [x] Trasa `by-classes` **przed** `:id` w kontrolerze — inaczej `:id` przechwyciłby ją jako identyfikator materiału
+- [x] 14 testów komponentu + weryfikacja endpointu na żywo
+
+**Naprawione przy okazji — dwa braki wykryte podczas podpinania:**
+- Uczeń i rodzic pytali o zajęcia **osobno dla każdej grupy** (`useQueries` per `groupId`), przez co **lekcje 1:1 w ogóle nie trafiały na dashboard**. Zastąpione jednym `useClasses` — backend od 5.2 sam zawęża wyniki do zalogowanego użytkownika
+- Rodzic **nie miał przycisku „Dołącz" w ogóle**, mimo że przy niepełnoletnich to zwykle on sadza dziecko do komputera
+- Uczeń pytał tylko o `SCHEDULED`, więc trwające zajęcia znikały mu z widoku
+
 ### Pozostałe rozszerzenia (przyszłość)
 
 - [ ] Zadania domowe (upload, ocenianie)
@@ -583,7 +598,7 @@ Rozważyć **managed Postgres** (Neon, Supabase) zamiast kontenera — zdejmuje 
 |---|---|---|---|---|
 | API — jednostkowe (15 suite'ów) | 208 | `cd apps/api && npm test` | ✅ | ✅ |
 | API — integracyjne (5 spec) | 45 | `cd apps/api && npm run test:e2e` | ❌ (Docker) | ✅ |
-| Web — jednostkowe (7 plików, Vitest) | 72 | `cd apps/web && npm test` | ✅ | ✅ |
+| Web — jednostkowe (8 plików, Vitest) | 86 | `cd apps/web && npm test` | ✅ | ✅ |
 | E2E — Playwright (6 spec) | 42 | `npx playwright test` | ❌ (Docker) | ✅ |
 
-**Razem 367 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
+**Razem 381 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.

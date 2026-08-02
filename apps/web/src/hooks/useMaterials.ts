@@ -170,6 +170,32 @@ export function useUnassignMaterialFromGroup() {
   });
 }
 
+/**
+ * Materiały dla wielu lekcji naraz — JEDNO zapytanie zamiast osobnego na każdą
+ * pozycję widoku „Dzisiaj". Zwraca mapę `classId → materiały`; lekcje bez
+ * materiałów po prostu nie mają klucza.
+ *
+ * Backend przecina listę z zajęciami dostępnymi dla zalogowanego użytkownika,
+ * więc podanie cudzego `classId` nic nie da.
+ */
+export function useClassesMaterials(classIds: string[]) {
+  // Sortowanie stabilizuje klucz cache — kolejność lekcji nie ma znaczenia,
+  // a bez tego każde przetasowanie tworzyłoby nowy wpis w cache.
+  const key = [...classIds].sort().join(',');
+
+  return useQuery<Record<string, Material[]>>({
+    queryKey: ['materials', 'by-classes', key],
+    queryFn: async () => {
+      const { data } = await api.get<Record<string, Material[]>>(
+        '/materials/by-classes',
+        { params: { classIds: key } },
+      );
+      return data;
+    },
+    enabled: classIds.length > 0,
+  });
+}
+
 export function useGroupMaterials(groupId: string) {
   return useQuery<Material[]>({
     queryKey: ['materials', 'group', groupId],

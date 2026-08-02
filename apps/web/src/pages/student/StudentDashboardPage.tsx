@@ -1,13 +1,12 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useQueries } from '@tanstack/react-query';
 import { Calendar, ExternalLink, CreditCard, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { useStudentProfile } from '@/hooks/useStudentProfile';
 import { useStudentStats } from '@/hooks/useAttendance';
 import { usePayments } from '@/hooks/usePayments';
-import { api } from '@/lib/api';
-import type { ClassesResponse } from '@/hooks/useClasses';
+import { useClasses } from '@/hooks/useClasses';
+import { TodaySchedule } from '@/components/classes/TodaySchedule';
 
 const STATUS_LABELS: Record<string, string> = {
   SCHEDULED: 'Zaplanowane',
@@ -48,22 +47,15 @@ const item = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transiti
 export default function StudentDashboardPage() {
   const { user } = useAuthStore();
   const { data: profile } = useStudentProfile();
-  const groupIds = profile?.studentGroups?.map((sg) => sg.group.id) ?? [];
 
-  const classQueries = useQueries({
-    queries: groupIds.map((groupId) => ({
-      queryKey: ['classes', { groupId, status: 'SCHEDULED' }],
-      queryFn: () =>
-        api
-          .get<ClassesResponse>('/classes', { params: { groupId, status: 'SCHEDULED', limit: 50 } })
-          .then((r) => r.data),
-      enabled: groupIds.length > 0,
-    })),
-  });
+  // Jedno zapytanie zamiast osobnego na każdą grupę: backend od Fazy 5.2 sam
+  // zawęża `GET /classes` do zajęć ucznia. Przy okazji łapie lekcje 1:1, które
+  // przy pytaniu per `groupId` w ogóle nie trafiały na dashboard.
+  const { data: classesData, isLoading: classesLoading } = useClasses({ limit: 100 });
+  const myClasses = classesData?.data ?? [];
 
-  const allUpcoming = classQueries
-    .flatMap((q) => q.data?.data ?? [])
-    .filter((c) => new Date(c.scheduledAt) >= new Date())
+  const allUpcoming = myClasses
+    .filter((c) => c.status === 'SCHEDULED' && new Date(c.scheduledAt) >= new Date())
     .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
     .slice(0, 3);
 
@@ -83,6 +75,15 @@ export default function StudentDashboardPage() {
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5">Twój panel ucznia</p>
       </motion.div>
+
+      {/* Co dziś — wspólny komponent, ten sam u nauczyciela i rodzica */}
+      <motion.section variants={item}>
+        <TodaySchedule
+          classes={myClasses}
+          isLoading={classesLoading}
+          emptyText="Na dziś nie masz zaplanowanych zajęć."
+        />
+      </motion.section>
 
       {/* Upcoming classes */}
       <motion.section variants={item}>
