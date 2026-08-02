@@ -43,6 +43,7 @@ const prismaMock = {
     findMany: jest.fn().mockResolvedValue([]),
   },
   attendance: {
+    create: jest.fn(),
     deleteMany: jest.fn(),
   },
   $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
@@ -252,12 +253,45 @@ describe('ClassesService', () => {
     it('creates a class', async () => {
       prismaMock.group.findUnique.mockResolvedValue({ teacherId: 'tch1' });
       prismaMock.class.create.mockResolvedValue(mockClass);
+      // `create` zwraca dane odczytane po dopięciu spotkania, więc musi
+      // istnieć wynik `findOne`.
+      prismaMock.class.findUnique.mockResolvedValue(mockClass);
       const result = await service.create({
         title: 'Angielski A1',
         scheduledAt: '2025-01-15T10:00:00Z',
         groupId: 'grp1',
       });
       expect(result.title).toBe('Angielski A1');
+    });
+
+    // Regresja: `create` ma DWA wyjścia (grupa i 1:1). Zmiana obejmująca tylko
+    // „koniec metody" pominęła gałąź grupową i zajęcia grup nie dostawały
+    // linku Meet — mimo że 1:1 i harmonogram działały.
+    it('dopina spotkanie dla zajęć GRUPOWYCH', async () => {
+      prismaMock.group.findUnique.mockResolvedValue({ teacherId: 'tch1' });
+      prismaMock.class.create.mockResolvedValue(mockClass);
+      prismaMock.class.findUnique.mockResolvedValue(mockClass);
+
+      await service.create({
+        title: 'Angielski A1',
+        scheduledAt: '2025-01-15T10:00:00Z',
+        groupId: 'grp1',
+      });
+
+      expect(calendarMock.attach).toHaveBeenCalledWith([mockClass.id]);
+    });
+
+    it('dopina spotkanie dla zajęć 1:1', async () => {
+      prismaMock.class.create.mockResolvedValue(mockClass);
+      prismaMock.class.findUnique.mockResolvedValue(mockClass);
+
+      await service.create({
+        title: 'Korepetycje',
+        scheduledAt: '2025-01-15T10:00:00Z',
+        studentId: 'stu1',
+      });
+
+      expect(calendarMock.attach).toHaveBeenCalledWith([mockClass.id]);
     });
   });
 
@@ -268,8 +302,23 @@ describe('ClassesService', () => {
         ...mockClass,
         title: 'Updated',
       });
+      prismaMock.class.findUnique.mockResolvedValue({
+        ...mockClass,
+        title: 'Updated',
+      });
       const result = await service.update('cls1', { title: 'Updated' });
       expect(result.title).toBe('Updated');
+    });
+
+    // Zajęcia sprzed włączenia integracji nie mają wydarzenia — edycja jest
+    // momentem, w którym mogą je dostać.
+    it('uzupełnia brakujące spotkanie przy edycji', async () => {
+      prismaMock.class.findUnique.mockResolvedValue(mockClass);
+      prismaMock.class.update.mockResolvedValue(mockClass);
+
+      await service.update('cls1', { title: 'Updated' });
+
+      expect(calendarMock.attach).toHaveBeenCalledWith(['cls1']);
     });
 
     it('throws NotFoundException for unknown id', async () => {
