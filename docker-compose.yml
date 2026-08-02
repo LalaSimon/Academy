@@ -1,3 +1,7 @@
+# Poświadczenia infrastruktury celowo NIE mają wartości domyślnych (`:?` zamiast
+# `:-`). Wcześniej brak zmiennej cicho podstawiał `academy` / `minioadmin`, więc
+# wdrożenie bez konfiguracji wstawało ze znanym hasłem. Teraz compose odmówi
+# startu z czytelnym komunikatem — ten sam wzorzec co `getOrThrow` w API.
 services:
   postgres:
     image: postgres:16-alpine
@@ -6,13 +10,13 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-academy}
-      POSTGRES_USER: ${POSTGRES_USER:-academy}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-academy}
+      POSTGRES_DB: ${POSTGRES_DB:?wymagane — ustaw w .env (patrz .env.example)}
+      POSTGRES_USER: ${POSTGRES_USER:?wymagane — ustaw w .env (patrz .env.example)}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?wymagane — ustaw w .env (patrz .env.example)}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-academy}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?wymagane — ustaw w .env (patrz .env.example)}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -40,8 +44,8 @@ services:
       - "9001:9001"
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?wymagane — ustaw w .env (patrz .env.example)}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?wymagane — ustaw w .env (patrz .env.example)}
     volumes:
       - minio_data:/data
     healthcheck:
@@ -64,10 +68,14 @@ services:
       - ./packages/shared/src:/app/packages/shared/src
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-academy}:${POSTGRES_PASSWORD:-academy}@postgres:5432/${POSTGRES_DB:-academy}
+      DATABASE_URL: postgresql://${POSTGRES_USER:?wymagane — ustaw w .env (patrz .env.example)}:${POSTGRES_PASSWORD:?wymagane — ustaw w .env (patrz .env.example)}@postgres:5432/${POSTGRES_DB:?wymagane — ustaw w .env (patrz .env.example)}
       REDIS_URL: redis://redis:6379
       MINIO_ENDPOINT: minio
       FRONTEND_URL: http://localhost:5173
+      # Zestaw E2E loguje się kilkanaście razy w minutę z jednego IP.
+      # Produkcja nie ustawia tych zmiennych i zostaje przy 10/min i 3/min.
+      AUTH_THROTTLE_LIMIT: "1000"
+      MAIL_THROTTLE_LIMIT: "1000"
     depends_on:
       postgres:
         condition: service_healthy

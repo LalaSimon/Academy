@@ -4,11 +4,19 @@ import { ValidationPipe } from '@nestjs/common';
 const cookieParser = require('cookie-parser') as () => ReturnType<
   typeof import('cookie-parser')
 >;
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
+
+  // Nagłówki bezpieczeństwa. `nosniff` domyka wektor uploadu: dziś pliki broni
+  // wyłącznie `Content-Disposition: attachment`, bo `Content-Type` pochodzi
+  // z metadanych podanych przez wgrywającego.
+  // CSP wyłączone — API zwraca JSON i pliki, nie HTML, a domyślna polityka
+  // helmeta potrafi kolidować ze streamowaniem załączników.
+  app.use(helmet({ contentSecurityPolicy: false }));
 
   app.use(cookieParser());
   app.setGlobalPrefix('api/v1');
