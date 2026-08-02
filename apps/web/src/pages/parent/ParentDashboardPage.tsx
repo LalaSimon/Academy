@@ -3,6 +3,8 @@ import { CreditCard, Calendar, AlertCircle, CheckCircle } from 'lucide-react';
 import { useParentProfile } from '@/hooks/useParentProfile';
 import { usePayments } from '@/hooks/usePayments';
 import { useQueries } from '@tanstack/react-query';
+import { useClasses } from '@/hooks/useClasses';
+import { TodaySchedule } from '@/components/classes/TodaySchedule';
 import { api } from '@/lib/api';
 import type { UserDetail } from '@/hooks/useUsers';
 
@@ -67,45 +69,53 @@ function ChildUpcomingClasses({ childId }: { childId: string }) {
 
   const groupIds = profile?.studentGroups?.map((sg) => sg.group.id) ?? [];
 
-  const classResults = useQueries({
-    queries: groupIds.map((groupId) => ({
-      queryKey: ['classes', { groupId }],
-      queryFn: () =>
-        api
-          .get<{ data: { id: string; title: string; scheduledAt: string; status: string }[] }>('/classes', {
-            params: { groupId, status: 'SCHEDULED', limit: 3 },
-          })
-          .then((r) => r.data),
-    })),
-  });
+  // Jedno zapytanie zamiast osobnego na każdą grupę — backend od Fazy 5.2
+  // zawęża `GET /classes` do dzieci rodzica, więc filtrujemy tylko po tym,
+  // czyje to dziecko. Łapie też lekcje 1:1, pomijane przy pytaniu per grupie.
+  const { data: classesData, isLoading } = useClasses({ limit: 100 });
+  const childClasses = (classesData?.data ?? []).filter(
+    (c) =>
+      (c.group && groupIds.includes(c.group.id)) || c.student?.id === childId,
+  );
 
-  const upcoming = classResults
-    .flatMap((r) => r.data?.data ?? [])
-    .filter((c) => new Date(c.scheduledAt) > new Date())
+  const upcoming = childClasses
+    .filter((c) => c.status === 'SCHEDULED' && new Date(c.scheduledAt) > new Date())
     .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
     .slice(0, 3);
 
-  if (upcoming.length === 0) return <p className="text-[13px] text-muted-foreground">Brak nadchodzących zajęć</p>;
-
   return (
-    <div className="space-y-2">
-      {upcoming.map((cls) => (
-        <button
-          key={cls.id}
-          onClick={() => navigate(`/parent/children/${childId}/classes`)}
-          className="w-full text-left flex items-center gap-3 p-3 rounded-lg bg-accent/50 hover:bg-accent transition-colors"
-        >
-          <Calendar className="w-4 h-4 text-violet-500 flex-shrink-0" />
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">{cls.title}</p>
-            <p className="text-xs text-muted-foreground">
-              {new Date(cls.scheduledAt).toLocaleDateString('pl-PL', {
-                weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-              })}
-            </p>
-          </div>
-        </button>
-      ))}
+    <div className="space-y-4">
+      {/* Dziś — z linkiem do spotkania i materiałami; rodzic często sadza
+          dziecko do komputera, więc potrzebuje tego samego co uczeń. */}
+      <TodaySchedule
+        classes={childClasses}
+        isLoading={isLoading}
+        title="Dziś"
+        emptyText="Dziecko nie ma dziś zajęć."
+      />
+
+      {upcoming.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[12px] text-muted-foreground">Kolejne zajęcia</p>
+          {upcoming.map((cls) => (
+            <button
+              key={cls.id}
+              onClick={() => navigate(`/parent/children/${childId}/classes`)}
+              className="w-full text-left flex items-center gap-3 p-3 rounded-lg bg-accent/50 hover:bg-accent transition-colors"
+            >
+              <Calendar className="w-4 h-4 text-violet-500 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">{cls.title}</p>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(cls.scheduledAt).toLocaleDateString('pl-PL', {
+                    weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+                  })}
+                </p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

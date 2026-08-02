@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Calendar, Clock, Users, Video, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Calendar, Clock, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { useClasses } from '@/hooks/useClasses';
 import { useTeacherStats } from '@/hooks/useUsers';
+import { TodaySchedule } from '@/components/classes/TodaySchedule';
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
@@ -85,52 +85,12 @@ export function TeacherDashboardPage() {
         </div>
       </div>
 
-      {/* Dzisiaj */}
-      <section className="space-y-2.5">
-        <h2 className="text-[14px] font-medium text-foreground">Dzisiaj</h2>
-        {isLoading && <p className="text-sm text-muted-foreground">Ładowanie…</p>}
-        {!isLoading && today.length === 0 && (
-          <div className="rounded-2xl border border-border bg-card p-6 text-center">
-            <p className="text-sm text-muted-foreground">Brak zajęć na dziś.</p>
-          </div>
-        )}
-        {today.map((cls, i) => (
-          <motion.div
-            key={cls.id}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.18, delay: i * 0.03 }}
-            className="rounded-2xl border border-border bg-card p-4 flex items-center justify-between gap-4"
-          >
-            <div className="min-w-0">
-              <p className="font-medium text-foreground text-[15px] truncate">{cls.title}</p>
-              <div className="flex items-center gap-4 mt-1.5 text-[12.5px] text-muted-foreground flex-wrap">
-                <span className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5" />
-                  {formatTime(cls.scheduledAt)} · {cls.durationMin} min
-                </span>
-                {cls.group && (
-                  <span className="flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5" />
-                    {cls.group.name}
-                  </span>
-                )}
-              </div>
-            </div>
-            {cls.meetLink && (
-              <a
-                href={cls.meetLink}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-medium text-violet-600 dark:text-violet-300 hover:bg-violet-500/10 transition-colors flex-shrink-0"
-              >
-                <Video className="w-3.5 h-3.5" />
-                Dołącz
-              </a>
-            )}
-          </motion.div>
-        ))}
-      </section>
+      {/* Wspólny komponent — ten sam widok u ucznia i rodzica */}
+      <TodaySchedule
+        classes={classesData?.data ?? []}
+        isLoading={isLoading}
+        emptyText="Na dziś nie masz zaplanowanych zajęć."
+      />
 
       {/* Najbliższe */}
       <section className="space-y-2.5">

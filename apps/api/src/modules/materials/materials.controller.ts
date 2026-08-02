@@ -60,6 +60,30 @@ export class MaterialsController {
     });
   }
 
+  /**
+   * Materiały dla wielu zajęć naraz (widok „Dzisiaj"). Zamiast ufać liście
+   * z query, przecinamy ją z zajęciami, do których użytkownik ma dostęp —
+   * podanie cudzego `classId` nic nie da.
+   */
+  @Get('by-classes')
+  @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT, Role.PARENT)
+  async getForClasses(
+    @Query('classIds') classIds: string,
+    @Req() req: Request & { user: RequestUser },
+  ) {
+    const requested = (classIds ?? '').split(',').filter(Boolean);
+    if (requested.length === 0) return {};
+
+    if (req.user.role === Role.ADMIN) {
+      return this.materialsService.getForClasses(requested);
+    }
+
+    const allowed = new Set(await this.access.getAccessibleClassIds(req.user));
+    return this.materialsService.getForClasses(
+      requested.filter((id) => allowed.has(id)),
+    );
+  }
+
   @Get(':id')
   @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT)
   async findOne(
