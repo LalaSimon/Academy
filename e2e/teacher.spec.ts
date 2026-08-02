@@ -43,6 +43,28 @@ test.describe('Portal nauczyciela', () => {
     await expect(page.getByText('Zakończone', { exact: true })).toBeVisible();
   });
 
+  test('lista grup pokazuje tylko grupy nauczyciela', async ({ page }) => {
+    await loginAsTeacher(page);
+    await page.getByRole('link', { name: 'Moje grupy' }).click();
+
+    await expect(page).toHaveURL(/\/teacher\/groups/);
+    await expect(page.getByRole('heading', { name: 'Moje grupy' })).toBeVisible();
+  });
+
+  test('szczegóły grupy pokazują uczniów i materiały', async ({ page }) => {
+    await loginAsTeacher(page);
+    await page.goto('/teacher/groups');
+
+    // Seed daje nauczycielowi jedną grupę; jeśli jej nie ma, nie ma czego otwierać.
+    const firstGroup = page.locator('a[href^="/teacher/groups/"]').first();
+    await expect(firstGroup).toBeVisible({ timeout: 10_000 });
+    await firstGroup.click();
+
+    await expect(page).toHaveURL(/\/teacher\/groups\/.+/);
+    await expect(page.getByRole('heading', { name: 'Uczniowie' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Materiały grupy' })).toBeVisible();
+  });
+
   test('nauczyciel nie ma dostępu do panelu admina', async ({ page }) => {
     await loginAsTeacher(page);
     await page.goto('/admin/teachers');

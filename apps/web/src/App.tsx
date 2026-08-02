@@ -26,6 +26,8 @@ import { TeacherLayout } from '@/layouts/TeacherLayout';
 import { TeacherDashboardPage } from '@/pages/teacher/TeacherDashboardPage';
 import { TeacherClassesPage } from '@/pages/teacher/TeacherClassesPage';
 import { TeacherStatsPage } from '@/pages/teacher/TeacherStatsPage';
+import { TeacherGroupsPage } from '@/pages/teacher/TeacherGroupsPage';
+import { TeacherGroupDetailPage } from '@/pages/teacher/TeacherGroupDetailPage';
 import ParentDashboardPage from '@/pages/parent/ParentDashboardPage';
 import ParentChildClassesPage from '@/pages/parent/ParentChildClassesPage';
 import ParentChildAttendancePage from '@/pages/parent/ParentChildAttendancePage';
@@ -78,6 +80,8 @@ function App() {
               <Route path="/teacher" element={<Navigate to="/teacher/dashboard" replace />} />
               <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
               <Route path="/teacher/classes" element={<TeacherClassesPage />} />
+              <Route path="/teacher/groups" element={<TeacherGroupsPage />} />
+              <Route path="/teacher/groups/:groupId" element={<TeacherGroupDetailPage />} />
               <Route path="/teacher/stats" element={<TeacherStatsPage />} />
             </Route>
           </Route>

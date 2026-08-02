@@ -460,6 +460,18 @@ Cztery pozycje wskazane po security review jako „potrzebne przed publikacją",
 
 **Pozostaje przed publikacją** (poza zakresem tej zmiany): porty `5432`/`6379`/`9000`/`9001` są mapowane na hosta — w dev wygodne, na produkcji baza, Redis i storage nie powinny być publiczne; sekrety w GitHub Actions; kopie zapasowe i szyfrowanie w spoczynku; przegląd frontendu.
 
+### 5.6 — Portal nauczyciela: grupy i materiały ✅
+
+Domyka rolę nauczyciela. Backend był gotowy po 5.2–5.3 (scoping `GET /groups`, `assertCanReadGroup`, `GET /materials/group/:id` z rolą TEACHER), więc doszła wyłącznie warstwa UI.
+
+- [x] `TeacherGroupsPage` — karty grup prowadzonych przez zalogowanego nauczyciela: liczba uczniów wobec limitu, język i poziom, harmonogram
+- [x] `TeacherGroupDetailPage` — lista uczniów z danymi kontaktowymi, harmonogram z nazwami dni, materiały grupy
+- [x] **Reużyty `MaterialsPanel`** zamiast pisania własnego — nauczyciel ma uprawnienia do uploadu i przypinania materiałów (`@Roles(ADMIN, TEACHER)`), więc dostaje pełną funkcjonalność bez duplikowania kodu
+- [x] Trasy `/teacher/groups` i `/teacher/groups/:groupId` + pozycja w nawigacji
+- [x] Strona pokazuje czytelny komunikat, gdy backend odmówi dostępu (403 na cudzą grupę), zamiast pustego szkieletu
+- [x] 7 testów jednostkowych (`TeacherGroupDetailPage`) + 2 E2E
+- [x] Zweryfikowane realnym żądaniem per rola (zgodnie z regułą 8 z `CLAUDE.md`): nauczyciel widzi 1 grupę z 3, własna grupa i jej materiały 200, cudza grupa i jej materiały **403**
+
 ### Pozostałe rozszerzenia (przyszłość)
 
 - [ ] Zadania domowe (upload, ocenianie)
@@ -478,11 +490,10 @@ Cztery pozycje wskazane po security review jako „potrzebne przed publikacją",
 
 **Publikacja NIE jest jeszcze planowana** — przed nami kolejny etap developmentu. Przygotowania wdrożeniowe robimy zawczasu, żeby sam deploy był formalnością (patrz „Przygotowanie do produkcji" niżej).
 
-**Następne do wyboru — produkt:**
-1. **Portal nauczyciela 5.6** — widok grup i lista uczniów + materiały grupy. Backend gotowy po 5.2–5.3, zostaje sama warstwa UI. Najmniejszy wysiłek, domyka rolę
-2. **Zadania domowe** (upload + ocenianie) — pierwszy naprawdę nowy obszar produktowy
-3. **Tracking postępów ucznia**
-4. **Google Calendar API** — automatyczne linki Meet
+**Portal nauczyciela domknięty (5.6).** Następne do wyboru — produkt:
+1. **Zadania domowe** (upload + ocenianie) — pierwszy naprawdę nowy obszar produktowy
+2. **Tracking postępów ucznia**
+3. **Google Calendar API** — automatyczne linki Meet
 
 **Następne do wyboru — jakość:**
 - Testy jednostkowe paneli bez pokrycia: grupy, materiały, użytkownicy, dashboardy ucznia i rodzica (dziś 65 testów w 6 plikach, wszystkie z `pages/auth`, `PaymentsPage` i `TeacherClassesPage`)
@@ -535,7 +546,7 @@ Rozważyć **managed Postgres** (Neon, Supabase) zamiast kontenera — zdejmuje 
 |---|---|---|---|---|
 | API — jednostkowe (13 suite'ów) | 181 | `cd apps/api && npm test` | ✅ | ✅ |
 | API — integracyjne (5 spec) | 45 | `cd apps/api && npm run test:e2e` | ❌ (Docker) | ✅ |
-| Web — jednostkowe (6 plików, Vitest) | 65 | `cd apps/web && npm test` | ✅ | ✅ |
-| E2E — Playwright (6 spec) | 40 | `npx playwright test` | ❌ (Docker) | ✅ |
+| Web — jednostkowe (7 plików, Vitest) | 72 | `cd apps/web && npm test` | ✅ | ✅ |
+| E2E — Playwright (6 spec) | 42 | `npx playwright test` | ❌ (Docker) | ✅ |
 
-**Razem 331 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
+**Razem 340 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
