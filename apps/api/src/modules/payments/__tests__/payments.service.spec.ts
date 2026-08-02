@@ -1,8 +1,15 @@
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PaymentsService } from '../payments.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
+
+// Sekrety Stripe MUSZĄ iść przez `getOrThrow`. Wcześniej było
+// `process.env.STRIPE_WEBHOOK_SECRET ?? ''`, przez co brak konfiguracji nie
+// zatrzymywał startu, tylko weryfikował podpis webhooka kluczem pustym —
+// możliwym do odtworzenia przez każdego (audyt 2026-08-02).
+const configMock = { getOrThrow: jest.fn(() => 'test-stripe-secret') };
 
 const notificationsMock = {
   notifyPaymentConfirmation: jest.fn(),
@@ -76,11 +83,32 @@ describe('PaymentsService', () => {
         PaymentsService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: NotificationsService, useValue: notificationsMock },
+        { provide: ConfigService, useValue: configMock },
       ],
     }).compile();
 
     service = module.get<PaymentsService>(PaymentsService);
     jest.clearAllMocks();
+  });
+
+  describe('konfiguracja sekretów Stripe', () => {
+    it('pobiera oba sekrety przez getOrThrow, nie z fallbackiem na pusty string', async () => {
+      // Własna instancja — `beforeEach` czyści mocki już po zbudowaniu
+      // serwisu, więc wywołania z konstruktora byłyby niewidoczne.
+      const spy = jest.fn(() => 'sekret');
+      await Test.createTestingModule({
+        providers: [
+          PaymentsService,
+          { provide: PrismaService, useValue: prismaMock },
+          { provide: NotificationsService, useValue: notificationsMock },
+          { provide: ConfigService, useValue: { getOrThrow: spy } },
+        ],
+      }).compile();
+
+      const keys = spy.mock.calls.map((c) => (c as unknown as string[])[0]);
+      expect(keys).toContain('STRIPE_SECRET_KEY');
+      expect(keys).toContain('STRIPE_WEBHOOK_SECRET');
+    });
   });
 
   describe('findAll', () => {

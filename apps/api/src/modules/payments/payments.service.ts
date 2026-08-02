@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   CreatePaymentDto,
@@ -21,14 +22,23 @@ import Stripe from 'stripe';
 
 @Injectable()
 export class PaymentsService {
-  private stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
-    apiVersion: '2026-06-24.dahlia',
-  });
+  private readonly stripe: Stripe;
+  private readonly webhookSecret: string;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
-  ) {}
+    config: ConfigService,
+  ) {
+    // `getOrThrow`, nie `?? ''` — pusty sekret webhooka nie odrzucałby żądań,
+    // tylko weryfikował podpis kluczem pustym, który każdy może odtworzyć.
+    // Brak konfiguracji ma zatrzymać start aplikacji, a nie po cichu wyłączyć
+    // weryfikację (ten sam wzorzec co JWT_SECRET w AuthService).
+    this.stripe = new Stripe(config.getOrThrow<string>('STRIPE_SECRET_KEY'), {
+      apiVersion: '2026-06-24.dahlia',
+    });
+    this.webhookSecret = config.getOrThrow<string>('STRIPE_WEBHOOK_SECRET');
+  }
 
   async findAll(query: QueryPaymentsDto) {
     const {
@@ -284,14 +294,13 @@ export class PaymentsService {
   }
 
   async handleStripeWebhook(rawBody: Buffer, signature: string) {
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? '';
     let event: Stripe.Event;
 
     try {
       event = this.stripe.webhooks.constructEvent(
         rawBody,
         signature,
-        webhookSecret,
+        this.webhookSecret,
       );
     } catch {
       throw new BadRequestException('Invalid Stripe webhook signature');
