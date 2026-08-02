@@ -343,6 +343,52 @@ docker compose up -d   # wszystko: postgres, redis, minio, api, web
 - [x] Wdrożony w `ClassFormModal`, `PaymentFormModal`, `GroupDetailPage`, `StudentProfilePage`, `TeacherProfilePage`, `ReportsPage`
 - [x] Fix: kalendarz renderowany w portalu (Popover) nie rozpycha już formularza po otwarciu
 
+### ⚠ Znane luki (wykryte w audycie 2026-07-31)
+
+- [x] ~~**Portal nauczyciela — NIE ISTNIEJE**~~ — zamknięte 2026-07-31, patrz Faza 5
+- [x] ~~Testy E2E procesu płatności (z 2.0)~~ — zamknięte 2026-07-31: `e2e/payments.spec.ts` (4 testy). Dane zakłada API, bo formularz używa DatePickera w popoverze, a celem jest proces płatniczy, nie obsługa kalendarza. **Test wykrył realny defekt**: Select statusu pokazywał `PAID` zamiast `Zapłacone` — ten sam błąd `@base-ui Select.Value`, który naprawiono wcześniej w `ReportsPage`. Sam redirect do Stripe pozostaje poza pokryciem (zewnętrzna domena)
+- [~] Testy jednostkowe frontendu: **65 testów w 6 plikach** (było 42 w 4). Dodane `PaymentsPage` (12 — arytmetyka kwot na wykresie, filtr, `confirm` przy usuwaniu, powrót ze Stripe) i `TeacherClassesPage` (11 — podział na zakładki, przejścia statusów, zajęcia odwołane). Nadal bez pokrycia: panele grup, materiałów, użytkowników oraz dashboardy ucznia i rodzica
+- [x] ~~Testy frontendu poza obowiązkowym flow~~ — naprawione 2026-07-31: `npm test` w `apps/web` dodany jako krok 5 w `CLAUDE.md`. Przy okazji poprawiony skrypt, który uruchamiał Vitest w trybie **watch** (`vitest` zamiast `vitest run`) — dlatego lokalnie nikt go nie wołał, bo wieszał terminal. CI łapało te testy od początku (`npx vitest run`), więc realny koszt był taki, że o awarii dowiadywano się dopiero po pushu
+- [x] ~~Testy integracyjne API nie są uruchamiane w CI~~ — naprawione 2026-07-31 (job `api`, krok „Integration tests"). **Przy okazji okazało się, że były zepsute: 38 z 45 failowało.** Regresja z Fazy 3.6 — login zaczął odrzucać konta z `emailVerified: false`, a testy tworzą userów bezpośrednio przez Prisma z domyślnym `false`, więc `beforeAll` nie dostawał tokenu i cały suite leciał na 401. Nikt tego nie zauważył, bo testy nie były ani we flow, ani w CI. Dodatkowo naprawiona idempotencja `users.e2e-spec` (cleanup pomijał `delete.me@` i `parent.link@`, więc drugie uruchomienie na tej samej bazie padało na unique(email))
+- [x] ~~CI nie odpalało się na feature branchach~~ — naprawione 2026-07-31: trigger `push: branches: ["**"]` + `concurrency` z `cancel-in-progress`. Wcześniej `on.push` był ograniczony do `main`, więc pushe na branche nie uruchamiały **niczego** aż do otwarcia PR
+- [x] ~~Brak warstwy wymuszającej flow~~ — dodany `.githooks/pre-push` (kroki 1-6, bez E2E i integracyjnych, które wymagają Dockera); aktywowany automatycznie przez `prepare` → `core.hooksPath`
+- [x] ~~Branch protection niedostępne~~ — zamknięte 2026-07-31: repo upublicznione, ochrona `main` włączona (szczegóły w Fazie 0). Odblokowało też darmowe dla repo publicznych: **secret scanning + push protection** (GitHub blokuje push zawierający sekret) oraz **Dependabot alerts + automated security fixes**. Minuty Actions przestały być limitowane, więc CI na każdym pushu nic nie kosztuje
+- [x] **Podatności zależności — 12 → 6** (2026-07-31). Naprawione przez celowe podniesienie dwóch bezpośrednich zależności (`@nestjs/platform-express` 11.1.27→11.1.28, `vite` 8.1.0→8.2.0) i `npm update` trzech tranzytywnych. Zamknięte: **multer** (DoS przy uploadzie — jedyna podatność na ścieżce przyjmującej dane od użytkownika), **postcss** (path traversal), **fast-xml-parser** (przez `minio`, też runtime), **js-yaml**, **fast-uri**
+  - ⚠ `npm audit fix` jest tu **szkodliwe** — podbija liczbę podatności z 12 do 32 (kaskada przez `brace-expansion`). Nie używać; podnosić zależności celowo
+  - Po scaleniu 4.3 doszedł `uuid@8.3.2` (moderate) — zapinowany przez `exceljs@4.4.0` (najnowszy), więc bez podniesienia `exceljs` nie da się go ruszyć; dotyczy generowania plików po stronie serwera
+  - **Druga tura (2026-07-31): 8 → 5.** `npm update` domknął `@hono/node-server` (przez CLI `shadcn`) i `esbuild` → 0.28.1. Zamknęło to PR-y Dependabota #7 i #11
+  - **Pozostałe 3, świadomie nienaprawione**, wszystkie poza ścieżką produkcyjną: `react-router` (tryb RSC, którego SPA nie używa; łatka dopiero w v8, a `react-router-dom` nie ma linii 8.x — wymaga migracji majora), `brace-expansion` (dev-tooling; w drzewie 3 równoległe majory, `npm update` wywołuje kaskadę do 32 podatności), `uuid` (zapinowany przez `exceljs`)
+- [x] Higiena sekretów zweryfikowana przed upublicznieniem (2026-07-31): `.env` nigdy nie był w historii, brak kluczy Stripe/Resend w commitach, brak plików `.pem`/`.key`, `.env.example` zawiera wyłącznie placeholdery
+
+---
+
+## Faza 5 — Portal nauczyciela i bezpieczeństwo
+
+### 5.1 — Layout, zajęcia i rozliczenie godzin ✅
+
+Zamyka najpoważniejszą lukę z audytu: `/teacher` był placeholderem `<div>Teacher Dashboard — WIP</div>`, więc jedna z trzech ról produktowych nie miała UI mimo gotowego backendu.
+
+**Backend — scoping (bezpieczeństwo):**
+- [x] `GET /classes` **nie filtrował po nauczycielu w ogóle** — `findAll` przyjmował tylko `groupId`/`studentId`/`status`, więc portal pokazywałby cudze zajęcia. Dodany `teacherId` w `ClassQueryDto` + gałąź `OR` w `where`
+- [x] Gałąź `OR: [{ teacherId }, { teacherId: null, group: { teacherId } }]` — ten sam wzorzec co `getTeacherStats`; bez niej nauczyciel nie zobaczyłby zajęć odziedziczonych po grupie (`Class.teacherId` bywa null)
+- [x] Kontroler **nadpisuje** `teacherId` z query wartością `req.user.id` dla roli TEACHER — filtra nie da się obejść parametrem w URL-u
+- [x] `GET /users/:id/stats` otwarte dla TEACHER z self-checkiem (`ForbiddenException` przy cudzym id); wcześniej całe `UsersController` było ADMIN-only
+- [x] 3 testy jednostkowe weryfikujące strukturę `WHERE` (gałęzie OR, łączenie z innymi filtrami, brak scope'u bez `teacherId`)
+
+**Frontend:**
+- [x] `TeacherLayout` — sidebar w konwencji pozostałych layoutów, z dzwonkiem powiadomień i przełącznikiem motywu
+- [x] `TeacherDashboardPage` — zajęcia na dziś, najbliższe 5, skrót statystyk z 30 dni
+- [x] `TeacherClassesPage` — zakładki Nadchodzące/Poprzednie/Wszystkie, przyciski „Rozpocznij"/„Zakończ", modal obecności (reużyty `AttendanceModal`), link do Meet
+- [x] `TeacherStatsPage` — rozliczenie godzin z filtrem okresu, rozbicie miesięczne i na grupy
+- [x] Routing `/teacher/*` zamiast placeholdera; redirect po logowaniu (`TEACHER → /teacher`) już istniał
+
+**Naprawiony przy okazji:** `AnimatePresence` bez `mode="wait"` montował nowy widok, zanim stary zniknął — przez moment renderowały się **dwie kopie strony**. Wykrył to niestabilny test E2E; naprawiona przyczyna, nie test. **Ten sam wzorzec jest nadal w `AdminLayout`, `StudentLayout` i `ParentLayout`** — do poprawy osobno.
+
+- [x] 5 testów E2E (`e2e/teacher.spec.ts`): redirect po logowaniu, nawigacja, lista zajęć, rozliczenie godzin, brak dostępu do panelu admina. Stabilność potwierdzona trzema przebiegami
+- [x] Zweryfikowane na żywo (curl): nauczyciel widzi 39 zajęć, admin 66; podanie cudzego `teacherId` w URL nie zmienia wyniku; własne statystyki 200, cudze 403
+
+**Do zrobienia dalej:** widok materiałów i listy uczniów grupy w portalu nauczyciela (backend gotowy po 5.2–5.3).
+
 ### 5.2 — Kontrola dostępu w warstwie odczytu ✅
 
 Audyt przy okazji portalu nauczyciela wykazał, że `@Roles()` przepuszczał **rolę**, ale nikt nie sprawdzał, **czyj** jest zasób.
@@ -414,52 +460,6 @@ Cztery pozycje wskazane po security review jako „potrzebne przed publikacją",
 
 **Pozostaje przed publikacją** (poza zakresem tej zmiany): porty `5432`/`6379`/`9000`/`9001` są mapowane na hosta — w dev wygodne, na produkcji baza, Redis i storage nie powinny być publiczne; sekrety w GitHub Actions; kopie zapasowe i szyfrowanie w spoczynku; przegląd frontendu.
 
-### ⚠ Znane luki (wykryte w audycie 2026-07-31)
-
-- [x] ~~**Portal nauczyciela — NIE ISTNIEJE**~~ — zamknięte 2026-07-31, patrz Faza 5
-- [x] ~~Testy E2E procesu płatności (z 2.0)~~ — zamknięte 2026-07-31: `e2e/payments.spec.ts` (4 testy). Dane zakłada API, bo formularz używa DatePickera w popoverze, a celem jest proces płatniczy, nie obsługa kalendarza. **Test wykrył realny defekt**: Select statusu pokazywał `PAID` zamiast `Zapłacone` — ten sam błąd `@base-ui Select.Value`, który naprawiono wcześniej w `ReportsPage`. Sam redirect do Stripe pozostaje poza pokryciem (zewnętrzna domena)
-- [~] Testy jednostkowe frontendu: **65 testów w 6 plikach** (było 42 w 4). Dodane `PaymentsPage` (12 — arytmetyka kwot na wykresie, filtr, `confirm` przy usuwaniu, powrót ze Stripe) i `TeacherClassesPage` (11 — podział na zakładki, przejścia statusów, zajęcia odwołane). Nadal bez pokrycia: panele grup, materiałów, użytkowników oraz dashboardy ucznia i rodzica
-- [x] ~~Testy frontendu poza obowiązkowym flow~~ — naprawione 2026-07-31: `npm test` w `apps/web` dodany jako krok 5 w `CLAUDE.md`. Przy okazji poprawiony skrypt, który uruchamiał Vitest w trybie **watch** (`vitest` zamiast `vitest run`) — dlatego lokalnie nikt go nie wołał, bo wieszał terminal. CI łapało te testy od początku (`npx vitest run`), więc realny koszt był taki, że o awarii dowiadywano się dopiero po pushu
-- [x] ~~Testy integracyjne API nie są uruchamiane w CI~~ — naprawione 2026-07-31 (job `api`, krok „Integration tests"). **Przy okazji okazało się, że były zepsute: 38 z 45 failowało.** Regresja z Fazy 3.6 — login zaczął odrzucać konta z `emailVerified: false`, a testy tworzą userów bezpośrednio przez Prisma z domyślnym `false`, więc `beforeAll` nie dostawał tokenu i cały suite leciał na 401. Nikt tego nie zauważył, bo testy nie były ani we flow, ani w CI. Dodatkowo naprawiona idempotencja `users.e2e-spec` (cleanup pomijał `delete.me@` i `parent.link@`, więc drugie uruchomienie na tej samej bazie padało na unique(email))
-- [x] ~~CI nie odpalało się na feature branchach~~ — naprawione 2026-07-31: trigger `push: branches: ["**"]` + `concurrency` z `cancel-in-progress`. Wcześniej `on.push` był ograniczony do `main`, więc pushe na branche nie uruchamiały **niczego** aż do otwarcia PR
-- [x] ~~Brak warstwy wymuszającej flow~~ — dodany `.githooks/pre-push` (kroki 1-6, bez E2E i integracyjnych, które wymagają Dockera); aktywowany automatycznie przez `prepare` → `core.hooksPath`
-- [x] ~~Branch protection niedostępne~~ — zamknięte 2026-07-31: repo upublicznione, ochrona `main` włączona (szczegóły w Fazie 0). Odblokowało też darmowe dla repo publicznych: **secret scanning + push protection** (GitHub blokuje push zawierający sekret) oraz **Dependabot alerts + automated security fixes**. Minuty Actions przestały być limitowane, więc CI na każdym pushu nic nie kosztuje
-- [x] **Podatności zależności — 12 → 6** (2026-07-31). Naprawione przez celowe podniesienie dwóch bezpośrednich zależności (`@nestjs/platform-express` 11.1.27→11.1.28, `vite` 8.1.0→8.2.0) i `npm update` trzech tranzytywnych. Zamknięte: **multer** (DoS przy uploadzie — jedyna podatność na ścieżce przyjmującej dane od użytkownika), **postcss** (path traversal), **fast-xml-parser** (przez `minio`, też runtime), **js-yaml**, **fast-uri**
-  - ⚠ `npm audit fix` jest tu **szkodliwe** — podbija liczbę podatności z 12 do 32 (kaskada przez `brace-expansion`). Nie używać; podnosić zależności celowo
-  - Po scaleniu 4.3 doszedł `uuid@8.3.2` (moderate) — zapinowany przez `exceljs@4.4.0` (najnowszy), więc bez podniesienia `exceljs` nie da się go ruszyć; dotyczy generowania plików po stronie serwera
-  - **Druga tura (2026-07-31): 8 → 5.** `npm update` domknął `@hono/node-server` (przez CLI `shadcn`) i `esbuild` → 0.28.1. Zamknęło to PR-y Dependabota #7 i #11
-  - **Pozostałe 3, świadomie nienaprawione**, wszystkie poza ścieżką produkcyjną: `react-router` (tryb RSC, którego SPA nie używa; łatka dopiero w v8, a `react-router-dom` nie ma linii 8.x — wymaga migracji majora), `brace-expansion` (dev-tooling; w drzewie 3 równoległe majory, `npm update` wywołuje kaskadę do 32 podatności), `uuid` (zapinowany przez `exceljs`)
-- [x] Higiena sekretów zweryfikowana przed upublicznieniem (2026-07-31): `.env` nigdy nie był w historii, brak kluczy Stripe/Resend w commitach, brak plików `.pem`/`.key`, `.env.example` zawiera wyłącznie placeholdery
-
----
-
-## Faza 5 — Portal nauczyciela
-
-### 5.1 — Layout, zajęcia i rozliczenie godzin ✅
-
-Zamyka najpoważniejszą lukę z audytu: `/teacher` był placeholderem `<div>Teacher Dashboard — WIP</div>`, więc jedna z trzech ról produktowych nie miała UI mimo gotowego backendu.
-
-**Backend — scoping (bezpieczeństwo):**
-- [x] `GET /classes` **nie filtrował po nauczycielu w ogóle** — `findAll` przyjmował tylko `groupId`/`studentId`/`status`, więc portal pokazywałby cudze zajęcia. Dodany `teacherId` w `ClassQueryDto` + gałąź `OR` w `where`
-- [x] Gałąź `OR: [{ teacherId }, { teacherId: null, group: { teacherId } }]` — ten sam wzorzec co `getTeacherStats`; bez niej nauczyciel nie zobaczyłby zajęć odziedziczonych po grupie (`Class.teacherId` bywa null)
-- [x] Kontroler **nadpisuje** `teacherId` z query wartością `req.user.id` dla roli TEACHER — filtra nie da się obejść parametrem w URL-u
-- [x] `GET /users/:id/stats` otwarte dla TEACHER z self-checkiem (`ForbiddenException` przy cudzym id); wcześniej całe `UsersController` było ADMIN-only
-- [x] 3 testy jednostkowe weryfikujące strukturę `WHERE` (gałęzie OR, łączenie z innymi filtrami, brak scope'u bez `teacherId`)
-
-**Frontend:**
-- [x] `TeacherLayout` — sidebar w konwencji pozostałych layoutów, z dzwonkiem powiadomień i przełącznikiem motywu
-- [x] `TeacherDashboardPage` — zajęcia na dziś, najbliższe 5, skrót statystyk z 30 dni
-- [x] `TeacherClassesPage` — zakładki Nadchodzące/Poprzednie/Wszystkie, przyciski „Rozpocznij"/„Zakończ", modal obecności (reużyty `AttendanceModal`), link do Meet
-- [x] `TeacherStatsPage` — rozliczenie godzin z filtrem okresu, rozbicie miesięczne i na grupy
-- [x] Routing `/teacher/*` zamiast placeholdera; redirect po logowaniu (`TEACHER → /teacher`) już istniał
-
-**Naprawiony przy okazji:** `AnimatePresence` bez `mode="wait"` montował nowy widok, zanim stary zniknął — przez moment renderowały się **dwie kopie strony**. Wykrył to niestabilny test E2E; naprawiona przyczyna, nie test. **Ten sam wzorzec jest nadal w `AdminLayout`, `StudentLayout` i `ParentLayout`** — do poprawy osobno.
-
-- [x] 5 testów E2E (`e2e/teacher.spec.ts`): redirect po logowaniu, nawigacja, lista zajęć, rozliczenie godzin, brak dostępu do panelu admina. Stabilność potwierdzona trzema przebiegami
-- [x] Zweryfikowane na żywo (curl): nauczyciel widzi 39 zajęć, admin 66; podanie cudzego `teacherId` w URL nie zmienia wyniku; własne statystyki 200, cudze 403
-
-**Do zrobienia dalej:** widok materiałów i listy uczniów grupy w portalu nauczyciela (backend gotowy po 5.2–5.3).
-
 ### Pozostałe rozszerzenia (przyszłość)
 
 - [ ] Zadania domowe (upload, ocenianie)
@@ -474,13 +474,62 @@ Zamyka najpoważniejszą lukę z audytu: `/teacher` był placeholderem `<div>Tea
 
 ## ▶ Co robimy teraz?
 
-**Faza 4 domknięta**; **Faza 5.1 (portal nauczyciela) ukończona** — wszystkie trzy role produktowe mają wreszcie UI.
+**Fazy 1–5 zamknięte.** Wszystkie trzy role produktowe mają UI, kontrola dostępu przeszła systematyczny audyt, aplikacja jest utwardzona pod produkcję.
 
-**Następne do wyboru:** widok grup i materiałów w portalu nauczyciela (UI — backend gotowy po 5.2), zadania domowe, tracking postępów ucznia, Google Calendar API.
+**Publikacja NIE jest jeszcze planowana** — przed nami kolejny etap developmentu. Przygotowania wdrożeniowe robimy zawczasu, żeby sam deploy był formalnością (patrz „Przygotowanie do produkcji" niżej).
+
+**Następne do wyboru — produkt:**
+1. **Portal nauczyciela 5.6** — widok grup i lista uczniów + materiały grupy. Backend gotowy po 5.2–5.3, zostaje sama warstwa UI. Najmniejszy wysiłek, domyka rolę
+2. **Zadania domowe** (upload + ocenianie) — pierwszy naprawdę nowy obszar produktowy
+3. **Tracking postępów ucznia**
+4. **Google Calendar API** — automatyczne linki Meet
+
+**Następne do wyboru — jakość:**
+- Testy jednostkowe paneli bez pokrycia: grupy, materiały, użytkownicy, dashboardy ucznia i rodzica (dziś 65 testów w 6 plikach, wszystkie z `pages/auth`, `PaymentsPage` i `TeacherClassesPage`)
+- Migracja `react-router` v7 → v8 — zamknęłaby 2 z 3 pozostałych alertów Dependabota. **Nadal odradzana**: major z realną pracą na routingu, a podatność dotyczy trybu RSC, którego to SPA nie używa
 
 ---
 
-## Stan testów (2026-07-31)
+## Przygotowanie do produkcji
+
+Stan na 2026-08-02. Publikacja nieplanowana — lista istnieje po to, żeby wdrożenie było mechaniczne, gdy przyjdzie moment.
+
+### Zrobione
+
+- [x] Rate limiting na endpointach auth (5.5)
+- [x] Brak domyślnych haseł w `docker-compose.yml` — compose odmawia startu bez konfiguracji (5.5)
+- [x] Nagłówki bezpieczeństwa (helmet), e-maile poza logami (5.5)
+- [x] Sekrety przez `getOrThrow` — aplikacja nie wstanie z pustym kluczem (5.4)
+- [x] Kontrola dostępu na wszystkich endpointach nie-admin, z regresją w E2E (5.2–5.3)
+- [x] Ochrona `main` + secret scanning + Dependabot (Faza 0)
+
+### Do zrobienia przed pierwszym wdrożeniem
+
+- [ ] **Usunąć Redis** — stoi w `docker-compose.yml` i `.env`, ale w kodzie API **nie ma ani jednego odwołania**. Martwa zależność: zbędny RAM, kolejny kontener do aktualizowania
+- [ ] **`docker-compose.prod.yml`** — bez mapowania `5432`/`9000`/`9001` na hosta (baza i storage nie mogą być publiczne), `restart: always`, bez volume mountów na `src/`
+- [ ] **Reverse proxy z TLS** (Caddy — automatyczny Let's Encrypt) przed API i web
+- [ ] **Webhook Stripe na produkcji** — dziś w compose działa `stripe listen --skip-verify` (tryb dev). Potrzebny endpoint zarejestrowany w dashboardzie Stripe i `STRIPE_WEBHOOK_SECRET` stamtąd
+- [ ] **Backup bazy + przetestowany restore** — `pg_dump` w cronie **systemowym** (nie w API) z wysyłką poza serwer. Backup, którego nie odtworzono, nie jest backupem. To największe ryzyko operacyjne całego wdrożenia
+- [ ] `FRONTEND_URL` i CORS na prawdziwą domenę
+- [ ] Sekrety w GitHub Actions (jeśli deploy ma iść z CI)
+
+### ⚠ Ograniczenie architektoniczne: crony blokują skalowanie poziome
+
+Cztery `@Cron` działają **wewnątrz procesu API** (`payments.service`: `markOverdue`, cykl miesięczny; `notifications.service`: przypomnienia o zajęciach co 5 min i o płatnościach dziennie).
+
+**API musi działać w dokładnie jednej instancji.** Druga instancja = uczniowie dostają maile i powiadomienia po dwa razy. Awaria trudna do zdiagnozowania, bo objawia się u użytkowników, nie w logach.
+
+Jeśli kiedyś potrzebne będzie skalowanie: wydzielić crony do osobnego procesu (worker) albo wprowadzić blokadę rozproszoną — **wtedy** Redis, dziś nieużywany, nabrałby sensu.
+
+### Rekomendowany kierunek wdrożenia
+
+**VPS + Docker Compose** (Hetzner CX22 lub odpowiednik, ~5 EUR/mies.), Caddy z automatycznym TLS.
+
+Uzasadnienie: obecny compose działa 1:1 bez przepisywania, jedna instancja jest stanem naturalnym (patrz crony wyżej), MinIO zostaje bez zmian w `MinioService`, koszt przewidywalny. PaaS (Railway/Render) wymagałby wymiany MinIO na S3/R2 i twardego pilnowania liczby instancji.
+
+Rozważyć **managed Postgres** (Neon, Supabase) zamiast kontenera — zdejmuje backupy, czyli największe ryzyko solo-deploymentu.
+
+## Stan testów (2026-08-02)
 
 | Zestaw | Liczba | Komenda | We flow | W CI |
 |---|---|---|---|---|

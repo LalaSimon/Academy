@@ -6,6 +6,69 @@
 - TanStack Query + custom hooks dla CAŁEJ komunikacji z API (zero bezpośredniego axios w komponentach).
 - ROADMAP (`docs/ROADMAP.md`) zawsze aktualizowana po zakończeniu etapu.
 - `docker compose up -d` startuje cały stack.
+- **Kod piszemy od razu bezpieczny** — patrz sekcja „Bezpieczeństwo" niżej. Nie zostawiamy tego na późniejszy audyt.
+
+## Bezpieczeństwo — obowiązkowe przy KAŻDYM nowym endpoincie
+
+Reguły wyprowadzone z audytu 2026-07-31/08-02, który znalazł 11 realnych dziur — m.in. uczeń mógł pobrać dowolną grupę razem z **e-mailami** jej uczniów, a nauczyciel **odwołać cudze zajęcia**. Wszystkie miały tę samą przyczynę: `@Roles()` sprawdzał **rolę**, ale nikt nie sprawdzał, **czyj jest zasób**.
+
+### 1. `@Roles()` to nie kontrola dostępu
+
+`@Roles()` odpowiada tylko na „jaka rola", nigdy na „czyje to dane". Każdy endpoint przyjmujący `:id` lub zwracający listę musi dodatkowo odpowiedzieć na drugie pytanie.
+
+Używaj `AccessControlService` (`common/access/`, `@Global`) — **nie pisz własnych sprawdzeń od zera**:
+
+```ts
+await this.access.assertCanReadGroup(req.user, groupId);   // 403 gdy cudza
+await this.access.assertCanAccessClass(req.user, classId); // też dla ZAPISU
+await this.access.assertCanReadMaterial(req.user, id);
+const groupIds = await this.access.getAccessibleGroupIds(req.user); // null = admin
+```
+
+Jeśli nowy zasób nie pasuje do istniejących metod — **dodaj metodę tam**, nie inline w kontrolerze. Rozsypanie tej logiki po kontrolerach było źródłem wszystkich znalezionych dziur.
+
+### 2. Zapis wymaga sprawdzenia tak samo jak odczyt — a często pilniej
+
+Operacje zapisu mają skutki uboczne widoczne dla użytkowników: odwołanie zajęć **rozsyła powiadomienia**, oznaczenie nieobecności **wysyła maila**. Cudzy zapis jest gorszy niż cudzy odczyt.
+
+### 3. Parametry filtrowania od klienta są niezaufane
+
+Gdy rola ma widzieć wycinek danych, **nadpisz** filtr wartością z tokenu — nie ufaj temu, co przyszło w query:
+
+```ts
+if (req.user.role === Role.TEACHER) {
+  return this.service.findAll({ ...query, teacherId: req.user.id }); // nadpisanie, nie merge
+}
+```
+
+Zakres wyliczony z tokenu przekazuj **osobnym argumentem** serwisu (jak `learnerScope` w `classes.findAll`), żeby nie dało się go podać w URL-u.
+
+### 4. Sekrety zawsze przez `getOrThrow`
+
+Nigdy `process.env.X ?? ''`. Pusty sekret nie wyłącza funkcji — **cicho wyłącza zabezpieczenie** (pusty klucz HMAC każdy odtworzy). Brak konfiguracji ma zatrzymać start:
+
+```ts
+config.getOrThrow<string>('STRIPE_WEBHOOK_SECRET');   // ✅
+process.env.STRIPE_WEBHOOK_SECRET ?? ''               // ❌ fail-open
+```
+
+To samo w `docker-compose.yml`: `${VAR:?komunikat}`, nigdy `${VAR:-domyslne_haslo}`.
+
+### 5. Prisma: `OR` w `where` łatwo się nadpisuje
+
+Gdy dokładasz drugie zawężenie, przenieś warunki do `AND: [...]`. Dwa `OR` na jednym poziomie = drugi kasuje pierwszy, czyli **cichy wyciek**. Pamiętaj też, że `Class.teacherId` bywa `null` (prowadzącym jest wtedy nauczyciel grupy) i że zajęcia 1:1 **nie mają `groupId`** — sam filtr po grupach zgubi je uczniowi.
+
+### 6. Nie loguj danych osobowych
+
+W logach `user.id`, nigdy `user.email`. Logi trafiają dalej niż baza.
+
+### 7. Każda naprawa dostępu dostaje test E2E
+
+`e2e/access-control.spec.ts` — cudzy zasób zwraca **403**, własny **200**. Bez tego regresja wróci niezauważona. Testy jednostkowe weryfikują strukturę `WHERE` (gałęzie `OR`/`AND`), nie tylko wynik na zamockowanych danych.
+
+### 8. Weryfikuj realnym żądaniem, nie samym testem
+
+Przed uznaniem naprawy za gotową: zaloguj się jako każda rola i sprawdź `curl`-em, że cudze zasoby dają 403, a własne 200. Kilka dziur z audytu przeszłoby testy jednostkowe, bo dane testowe przypadkiem nie zawierały cudzego zasobu.
 
 ## Obowiązkowe flow przed każdym commitem i pushem
 
