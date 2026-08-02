@@ -386,6 +386,19 @@ Pytanie „czy jest już szczelne?" skłoniło do przeglądu **wszystkich** endp
 - [x] 13 testów E2E (było 7) — osobno dla zapisu i odczytu
 - [x] Zweryfikowane na żywo: wszystkie osiem dziur zwraca 403, a własne zasoby nadal 200 (nauczyciel: własne zajęcia i frekwencja, uczeń: 7 materiałów, 2 płatności, własna płatność po `id`)
 
+### 5.4 — Security review całego API ✅
+
+Systematyczny przegląd `apps/api/src` (nie diff — audyt na czystym `main`), zamiast podążania za pojedynczym tropem jak w 5.2–5.3.
+
+**Znaleziony 1 problem, naprawiony:**
+- [x] **Fail-open weryfikacji webhooka Stripe** — `process.env.STRIPE_WEBHOOK_SECRET ?? ''`. Bez ustawionej zmiennej podpis byłby weryfikowany **kluczem pustym**, możliwym do odtworzenia przez każdego → dowolna płatność do oznaczenia jako `PAID` bez przepływu pieniędzy. Zamienione na `config.getOrThrow()` (ten sam wzorzec co `JWT_SECRET`); przy okazji tak samo dla `STRIPE_SECRET_KEY`. Test jednostkowy pilnuje, że oba idą przez `getOrThrow`
+
+**Sprawdzone, bez zastrzeżeń:** eskalacja uprawnień (`PATCH/DELETE /users/:id` są ADMIN-only, brak możliwości zmiany własnej roli) · rola czytana **z bazy** przy każdym żądaniu, nie z payloadu JWT (degradacja i dezaktywacja działają natychmiast) · rotacja refresh tokenów (64B losowe, jednorazowe) · reset hasła (token 32B, 1 h, kasuje wszystkie sesje, brak enumeracji e-maili) · cookie `httpOnly`/`sameSite`/`secure` · CORS na konkretny origin · kwota checkoutu brana z bazy, nie z żądania · replay webhooka idempotentny · `fileKey` nigdy z parametru żądania · `Content-Disposition: attachment` blokuje XSS z uploadu · `passwordHash` poza wszystkimi `select` · brak `$queryRaw`
+
+**Świadomie nieraportowane:** open redirect przez `returnUrl` (ofiarą może być tylko sam wywołujący), `Content-Type` z klienta (zneutralizowany przez `attachment`), warunkowe sprawdzanie wygaśnięcia tokenu resetu (stan nieosiągalny — oba pola zawsze ustawiane razem).
+
+**Poza zakresem:** infrastruktura (MinIO, sieć Dockera), zależności third-party (Dependabot), rate limiting i DoS.
+
 ### ⚠ Znane luki (wykryte w audycie 2026-07-31)
 
 - [x] ~~**Portal nauczyciela — NIE ISTNIEJE**~~ — zamknięte 2026-07-31, patrz Faza 5
@@ -456,9 +469,9 @@ Zamyka najpoważniejszą lukę z audytu: `/teacher` był placeholderem `<div>Tea
 
 | Zestaw | Liczba | Komenda | We flow | W CI |
 |---|---|---|---|---|
-| API — jednostkowe (13 suite'ów) | 180 | `cd apps/api && npm test` | ✅ | ✅ |
+| API — jednostkowe (13 suite'ów) | 181 | `cd apps/api && npm test` | ✅ | ✅ |
 | API — integracyjne (5 spec) | 45 | `cd apps/api && npm run test:e2e` | ❌ (Docker) | ✅ |
 | Web — jednostkowe (6 plików, Vitest) | 65 | `cd apps/web && npm test` | ✅ | ✅ |
 | E2E — Playwright (6 spec) | 40 | `npx playwright test` | ❌ (Docker) | ✅ |
 
-**Razem 330 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
+**Razem 331 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
