@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { ClassStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InAppNotificationsService } from '../notifications/in-app-notifications.service';
+import { GoogleCalendarService } from '../google/google-calendar.service';
 import { formatPlDateTime } from '../../common/utils/format-date';
 import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
@@ -49,6 +50,7 @@ export class ClassesService {
   constructor(
     private prisma: PrismaService,
     private notifications: InAppNotificationsService,
+    private google: GoogleCalendarService,
   ) {}
 
   /**
@@ -140,6 +142,30 @@ export class ClassesService {
     return cls;
   }
 
+  /**
+   * Link Meet generujemy tylko, gdy nikt nie podał własnego i integracja jest
+   * włączona. Ręcznie wpisany link ma pierwszeństwo — admin mógł celowo wskazać
+   * inne spotkanie (Zoom, stały pokój).
+   */
+  private async resolveMeetLink(dto: {
+    meetLink?: string;
+    title: string;
+    description?: string;
+    scheduledAt: string | Date;
+    durationMin?: number;
+  }): Promise<string | undefined> {
+    if (dto.meetLink) return dto.meetLink;
+    if (!this.google.isEnabled) return undefined;
+
+    const link = await this.google.createMeetLink({
+      title: dto.title,
+      description: dto.description,
+      scheduledAt: new Date(dto.scheduledAt),
+      durationMin: dto.durationMin ?? 60,
+    });
+    return link ?? undefined;
+  }
+
   async create(dto: CreateClassDto) {
     let { teacherId } = dto;
 
@@ -160,7 +186,7 @@ export class ClassesService {
           description: dto.description,
           scheduledAt: dto.scheduledAt,
           durationMin: dto.durationMin,
-          meetLink: dto.meetLink,
+          meetLink: await this.resolveMeetLink(dto),
           pricePerClass: dto.pricePerClass,
           groupId: dto.groupId,
           teacherId,
@@ -200,7 +226,7 @@ export class ClassesService {
         description: dto.description,
         scheduledAt: dto.scheduledAt,
         durationMin: dto.durationMin,
-        meetLink: dto.meetLink,
+        meetLink: await this.resolveMeetLink(dto),
         pricePerClass: dto.pricePerClass,
         studentId: dto.studentId,
         teacherId,
@@ -267,7 +293,7 @@ export class ClassesService {
           description: item.description,
           scheduledAt: item.scheduledAt,
           durationMin: item.durationMin,
-          meetLink: item.meetLink,
+          meetLink: await this.resolveMeetLink(item),
           pricePerClass: item.pricePerClass,
           groupId: item.groupId,
           studentId: item.studentId,
