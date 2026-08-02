@@ -1,5 +1,5 @@
 import { MaterialType } from '@prisma/client';
-import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
 
 export class CreateMaterialDto {
   @IsString()
@@ -18,8 +18,4 @@ export class CreateMaterialDto {
   @IsOptional()
   @IsString()
   fileKey?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  isPublic?: boolean;
 }

@@ -78,7 +78,6 @@ Wydarzenie w Kalendarzu Google jest utrzymywane w zgodzie z zajęciami przez
 | Operacja w Academy | Co dzieje się w kalendarzu |
 |---|---|
 | Zajęcia pojedyncze (`POST /classes`) | Powstaje wydarzenie ze spotkaniem |
-| Seria (`POST /classes/bulk`) | Każde zajęcia dostają własne spotkanie |
 | **Generowanie z harmonogramu** (`POST /groups/:id/generate-classes`) | Każde zajęcia dostają własne spotkanie |
 | Zmiana terminu, czasu trwania lub tytułu | Wydarzenie zostaje przesunięte |
 | Przesunięcie całej serii (`PATCH /classes/batch/:batchId`) | Wszystkie wydarzenia serii przesunięte |

@@ -59,7 +59,6 @@ POST   /api/v1/groups/:id/generate-classes?year=&month=  → generowanie zajęć
 GET    /api/v1/classes                    → lista (groupId, studentId, status, teacherId, from, to)
                                             [wszyscy — zawężone do własnych zajęć]
 POST   /api/v1/classes                    → tworzenie (grupowe lub 1:1)   [ADMIN]
-POST   /api/v1/classes/bulk               → tworzenie serii               [ADMIN]
 GET    /api/v1/classes/:id                → szczegóły + frekwencja        [ADMIN, TEACHER — tylko własne]
 PATCH  /api/v1/classes/:id                → aktualizacja                  [ADMIN]
 PATCH  /api/v1/classes/:id/status         → SCHEDULED→ONGOING→COMPLETED / CANCELLED [ADMIN, TEACHER — własne]

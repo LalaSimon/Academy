@@ -13,7 +13,6 @@ const MATERIAL_SELECT = {
   type: true,
   url: true,
   fileKey: true,
-  isPublic: true,
   createdAt: true,
   uploader: { select: { id: true, firstName: true, lastName: true } },
 } as const;
@@ -52,7 +51,6 @@ export class MaterialsService {
     if (scope) {
       and.push({
         OR: [
-          { isPublic: true },
           { groups: { some: { groupId: { in: scope.groupIds } } } },
           { classes: { some: { classId: { in: scope.classIds } } } },
           ...(scope.uploaderId ? [{ uploadedBy: scope.uploaderId }] : []),

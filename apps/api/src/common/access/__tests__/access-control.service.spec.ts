@@ -218,21 +218,8 @@ describe('AccessControlService', () => {
   });
 
   describe('assertCanReadMaterial', () => {
-    it('przepuszcza materiał publiczny', async () => {
-      prismaMock.material.findUnique.mockResolvedValue({
-        isPublic: true,
-        uploadedBy: 'ktos',
-        groups: [],
-        classes: [],
-      });
-      await expect(
-        service.assertCanReadMaterial({ id: 's1', role: 'STUDENT' }, 'm1'),
-      ).resolves.toBeUndefined();
-    });
-
     it('przepuszcza nauczyciela do materiału, który sam wgrał', async () => {
       prismaMock.material.findUnique.mockResolvedValue({
-        isPublic: false,
         uploadedBy: 't1',
         groups: [],
         classes: [],
@@ -244,7 +231,6 @@ describe('AccessControlService', () => {
 
     it('przepuszcza ucznia do materiału jego grupy', async () => {
       prismaMock.material.findUnique.mockResolvedValue({
-        isPublic: false,
         uploadedBy: 'admin',
         groups: [{ groupId: 'g1' }],
         classes: [],
@@ -257,7 +243,6 @@ describe('AccessControlService', () => {
 
     it('odrzuca ucznia wobec materiału obcej grupy', async () => {
       prismaMock.material.findUnique.mockResolvedValue({
-        isPublic: false,
         uploadedBy: 'admin',
         groups: [{ groupId: 'obca' }],
         classes: [],
