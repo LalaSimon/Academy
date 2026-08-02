@@ -10,6 +10,11 @@ export interface MeetLinkRequest {
   durationMin: number;
 }
 
+export interface CreatedEvent {
+  eventId: string;
+  meetLink: string;
+}
+
 /**
  * Generowanie linków Google Meet przez Calendar API.
  *
@@ -59,14 +64,14 @@ export class GoogleCalendarService {
   }
 
   /**
-   * Zwraca link Meet albo `null`, gdy integracja jest wyłączona lub Google
-   * odmówiło. NIGDY nie rzuca — brak linku nie może zablokować utworzenia
-   * zajęć, bo to funkcja pomocnicza, a nie warunek istnienia lekcji.
+   * Tworzy wydarzenie ze spotkaniem Meet. Zwraca link ORAZ id wydarzenia —
+   * bez id nie dałoby się go potem zaktualizować ani usunąć.
+   *
+   * NIGDY nie rzuca: brak spotkania nie może zablokować utworzenia zajęć,
+   * bo kalendarz jest dodatkiem, a nie źródłem prawdy.
    */
-  async createMeetLink(req: MeetLinkRequest): Promise<string | null> {
+  async createEvent(req: MeetLinkRequest): Promise<CreatedEvent | null> {
     if (!this.calendar) return null;
-
-    const end = new Date(req.scheduledAt.getTime() + req.durationMin * 60_000);
 
     try {
       const res = await this.calendar.events.insert({
@@ -76,7 +81,7 @@ export class GoogleCalendarService {
           summary: req.title,
           description: req.description ?? undefined,
           start: { dateTime: req.scheduledAt.toISOString() },
-          end: { dateTime: end.toISOString() },
+          end: { dateTime: this.endOf(req).toISOString() },
           conferenceData: {
             createRequest: {
               // Wymagany unikalny identyfikator żądania — Google używa go do
@@ -88,19 +93,74 @@ export class GoogleCalendarService {
         },
       });
 
-      const link = res.data.hangoutLink ?? null;
-      if (!link) {
+      const meetLink = res.data.hangoutLink ?? null;
+      const eventId = res.data.id ?? null;
+      if (!meetLink || !eventId) {
         this.logger.warn(
-          `Google nie zwróciło hangoutLink dla „${req.title}" — sprawdź uprawnienia konta`,
+          `Google nie zwróciło kompletu (link/id) dla „${req.title}" — sprawdź uprawnienia konta`,
         );
+        return null;
       }
-      return link;
+      return { eventId, meetLink };
     } catch (e) {
       this.logger.error(
-        `Nie udało się utworzyć linku Meet dla „${req.title}"`,
+        `Nie udało się utworzyć spotkania dla „${req.title}"`,
         e instanceof Error ? e.stack : undefined,
       );
       return null;
     }
+  }
+
+  /** Aktualizuje termin i tytuł istniejącego wydarzenia. Nie rzuca. */
+  async updateEvent(eventId: string, req: MeetLinkRequest): Promise<boolean> {
+    if (!this.calendar) return false;
+
+    try {
+      await this.calendar.events.patch({
+        calendarId: this.calendarId,
+        eventId,
+        requestBody: {
+          summary: req.title,
+          description: req.description ?? undefined,
+          start: { dateTime: req.scheduledAt.toISOString() },
+          end: { dateTime: this.endOf(req).toISOString() },
+        },
+      });
+      return true;
+    } catch (e) {
+      this.logger.error(
+        `Nie udało się zaktualizować wydarzenia ${eventId}`,
+        e instanceof Error ? e.stack : undefined,
+      );
+      return false;
+    }
+  }
+
+  /** Usuwa wydarzenie. Nie rzuca; brak wydarzenia (410/404) traktujemy jak sukces. */
+  async deleteEvent(eventId: string): Promise<boolean> {
+    if (!this.calendar) return false;
+
+    try {
+      await this.calendar.events.delete({
+        calendarId: this.calendarId,
+        eventId,
+      });
+      return true;
+    } catch (e) {
+      // Wydarzenie mogło zostać skasowane ręcznie w kalendarzu — to nie błąd,
+      // bo cel („nie ma go tam") jest osiągnięty.
+      const status = (e as { code?: number })?.code;
+      if (status === 404 || status === 410) return true;
+
+      this.logger.error(
+        `Nie udało się usunąć wydarzenia ${eventId}`,
+        e instanceof Error ? e.stack : undefined,
+      );
+      return false;
+    }
+  }
+
+  private endOf(req: MeetLinkRequest): Date {
+    return new Date(req.scheduledAt.getTime() + req.durationMin * 60_000);
   }
 }

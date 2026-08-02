@@ -148,6 +148,10 @@ model Class {
   scheduledAt   DateTime
   durationMin   Int         @default(60)
   meetLink      String?
+  // Identyfikator wydarzenia w Kalendarzu Google — pozwala je zaktualizować
+  // lub usunąć, gdy zajęcia się zmieniają. Null = brak powiązanego wydarzenia
+  // (integracja wyłączona albo link wpisany ręcznie).
+  googleEventId String?
   status        ClassStatus @default(SCHEDULED)
   cancelReason  String?
   pricePerClass Decimal?    @db.Decimal(10, 2)

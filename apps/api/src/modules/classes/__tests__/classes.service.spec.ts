@@ -4,7 +4,7 @@ import { ClassStatus } from '@prisma/client';
 import { ClassesService } from '../classes.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { InAppNotificationsService } from '../../notifications/in-app-notifications.service';
-import { GoogleCalendarService } from '../../google/google-calendar.service';
+import { ClassCalendarService } from '../../google/class-calendar.service';
 
 const mockClass = {
   id: 'cls1',
@@ -51,9 +51,12 @@ const prismaMock = {
 const notificationsMock = { notifyStudents: jest.fn() };
 
 // Domyślnie integracja wyłączona — tak jak na produkcji bez konfiguracji.
-const googleMock = {
-  isEnabled: false,
-  createMeetLink: jest.fn().mockResolvedValue(null),
+// Kalendarz to dodatek — testy serwisu zajęć nie zależą od Google.
+const calendarMock = {
+  attach: jest.fn(),
+  sync: jest.fn(),
+  detach: jest.fn(),
+  classIdsInBatch: jest.fn().mockResolvedValue([]),
 };
 
 describe('ClassesService', () => {
@@ -65,7 +68,7 @@ describe('ClassesService', () => {
         ClassesService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: InAppNotificationsService, useValue: notificationsMock },
-        { provide: GoogleCalendarService, useValue: googleMock },
+        { provide: ClassCalendarService, useValue: calendarMock },
       ],
     }).compile();
     service = module.get(ClassesService);

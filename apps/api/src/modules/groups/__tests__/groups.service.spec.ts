@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { ClassCalendarService } from '../../google/class-calendar.service';
 import { GroupsService } from '../groups.service';
 
 const mockGroup = {
@@ -54,6 +55,10 @@ describe('GroupsService', () => {
       providers: [
         GroupsService,
         { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: ClassCalendarService,
+          useValue: { attach: jest.fn(), sync: jest.fn(), detach: jest.fn() },
+        },
       ],
     }).compile();
     service = module.get(GroupsService);
