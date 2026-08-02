@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { ClassStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InAppNotificationsService } from '../notifications/in-app-notifications.service';
-import { GoogleCalendarService } from '../google/google-calendar.service';
+import { ClassCalendarService } from '../google/class-calendar.service';
 import { formatPlDateTime } from '../../common/utils/format-date';
 import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
@@ -50,7 +50,7 @@ export class ClassesService {
   constructor(
     private prisma: PrismaService,
     private notifications: InAppNotificationsService,
-    private google: GoogleCalendarService,
+    private calendar: ClassCalendarService,
   ) {}
 
   /**
@@ -142,30 +142,6 @@ export class ClassesService {
     return cls;
   }
 
-  /**
-   * Link Meet generujemy tylko, gdy nikt nie podał własnego i integracja jest
-   * włączona. Ręcznie wpisany link ma pierwszeństwo — admin mógł celowo wskazać
-   * inne spotkanie (Zoom, stały pokój).
-   */
-  private async resolveMeetLink(dto: {
-    meetLink?: string;
-    title: string;
-    description?: string;
-    scheduledAt: string | Date;
-    durationMin?: number;
-  }): Promise<string | undefined> {
-    if (dto.meetLink) return dto.meetLink;
-    if (!this.google.isEnabled) return undefined;
-
-    const link = await this.google.createMeetLink({
-      title: dto.title,
-      description: dto.description,
-      scheduledAt: new Date(dto.scheduledAt),
-      durationMin: dto.durationMin ?? 60,
-    });
-    return link ?? undefined;
-  }
-
   async create(dto: CreateClassDto) {
     let { teacherId } = dto;
 
@@ -186,7 +162,7 @@ export class ClassesService {
           description: dto.description,
           scheduledAt: dto.scheduledAt,
           durationMin: dto.durationMin,
-          meetLink: await this.resolveMeetLink(dto),
+          meetLink: dto.meetLink,
           pricePerClass: dto.pricePerClass,
           groupId: dto.groupId,
           teacherId,
@@ -226,7 +202,7 @@ export class ClassesService {
         description: dto.description,
         scheduledAt: dto.scheduledAt,
         durationMin: dto.durationMin,
-        meetLink: await this.resolveMeetLink(dto),
+        meetLink: dto.meetLink,
         pricePerClass: dto.pricePerClass,
         studentId: dto.studentId,
         teacherId,
@@ -258,20 +234,30 @@ export class ClassesService {
       }
     }
 
-    return cls;
+    await this.calendar.attach([cls.id]);
+    return this.findOne(cls.id);
   }
 
   async update(id: string, dto: UpdateClassDto) {
     await this.assertExists(id);
-    return this.prisma.class.update({
+    const updated = await this.prisma.class.update({
       where: { id },
       data: dto,
       select: CLASS_SELECT,
     });
+
+    // Zmiana terminu, czasu trwania lub tytułu musi trafić do kalendarza —
+    // inaczej wydarzenie zostaje ze starą datą.
+    if (dto.scheduledAt || dto.durationMin || dto.title || dto.description) {
+      await this.calendar.sync([id]);
+    }
+    return updated;
   }
 
   async remove(id: string) {
     await this.assertExists(id);
+    // PRZED usunięciem — potem nie ma skąd wziąć googleEventId.
+    await this.calendar.detach([id]);
     await this.prisma.attendance.deleteMany({ where: { classId: id } });
     await this.prisma.class.delete({ where: { id } });
   }
@@ -293,7 +279,7 @@ export class ClassesService {
           description: item.description,
           scheduledAt: item.scheduledAt,
           durationMin: item.durationMin,
-          meetLink: await this.resolveMeetLink(item),
+          meetLink: item.meetLink,
           pricePerClass: item.pricePerClass,
           groupId: item.groupId,
           studentId: item.studentId,
@@ -345,7 +331,12 @@ export class ClassesService {
       }
     }
 
-    return created;
+    await this.calendar.attach(created.map((c) => c.id));
+    return this.prisma.class.findMany({
+      where: { id: { in: created.map((c) => c.id) } },
+      select: CLASS_SELECT,
+      orderBy: { scheduledAt: 'asc' },
+    });
   }
 
   async updateBatch(batchId: string, dto: UpdateBatchDto) {
@@ -399,6 +390,9 @@ export class ClassesService {
       });
     }
 
+    // Przesunięcie dat całej serii — bez tego kalendarz zostaje przy starych.
+    await this.calendar.sync(await this.calendar.classIdsInBatch(batchId));
+
     return this.prisma.class.findMany({
       where: { batchId },
       select: CLASS_SELECT,
@@ -407,6 +401,8 @@ export class ClassesService {
   }
 
   async removeBatch(batchId: string) {
+    // PRZED usunięciem — potem nie ma skąd wziąć googleEventId.
+    await this.calendar.detach(await this.calendar.classIdsInBatch(batchId));
     await this.prisma.attendance.deleteMany({ where: { class: { batchId } } });
     await this.prisma.class.deleteMany({ where: { batchId } });
   }
@@ -430,6 +426,9 @@ export class ClassesService {
         'Zajęcia odwołane',
         `Zajęcia „${updated.title}" (${formatPlDateTime(updated.scheduledAt)}) zostały odwołane.${reason}`,
       );
+
+      // Odwołana lekcja nie może dalej widnieć w kalendarzu jako aktualna.
+      await this.calendar.detach([id]);
     }
 
     return updated;

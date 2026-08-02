@@ -485,6 +485,26 @@ Domyka rolę nauczyciela. Backend był gotowy po 5.2–5.3 (scoping `GET /groups
 
 ⚠ **Niezweryfikowane na żywo:** brak credentials Google, więc prawdziwe wywołanie do Calendar API nie zostało wykonane. Przetestowane jest wszystko poza nim: zachowanie z wyłączoną integracją (na żywo — zajęcia powstają, aplikacja startuje), pierwszeństwo ręcznego linku (na żywo), oraz kształt żądania, obsługa błędów i wymóg sekretów (testy z zamockowanym `googleapis`). **Pierwsze włączenie wymaga sprawdzenia, czy Google faktycznie zwraca `hangoutLink`.**
 
+### 5.8 — Meet: pełny cykl życia ✅
+
+Analiza flow tworzenia zajęć wykazała, że 5.7 pokryła **niewłaściwe ścieżki**: integracja działała dla zajęć pojedynczych (żywa ścieżka) i `bulk` (**martwa** — `RecurringClassModal` nie jest podpięty do żadnej strony od Fazy 2.4), a **pomijała generowanie z harmonogramu** — czyli sposób, w jaki powstaje większość zajęć.
+
+- [x] Migracja `add_class_google_event_id` — `Class.googleEventId`; bez niego nie da się wskazać wydarzenia do zmiany ani usunięcia
+- [x] `ClassCalendarService` (`modules/google/`, `@Global`) — jedno miejsce utrzymujące kalendarz w zgodzie z zajęciami. Ten sam wzorzec co `AccessControlService`: logika w jednym serwisie, żeby kolejne miejsce tworzące zajęcia nie musiało jej odkrywać od nowa
+- [x] `GoogleCalendarService` rozszerzony o `updateEvent` i `deleteEvent`; `createEvent` zwraca teraz **link ORAZ id**
+- [x] **Osiem ścieżek pokrytych:** `create`, `createBulk`, **`groups.generateClasses`**, `update`, `updateBatch`, `updateStatus(CANCELLED)`, `remove`, `removeBatch`
+- [x] `detach` woła się **przed** usunięciem zajęć — potem nie ma skąd wziąć `googleEventId`
+- [x] Zasada bez zmian: Google **nigdy nie blokuje** operacji w Academy; nieudana synchronizacja trafia do logów
+- [x] 24 testy jednostkowe (13 klienta + 11 warstwy domenowej)
+
+**Zweryfikowane na żywo, na prawdziwym kalendarzu** (mamy działające credentials):
+- generowanie z harmonogramu → 4 zajęcia, każde z własnym linkiem i `googleEventId`
+- zmiana terminu → wydarzenie przesunięte w Google (`2026-11-06T21:00+01:00`)
+- odwołanie → `status = cancelled` w Google, powiązanie wyczyszczone w bazie
+- usunięcie → wydarzenie usunięte
+
+Synchronizacja jest **jednokierunkowa** (Academy → Kalendarz). Dwukierunkowa wymagałaby webhooków Google i rozstrzygania konfliktów — nieproporcjonalne przy jednoosobowej szkole.
+
 ### Pozostałe rozszerzenia (przyszłość)
 
 - [ ] Zadania domowe (upload, ocenianie)
@@ -556,9 +576,9 @@ Rozważyć **managed Postgres** (Neon, Supabase) zamiast kontenera — zdejmuje 
 
 | Zestaw | Liczba | Komenda | We flow | W CI |
 |---|---|---|---|---|
-| API — jednostkowe (14 suite'ów) | 190 | `cd apps/api && npm test` | ✅ | ✅ |
+| API — jednostkowe (15 suite'ów) | 205 | `cd apps/api && npm test` | ✅ | ✅ |
 | API — integracyjne (5 spec) | 45 | `cd apps/api && npm run test:e2e` | ❌ (Docker) | ✅ |
 | Web — jednostkowe (7 plików, Vitest) | 72 | `cd apps/web && npm test` | ✅ | ✅ |
 | E2E — Playwright (6 spec) | 42 | `npx playwright test` | ❌ (Docker) | ✅ |
 
-**Razem 349 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
+**Razem 364 testy, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.

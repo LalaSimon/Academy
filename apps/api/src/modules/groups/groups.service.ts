@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ClassCalendarService } from '../google/class-calendar.service';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupQueryDto } from './dto/group-query.dto';
@@ -37,7 +38,10 @@ const GROUP_SELECT = {
 
 @Injectable()
 export class GroupsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private calendar: ClassCalendarService,
+  ) {}
 
   async findAll(query: GroupQueryDto) {
     const {
@@ -269,6 +273,10 @@ export class GroupsService {
     if (created.length > 0 && group.students.length > 0) {
       await this.createSupplementPaymentsIfNeeded(group, created, year, month);
     }
+
+    // Główna ścieżka tworzenia zajęć w aplikacji — bez tego zajęcia generowane
+    // z harmonogramu (czyli większość) nie dostawały linku Meet.
+    await this.calendar.attach(created.map((c) => c.id));
 
     return { created: created.length, classes: created };
   }

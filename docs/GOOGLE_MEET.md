@@ -70,8 +70,26 @@ Po restarcie API w logach pojawi się `Integracja Google Calendar włączona`.
 Ostatni wiersz jest celowy: brak linku nie może zablokować utworzenia lekcji.
 Link można potem uzupełnić ręcznie, edytując zajęcia.
 
-Linki generują się dla zajęć tworzonych pojedynczo **oraz** dla całych serii
-(`POST /classes/bulk`) — każde zajęcia dostają własne spotkanie.
+## Cykl życia — kalendarz nadąża za zajęciami
+
+Wydarzenie w Kalendarzu Google jest utrzymywane w zgodzie z zajęciami przez
+`ClassCalendarService`. Objęte są **wszystkie** ścieżki:
+
+| Operacja w Academy | Co dzieje się w kalendarzu |
+|---|---|
+| Zajęcia pojedyncze (`POST /classes`) | Powstaje wydarzenie ze spotkaniem |
+| Seria (`POST /classes/bulk`) | Każde zajęcia dostają własne spotkanie |
+| **Generowanie z harmonogramu** (`POST /groups/:id/generate-classes`) | Każde zajęcia dostają własne spotkanie |
+| Zmiana terminu, czasu trwania lub tytułu | Wydarzenie zostaje przesunięte |
+| Przesunięcie całej serii (`PATCH /classes/batch/:batchId`) | Wszystkie wydarzenia serii przesunięte |
+| Odwołanie zajęć (status `CANCELLED`) | Wydarzenie usunięte — odwołana lekcja nie może widnieć jako aktualna |
+| Usunięcie zajęć lub serii | Wydarzenia usunięte |
+
+`Class.googleEventId` przechowuje identyfikator wydarzenia — bez niego nie dałoby
+się go zaktualizować ani skasować.
+
+> Synchronizacja jest **jednokierunkowa**: Academy → Kalendarz. Zmiana wprowadzona
+> ręcznie w Kalendarzu Google nie wróci do aplikacji.
 
 ## Gdzie link jest widoczny
 
