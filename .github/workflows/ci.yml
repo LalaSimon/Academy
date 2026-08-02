@@ -46,6 +46,10 @@ jobs:
       STRIPE_WEBHOOK_SECRET: whsec_ci_dummy
       RESEND_API_KEY: re_ci_dummy
       MAIL_FROM: noreply@academy.pl
+      # Testy integracyjne logują się wielokrotnie z jednego IP — bez tego
+      # throttler auth (10/min) odrzuca je z 429.
+      AUTH_THROTTLE_LIMIT: "1000"
+      MAIL_THROTTLE_LIMIT: "1000"
 
     steps:
       - uses: actions/checkout@v4
