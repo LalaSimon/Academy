@@ -37,6 +37,9 @@ open http://localhost:5173
 
 Po starcie stack uruchamia: Postgres (5432), Redis (6379), MinIO (9000/9001), API (3000), Web (5173).
 
+> ⚠ **Redis stoi w `docker-compose.yml`, ale nie jest używany** — w kodzie API nie
+> ma ani jednego odwołania (BullMQ nigdy nie wszedł). Do usunięcia przed produkcją.
+
 ## Struktura monorepo
 
 ```
@@ -58,6 +61,7 @@ Academy/
 
 - **[Architektura](docs/ARCHITECTURE.md)** — stack, diagramy, znane pułapki
 - **[Roadmap](docs/ROADMAP.md)** — plan faz i status ukończenia
+- **[Google Meet](docs/GOOGLE_MEET.md)** — automatyczne linki do spotkań: konfiguracja i zachowanie
 - **[API Reference](docs/technical/API.md)** — wszystkie endpointy REST
 - **[Schemat bazy](docs/technical/DATABASE.md)** — modele Prisma, relacje
 - **[Docker](docs/technical/DOCKER.md)** — konfiguracja środowisk

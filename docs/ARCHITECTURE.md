@@ -158,7 +158,37 @@ materials/     → Upload/download plików (MinIO), treści
 payments/      → Faktury, statusy, webhook bramki płatności
 notifications/ → Email (Nodemailer), in-app notifications
 reports/       → Eksport XLSX: płatności, frekwencja, użytkownicy (ADMIN)
+google/        → Kalendarz Google: automatyczne linki Meet, cykl życia wydarzeń
 ```
+
+## Kontrola dostępu — `AccessControlService`
+
+**Najważniejsza zasada architektoniczna backendu**, wyprowadzona z audytu 2026-07-31/08-02.
+
+`@Roles()` odpowiada wyłącznie na pytanie „jaka rola", **nigdy** na „czyj jest zasób". Audyt wykazał 11 miejsc, gdzie ten drugi warunek nie był sprawdzany — m.in. uczeń mógł pobrać dowolną grupę razem z e-mailami jej uczniów, a nauczyciel odwołać cudze zajęcia.
+
+Cała logika „kto co może zobaczyć" siedzi w `common/access/access-control.service.ts` (`@Global`, jak Prisma):
+
+| Metoda | Zastosowanie |
+|--------|--------------|
+| `getAccessibleGroupIds(user)` | `null` = admin (bez ograniczeń), `[]` = żadne — **rozróżnienie krytyczne** |
+| `getAccessibleClassIds(user)` | Filtrowanie list zajęć i materiałów |
+| `assertCanReadGroup(user, id)` | 403 na cudzą grupę |
+| `assertCanAccessClass(user, id)` | Także dla **zapisu** (status, frekwencja) |
+| `assertCanReadMaterial(user, id)` | Publiczny / z grupy / z zajęć / własne wgranie |
+| `getVisibleStudentIds(user)` | Uczeń → on sam, rodzic → jego dzieci |
+
+Każdy nowy endpoint przyjmujący `:id` lub zwracający listę **musi** z tego korzystać. Szczegółowe reguły: `CLAUDE.md`, sekcja „Bezpieczeństwo".
+
+## Warstwa bezpieczeństwa HTTP
+
+- **`helmet`** — `X-Frame-Options`, `nosniff`, HSTS. CSP wyłączone (API zwraca JSON i pliki, nie HTML)
+- **`@nestjs/throttler`** — limity **wyłącznie na endpointach auth**, guard nie jest globalny:
+  - `auth` (10/min): `login`, `reset-password` — brute force
+  - `mail` (3/min): `register`, `resend-verification`, `forgot-password` — bez tego endpoint działa jak otwarty relay
+  - `AUTH_THROTTLE_LIMIT` / `MAIL_THROTTLE_LIMIT` podnoszone w dev i CI (E2E loguje się wielokrotnie z jednego IP)
+- **Sekrety przez `config.getOrThrow`** — nigdy `process.env.X ?? ''`. Pusty sekret nie wyłącza funkcji, tylko cicho wyłącza zabezpieczenie
+- **Logi bez PII** — `RequestLoggerMiddleware` zapisuje `user.id`, nie e-mail
 
 ## Raporty (eksport XLSX)
 
