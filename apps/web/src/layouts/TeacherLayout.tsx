@@ -5,6 +5,7 @@ import {
   GraduationCap,
   LayoutDashboard,
   Calendar,
+  BookOpen,
   BarChart2,
   LogOut,
   Sun,
@@ -18,6 +19,7 @@ import { NotificationBell } from '@/components/notifications/NotificationBell';
 const NAV_ITEMS = [
   { to: '/teacher/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/teacher/classes', label: 'Moje zajęcia', icon: Calendar },
+  { to: '/teacher/groups', label: 'Moje grupy', icon: BookOpen },
   { to: '/teacher/stats', label: 'Rozliczenie godzin', icon: BarChart2 },
 ];
 
