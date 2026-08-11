@@ -15,13 +15,17 @@ jest.mock('argon2', () => ({
 }));
 import * as argon2 from 'argon2';
 
+// Tylko `randomBytes` jest podmieniony — `createHash` zostaje prawdziwy, bo
+// testy weryfikują, że do bazy trafia realny skrót tokenu.
 jest.mock('crypto', () => ({
   ...jest.requireActual('crypto'),
   randomBytes: jest.fn(() => ({ toString: () => 'test-token-hex' })),
 }));
+import { createHash } from 'crypto';
 
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MailService } from '../../mail/mail.service';
+import { EmailRateLimitService } from '../../../common/throttling/email-rate-limit.service';
 import { Role } from '@prisma/client';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -104,6 +108,10 @@ const mockConfig = {
   }),
 };
 
+// Limit per adres — w testach zawsze przepuszcza; osobny spec sprawdza samą
+// logikę licznika (email-rate-limit.service.spec.ts).
+const mockEmailLimit = { consume: jest.fn().mockReturnValue(true) };
+
 const mockMail = {
   sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
   sendAdminNewRegistration: jest.fn().mockResolvedValue(undefined),
@@ -124,11 +132,13 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: mockJwt },
         { provide: ConfigService, useValue: mockConfig },
         { provide: MailService, useValue: mockMail },
+        { provide: EmailRateLimitService, useValue: mockEmailLimit },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
     jest.clearAllMocks();
+    mockEmailLimit.consume.mockReturnValue(true);
     mockPrisma.parentStudent.count.mockResolvedValue(0);
     mockPrisma.refreshToken.create.mockResolvedValue({});
   });
@@ -712,14 +722,108 @@ describe('AuthService', () => {
   });
 
   describe('logout', () => {
-    it('deletes refresh token', async () => {
+    it('deletes refresh token by its hash, never by the raw value', async () => {
       mockPrisma.refreshToken.deleteMany.mockResolvedValue({ count: 1 });
 
       await service.logout('some-token');
 
+      // Baza widzi wyłącznie SHA-256 tokenu. Asercja jest na skrócie, a nie na
+      // „czymkolwiek", bo istotą zmiany jest to, że surowa wartość nigdzie
+      // w zapytaniu nie występuje — wyciek bazy nie ma czego oddać.
+      const expectedHash = createHash('sha256')
+        .update('some-token')
+        .digest('hex');
+
       expect(mockPrisma.refreshToken.deleteMany).toHaveBeenCalledWith({
-        where: { token: 'some-token' },
+        where: { token: expectedHash },
       });
+
+      const [[call]] = mockPrisma.refreshToken.deleteMany.mock.calls as [
+        [{ where: { token: string } }],
+      ];
+      expect(call.where.token).not.toBe('some-token');
+    });
+  });
+
+  // ── Blokada konta ──────────────────────────────────────────────────────────
+
+  describe('login — blokada po nieudanych próbach', () => {
+    it('zlicza nieudaną próbę bez blokowania poniżej progu', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...mockVerifiedStudent,
+        failedLoginAttempts: 3,
+      });
+      (argon2.verify as jest.Mock).mockResolvedValue(false);
+
+      await expect(
+        service.login({ email: 'jan@example.com', password: 'wrong' }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: mockVerifiedStudent.id },
+        data: { failedLoginAttempts: 4 },
+      });
+    });
+
+    it('blokuje konto po osiągnięciu progu', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...mockVerifiedStudent,
+        failedLoginAttempts: 9,
+      });
+      (argon2.verify as jest.Mock).mockResolvedValue(false);
+
+      await expect(
+        service.login({ email: 'jan@example.com', password: 'wrong' }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      const call = mockPrisma.user.update.mock.calls[0][0] as {
+        data: { failedLoginAttempts: number; lockedUntil: Date };
+      };
+      expect(call.data.failedLoginAttempts).toBe(10);
+      expect(call.data.lockedUntil.getTime()).toBeGreaterThan(Date.now());
+    });
+
+    it('odrzuca logowanie na zablokowanym koncie BEZ sprawdzania hasła', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...mockVerifiedStudent,
+        lockedUntil: new Date(Date.now() + 60_000),
+      });
+      (argon2.verify as jest.Mock).mockResolvedValue(true);
+
+      await expect(
+        service.login({ email: 'jan@example.com', password: 'correct' }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      // Poprawne hasło na zablokowanym koncie też ma się odbić — inaczej
+      // blokada nie hamowałaby zgadywania, tylko opóźniała sukces.
+      expect(argon2.verify).not.toHaveBeenCalled();
+    });
+
+    it('zeruje licznik po udanym logowaniu', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...mockVerifiedStudent,
+        failedLoginAttempts: 4,
+      });
+      (argon2.verify as jest.Mock).mockResolvedValue(true);
+
+      await service.login({ email: 'jan@example.com', password: 'pass' });
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: mockVerifiedStudent.id },
+        data: { failedLoginAttempts: 0, lockedUntil: null },
+      });
+    });
+
+    it('weryfikuje hasz-atrapę, gdy konta nie ma — wyrównanie czasu odpowiedzi', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.login({ email: 'ghost@example.com', password: 'pass' }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      // Bez tego wywołania brak konta odpowiadał natychmiast, a istniejące
+      // dopiero po argon2 — różnica czasu zdradzała, które adresy są prawdziwe.
+      expect(argon2.verify).toHaveBeenCalled();
     });
   });
 });

@@ -1,39 +1,97 @@
 import {
   Injectable,
+  Logger,
   UnauthorizedException,
   ForbiddenException,
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { EmailRateLimitService } from '../../common/throttling/email-rate-limit.service';
 import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
 import type { SetupChildDto } from './dto/setup-child.dto';
 import type { JwtPayload } from './types/jwt-payload';
 
+/**
+ * Po tylu nieudanych próbach konto zostaje zablokowane czasowo. Próg jest
+ * wyraźnie wyższy niż liczba pomyłek realnego użytkownika, żeby blokada nie
+ * stała się sposobem na odcięcie komuś dostępu (DoS na konkretne konto).
+ */
+const MAX_FAILED_LOGINS = 10;
+
+/** Długość blokady rośnie z liczbą prób: 1 min, 5 min, 15 min, dalej 60 min. */
+const LOCKOUT_STEPS_MS = [60_000, 5 * 60_000, 15 * 60_000, 60 * 60_000];
+
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
     private config: ConfigService,
     private mail: MailService,
+    private emailLimit: EmailRateLimitService,
   ) {}
+
+  /**
+   * Limit dotyczy WYŁĄCZNIE maili, których odbiorcę podaje niezalogowany klient
+   * (rejestracja, ponowna weryfikacja, reset hasła) — tylko te da się skierować
+   * na cudzą skrzynkę. Poczta systemowa (przypomnienia o zajęciach, potwierdzenia
+   * płatności, powiadomienia admina) idzie z pominięciem limitu, bo jej odbiorcę
+   * wyznacza baza, a nie żądanie.
+   */
+  private async sendIfUnderLimit(
+    recipient: string,
+    send: () => Promise<void>,
+  ): Promise<void> {
+    if (!this.emailLimit.consume(recipient)) return;
+    await send();
+  }
 
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email, isActive: true },
     });
 
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    // Nieistniejące konto też „weryfikuje hasło" — na haszu-atrapie.
+    // Bez tego brak konta odpowiadał natychmiast, a istniejące dopiero po
+    // ~50–100 ms argon2. Różnica jest mierzalna zdalnie i pozwalała odsiać
+    // prawdziwe adresy przed atakiem słownikowym, mimo identycznego komunikatu.
+    if (!user) {
+      await argon2
+        .verify(await this.dummyHash(), dto.password)
+        .catch(() => false);
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      // Ten sam komunikat co przy złym haśle — inaczej odpowiedź zdradzałaby,
+      // że konto istnieje i że trafiono w nie serią prób.
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
     const passwordValid = await argon2.verify(user.passwordHash, dto.password);
-    if (!passwordValid) throw new UnauthorizedException('Invalid credentials');
+    if (!passwordValid) {
+      await this.registerFailedLogin(user.id, user.failedLoginAttempts);
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Udane logowanie zeruje licznik — inaczej pomyłki z różnych dni sumowałyby
+    // się w blokadę dla użytkownika, który zna hasło.
+    if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginAttempts: 0, lockedUntil: null },
+      });
+    }
 
     if (!user.emailVerified && !user.isMinor) {
       throw new UnauthorizedException('EMAIL_NOT_VERIFIED');
@@ -96,11 +154,13 @@ export class AuthService {
     );
     const verifyUrl = `${frontendUrl}/verify-email?token=${verificationToken}`;
 
-    await this.mail.sendVerificationEmail({
-      to: user.email,
-      firstName: user.firstName,
-      verifyUrl,
-    });
+    await this.sendIfUnderLimit(user.email, () =>
+      this.mail.sendVerificationEmail({
+        to: user.email,
+        firstName: user.firstName,
+        verifyUrl,
+      }),
+    );
 
     const adminEmail = this.config.get<string>('ADMIN_EMAIL');
     if (adminEmail) {
@@ -163,11 +223,13 @@ export class AuthService {
     );
     const verifyUrl = `${frontendUrl}/verify-email?token=${verificationToken}`;
 
-    await this.mail.sendVerificationEmail({
-      to: user.email,
-      firstName: user.firstName,
-      verifyUrl,
-    });
+    await this.sendIfUnderLimit(user.email, () =>
+      this.mail.sendVerificationEmail({
+        to: user.email,
+        firstName: user.firstName,
+        verifyUrl,
+      }),
+    );
 
     return { message: 'ok' };
   }
@@ -239,10 +301,12 @@ export class AuthService {
     const resetToken = randomBytes(32).toString('hex');
     const resetExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1h
 
+    // Skrót do bazy, surowy token tylko w linku wysłanym mailem — wyciek bazy
+    // nie może oddawać możliwości zmiany cudzego hasła.
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
-        passwordResetToken: resetToken,
+        passwordResetToken: this.hashToken(resetToken),
         passwordResetExpiry: resetExpiry,
       },
     });
@@ -253,19 +317,21 @@ export class AuthService {
     );
     const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
 
-    await this.mail.sendPasswordReset({
-      to: recipientEmail,
-      firstName: recipientName,
-      resetUrl,
-      forChildName,
-    });
+    await this.sendIfUnderLimit(recipientEmail, () =>
+      this.mail.sendPasswordReset({
+        to: recipientEmail,
+        firstName: recipientName,
+        resetUrl,
+        forChildName,
+      }),
+    );
 
     return { message: 'ok' };
   }
 
   async resetPassword(token: string, newPassword: string) {
     const user = await this.prisma.user.findUnique({
-      where: { passwordResetToken: token },
+      where: { passwordResetToken: this.hashToken(token) },
     });
     if (!user) throw new BadRequestException('INVALID_TOKEN');
     if (user.passwordResetExpiry && user.passwordResetExpiry < new Date()) {
@@ -292,7 +358,7 @@ export class AuthService {
 
   async refresh(token: string) {
     const stored = await this.prisma.refreshToken.findUnique({
-      where: { token },
+      where: { token: this.hashToken(token) },
       include: {
         user: { select: { id: true, email: true, role: true, isActive: true } },
       },
@@ -312,7 +378,9 @@ export class AuthService {
   }
 
   async logout(token: string) {
-    await this.prisma.refreshToken.deleteMany({ where: { token } });
+    await this.prisma.refreshToken.deleteMany({
+      where: { token: this.hashToken(token) },
+    });
   }
 
   async getMe(userId: string) {
@@ -359,6 +427,65 @@ export class AuthService {
     return `${slug}.${randomBytes(3).toString('hex')}@${domain}`;
   }
 
+  /**
+   * Hasz-atrapa do wyrównywania czasu logowania. Liczony raz, przy pierwszym
+   * użyciu, prawdziwym argon2 z tymi samymi parametrami co hasła — atrapa musi
+   * kosztować dokładnie tyle, co weryfikacja prawdziwego hasła, inaczej nie
+   * wyrównuje niczego. Hasło źródłowe jest losowe i nigdzie nie zapisane.
+   */
+  private dummyHashPromise: Promise<string> | null = null;
+  private dummyHash(): Promise<string> {
+    this.dummyHashPromise ??= argon2.hash(randomBytes(32).toString('hex'));
+    return this.dummyHashPromise;
+  }
+
+  /**
+   * Zapisuje nieudaną próbę i — po przekroczeniu progu — blokuje konto na czas
+   * rosnący z liczbą prób. Blokada jest jedyną obroną przed zgadywaniem hasła
+   * rozłożonym po wielu adresach IP, którego limit żądań nie zauważa.
+   */
+  private async registerFailedLogin(
+    userId: string,
+    currentAttempts: number,
+  ): Promise<void> {
+    const attempts = currentAttempts + 1;
+
+    if (attempts < MAX_FAILED_LOGINS) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { failedLoginAttempts: attempts },
+      });
+      return;
+    }
+
+    const step = Math.min(
+      Math.floor(attempts / MAX_FAILED_LOGINS) - 1,
+      LOCKOUT_STEPS_MS.length - 1,
+    );
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        failedLoginAttempts: attempts,
+        lockedUntil: new Date(Date.now() + LOCKOUT_STEPS_MS[step]),
+      },
+    });
+  }
+
+  /**
+   * Skrót tokenu do zapisu w bazie.
+   *
+   * SHA-256 bez KDF jest tu właściwy: token to 32–64 losowe bajty z `randomBytes`,
+   * a nie hasło — nie ma czego zgadywać słownikiem, więc spowalnianie funkcji
+   * (argon2) kosztowałoby przy każdym żądaniu odświeżenia i nic by nie dało.
+   *
+   * Sens zmiany: wyciek bazy (kopia zapasowa, dump w logu, SQLi w przyszłym
+   * endpoincie) przestaje oddawać atakującemu gotowe sesje na 7 dni i możliwość
+   * zmiany cudzego hasła. Klient dostaje surowy token jak dotąd.
+   */
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
   private signAccessToken(sub: string, email: string, role: string) {
     const payload: JwtPayload = {
       sub,
@@ -374,9 +501,28 @@ export class AuthService {
   private async createRefreshToken(userId: string) {
     const token = randomBytes(64).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    // Do bazy trafia skrót; surowy token dostaje wyłącznie klient (cookie).
     await this.prisma.refreshToken.create({
-      data: { token, userId, expiresAt },
+      data: { token: this.hashToken(token), userId, expiresAt },
     });
     return token;
+  }
+
+  /**
+   * Kasuje wygasłe tokeny odświeżania.
+   *
+   * `refresh` usuwa stary token przy rotacji, a `logout` swój własny — ale sesja
+   * porzucona bez wylogowania (zamknięta karta, wyczyszczone ciasteczka) zostawała
+   * w tabeli NA ZAWSZE. Tabela puchła, `findUnique` po tokenie zwalniał, a kopie
+   * zapasowe rosły o dane, które do niczego już nie służą.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async purgeExpiredRefreshTokens(): Promise<void> {
+    const { count } = await this.prisma.refreshToken.deleteMany({
+      where: { expiresAt: { lt: new Date() } },
+    });
+    if (count > 0) {
+      this.logger.log(`Usunięto ${count} wygasłych tokenów odświeżania`);
+    }
   }
 }

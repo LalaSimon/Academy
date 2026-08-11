@@ -75,6 +75,13 @@ model User {
   passwordResetToken  String?   @unique
   passwordResetExpiry DateTime?
 
+  // Blokada po serii nieudanych logowań. Limit żądań per IP nie wystarcza:
+  // botnet albo pula proxy rozkłada zgadywanie hasła na dowolnie wiele adresów
+  // i limit przestaje cokolwiek znaczyć. Licznik jest per KONTO, więc rozpraszanie
+  // źródła nie pomaga.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

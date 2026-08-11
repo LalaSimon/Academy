@@ -6,7 +6,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 const prismaMock = {
   parentStudent: { findMany: jest.fn() },
   group: { findMany: jest.fn() },
-  groupStudent: { findMany: jest.fn() },
+  groupStudent: { findMany: jest.fn(), findFirst: jest.fn() },
   class: { findFirst: jest.fn(), findUnique: jest.fn(), findMany: jest.fn() },
   material: { findUnique: jest.fn() },
 };
@@ -276,6 +276,128 @@ describe('AccessControlService', () => {
       await expect(
         service.getVisibleStudentIds({ id: 'p1', role: 'PARENT' }),
       ).resolves.toEqual(['c1', 'c2']);
+    });
+  });
+
+  // ── assertCanModifyMaterial ────────────────────────────────────────────────
+  //
+  // Osobno od `assertCanReadMaterial`: prawo do CZYTANIA ma każdy uczeń grupy,
+  // do której materiał jest przypięty. Prawo do ZMIANY — tylko autor i admin.
+
+  describe('assertCanModifyMaterial', () => {
+    it('przepuszcza autora wgrania', async () => {
+      prismaMock.material.findUnique.mockResolvedValue({ uploadedBy: 't1' });
+      await expect(
+        service.assertCanModifyMaterial({ id: 't1', role: 'TEACHER' }, 'm1'),
+      ).resolves.toBeUndefined();
+    });
+
+    it('odrzuca nauczyciela, który materiału nie wgrał', async () => {
+      prismaMock.material.findUnique.mockResolvedValue({ uploadedBy: 't2' });
+      await expect(
+        service.assertCanModifyMaterial({ id: 't1', role: 'TEACHER' }, 'm1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('odrzuca nauczyciela nawet gdy materiał jest w jego grupie', async () => {
+      // Kluczowa różnica względem odczytu: przypięcie do własnej grupy daje
+      // prawo widzieć, ale nie prawo skasować cudzy plik z MinIO.
+      prismaMock.material.findUnique.mockResolvedValue({ uploadedBy: 't2' });
+      prismaMock.group.findMany.mockResolvedValue([{ id: 'g1' }]);
+      await expect(
+        service.assertCanModifyMaterial({ id: 't1', role: 'TEACHER' }, 'm1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('przepuszcza admina bez zapytania do bazy', async () => {
+      await expect(
+        service.assertCanModifyMaterial({ id: 'a1', role: 'ADMIN' }, 'm1'),
+      ).resolves.toBeUndefined();
+      expect(prismaMock.material.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('rzuca 404 dla nieistniejącego materiału', async () => {
+      prismaMock.material.findUnique.mockResolvedValue(null);
+      await expect(
+        service.assertCanModifyMaterial({ id: 't1', role: 'TEACHER' }, 'brak'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ── assertCanReadStudent ───────────────────────────────────────────────────
+
+  describe('assertCanReadStudent', () => {
+    it('przepuszcza nauczyciela, którego łączą z uczniem zajęcia', async () => {
+      prismaMock.class.findFirst.mockResolvedValue({ id: 'c1' });
+      await expect(
+        service.assertCanReadStudent({ id: 't1', role: 'TEACHER' }, 's1'),
+      ).resolves.toBeUndefined();
+    });
+
+    it('sprawdza OBIE ścieżki prowadzenia zajęć i OBIE przynależności ucznia', async () => {
+      prismaMock.class.findFirst.mockResolvedValue({ id: 'c1' });
+      await service.assertCanReadStudent({ id: 't1', role: 'TEACHER' }, 's1');
+
+      // Struktura WHERE, nie tylko wynik: `Class.teacherId` bywa null (prowadzi
+      // nauczyciel grupy), a zajęcia 1:1 nie mają `groupId`. Zgubienie którejś
+      // gałęzi odcięłoby nauczycielowi dostęp do własnych uczniów.
+      const where = prismaMock.class.findFirst.mock.calls[0][0].where;
+      expect(where.AND[0].OR).toEqual([
+        { teacherId: 't1' },
+        { teacherId: null, group: { teacherId: 't1' } },
+      ]);
+      expect(where.AND[1].OR).toEqual([
+        { studentId: 's1' },
+        { group: { students: { some: { studentId: 's1', isActive: true } } } },
+      ]);
+    });
+
+    it('przepuszcza nauczyciela, gdy uczeń jest w jego grupie bez wygenerowanych zajęć', async () => {
+      prismaMock.class.findFirst.mockResolvedValue(null);
+      prismaMock.groupStudent.findFirst.mockResolvedValue({ id: 'gs1' });
+      await expect(
+        service.assertCanReadStudent({ id: 't1', role: 'TEACHER' }, 's1'),
+      ).resolves.toBeUndefined();
+    });
+
+    it('odrzuca nauczyciela bez żadnego powiązania z uczniem', async () => {
+      prismaMock.class.findFirst.mockResolvedValue(null);
+      prismaMock.groupStudent.findFirst.mockResolvedValue(null);
+      await expect(
+        service.assertCanReadStudent({ id: 't1', role: 'TEACHER' }, 'obcy'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('uczeń widzi tylko siebie', async () => {
+      await expect(
+        service.assertCanReadStudent({ id: 's1', role: 'STUDENT' }, 's1'),
+      ).resolves.toBeUndefined();
+      await expect(
+        service.assertCanReadStudent({ id: 's1', role: 'STUDENT' }, 's2'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('rodzic widzi tylko swoje dzieci', async () => {
+      prismaMock.parentStudent.findMany.mockResolvedValue([
+        { studentId: 'c1' },
+      ]);
+      await expect(
+        service.assertCanReadStudent({ id: 'p1', role: 'PARENT' }, 'c1'),
+      ).resolves.toBeUndefined();
+
+      prismaMock.parentStudent.findMany.mockResolvedValue([
+        { studentId: 'c1' },
+      ]);
+      await expect(
+        service.assertCanReadStudent({ id: 'p1', role: 'PARENT' }, 'obce'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('przepuszcza admina bez zapytań', async () => {
+      await expect(
+        service.assertCanReadStudent({ id: 'a1', role: 'ADMIN' }, 's1'),
+      ).resolves.toBeUndefined();
+      expect(prismaMock.class.findFirst).not.toHaveBeenCalled();
     });
   });
 });

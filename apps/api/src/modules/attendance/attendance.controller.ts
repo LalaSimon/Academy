@@ -1,6 +1,5 @@
 import {
   Controller,
-  ForbiddenException,
   Get,
   Patch,
   Body,
@@ -73,15 +72,10 @@ export class AttendanceController {
     @Param('studentId') studentId: string,
     @Query() query: StudentStatsQuery,
   ) {
-    if (req.user.role === 'STUDENT' && req.user.id !== studentId) {
-      throw new ForbiddenException();
-    }
-    if (req.user.role === 'PARENT') {
-      const childIds = await this.attendanceService.getParentChildIds(
-        req.user.id,
-      );
-      if (!childIds.includes(studentId)) throw new ForbiddenException();
-    }
+    // Wcześniej sprawdzani byli tylko STUDENT i PARENT — rola TEACHER nie była
+    // sprawdzana w ogóle, więc dowolny nauczyciel pobierał pełną frekwencję
+    // dowolnego ucznia w szkole, także takiego, którego nigdy nie uczył.
+    await this.access.assertCanReadStudent(req.user, studentId);
     return this.attendanceService.getStudentStats(studentId, {
       from: query.from ? new Date(query.from) : undefined,
       to: query.to ? new Date(query.to) : undefined,

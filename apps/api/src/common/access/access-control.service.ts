@@ -161,6 +161,88 @@ export class AccessControlService {
     throw new ForbiddenException();
   }
 
+  /**
+   * Rzuca 403, jeśli użytkownik nie ma prawa ZMIENIĆ materiału (skasować,
+   * przypiąć do zajęć/grupy, odpiąć).
+   *
+   * Osobno od `assertCanReadMaterial`, bo prawo do czytania jest znacznie
+   * szersze: materiał widzi każdy uczeń grupy, do której jest przypięty.
+   * Modyfikować może wyłącznie autor wgrania albo admin — bez tego (audyt
+   * 2026-08-11) dowolny nauczyciel kasował materiały kolegów.
+   */
+  async assertCanModifyMaterial(
+    user: RequestUser,
+    materialId: string,
+  ): Promise<void> {
+    if (user.role === Role.ADMIN) return;
+
+    const material = await this.prisma.material.findUnique({
+      where: { id: materialId },
+      select: { uploadedBy: true },
+    });
+    if (!material)
+      throw new NotFoundException(`Material ${materialId} not found`);
+
+    if (material.uploadedBy !== user.id) throw new ForbiddenException();
+  }
+
+  /**
+   * Rzuca 403, jeśli użytkownik nie ma prawa oglądać danych tego ucznia.
+   *
+   * Uczeń → tylko on sam, rodzic → tylko jego dzieci (to pokrywał już
+   * `getVisibleStudentIds`). Nauczyciel → tylko uczeń, z którym łączą go
+   * zajęcia: wspólna grupa albo zajęcia 1:1. Wcześniej rola TEACHER nie była
+   * sprawdzana w ogóle, więc dowolny nauczyciel pobierał frekwencję dowolnego
+   * ucznia w szkole.
+   */
+  async assertCanReadStudent(
+    user: RequestUser,
+    studentId: string,
+  ): Promise<void> {
+    if (user.role === Role.ADMIN) return;
+
+    if (user.role === Role.TEACHER) {
+      // Dwie drogi, bo zajęcia 1:1 NIE MAJĄ `groupId`, a `Class.teacherId`
+      // bywa null (prowadzącym jest wtedy nauczyciel grupy). Sam filtr po
+      // grupach zgubiłby uczniów indywidualnych.
+      const teaches = await this.prisma.class.findFirst({
+        where: {
+          AND: [
+            {
+              OR: [
+                { teacherId: user.id },
+                { teacherId: null, group: { teacherId: user.id } },
+              ],
+            },
+            {
+              OR: [
+                { studentId },
+                {
+                  group: { students: { some: { studentId, isActive: true } } },
+                },
+              ],
+            },
+          ],
+        },
+        select: { id: true },
+      });
+      if (teaches) return;
+
+      // Uczeń może być w grupie nauczyciela, dla której nie wygenerowano
+      // jeszcze ani jednych zajęć — wtedy powyższe nic nie znajdzie.
+      const inGroup = await this.prisma.groupStudent.findFirst({
+        where: { studentId, isActive: true, group: { teacherId: user.id } },
+        select: { id: true },
+      });
+      if (inGroup) return;
+
+      throw new ForbiddenException();
+    }
+
+    const visible = await this.getVisibleStudentIds(user);
+    if (!visible.includes(studentId)) throw new ForbiddenException();
+  }
+
   /** Zajęcia, które użytkownik ma prawo oglądać (dla filtrowania list). */
   async getAccessibleClassIds(user: RequestUser): Promise<string[]> {
     const where =

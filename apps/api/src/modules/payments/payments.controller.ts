@@ -30,6 +30,7 @@ import { QueryStatsDto } from './dto/query-stats.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { ThrottleCheckout } from '../../common/throttling/throttle.decorators';
 import { IsUrl } from 'class-validator';
 
 class CheckoutDto {
@@ -128,8 +129,12 @@ export class PaymentsController {
     return this.paymentsService.updateStatus(id, dto);
   }
 
+  // Każde wywołanie tworzy sesję w API Stripe. Sprawdzenie właściciela nie
+  // hamuje pętli po WŁASNEJ płatności — a taka pętla wyczerpuje nasz rate limit
+  // u Stripe, czyli realne płatności innych uczniów zaczynają failować.
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Post(':id/checkout')
+  @ThrottleCheckout()
   @Roles('ADMIN', 'STUDENT', 'PARENT')
   async checkout(
     @Param('id') id: string,

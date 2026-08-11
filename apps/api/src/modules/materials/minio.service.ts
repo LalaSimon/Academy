@@ -9,13 +9,21 @@ export class MinioService implements OnModuleInit {
   private readonly logger = new Logger(MinioService.name);
 
   constructor(private config: ConfigService) {
-    this.bucket = this.config.get('MINIO_BUCKET', 'academy');
+    // `getOrThrow` dla poświadczeń i bucketu — nie `get` z wartością domyślną.
+    // Poprzednie `get('MINIO_ACCESS_KEY', 'minioadmin')` to ten sam fail-open,
+    // który reguła nr 4 z CLAUDE.md zakazuje w postaci `?? ''`: wdrożenie bez
+    // kompletu zmiennych WSTAWAŁO i po cichu łączyło się powszechnie znanym
+    // hasłem, zamiast zatrzymać start. `docker-compose.yml` naprawiono już
+    // wcześniej (`${VAR:?}`), kod został z domyślnymi.
+    this.bucket = this.config.getOrThrow<string>('MINIO_BUCKET');
     this.client = new Minio.Client({
-      endPoint: this.config.get('MINIO_ENDPOINT', 'minio'),
+      endPoint: this.config.getOrThrow<string>('MINIO_ENDPOINT'),
+      accessKey: this.config.getOrThrow<string>('MINIO_ACCESS_KEY'),
+      secretKey: this.config.getOrThrow<string>('MINIO_SECRET_KEY'),
+      // Port i SSL nie są sekretami — domyślne wartości są tu bezpieczne,
+      // bo ich brak nie wyłącza żadnego zabezpieczenia.
       port: parseInt(this.config.get('MINIO_PORT', '9000')),
       useSSL: this.config.get('MINIO_USE_SSL', 'false') === 'true',
-      accessKey: this.config.get('MINIO_ACCESS_KEY', 'minioadmin'),
-      secretKey: this.config.get('MINIO_SECRET_KEY', 'minioadmin'),
     });
   }
 
