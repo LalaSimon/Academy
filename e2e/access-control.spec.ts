@@ -407,32 +407,48 @@ test.describe('Kontrola dostępu — odczyt', () => {
   test('nauczyciel NIE pobierze frekwencji ucznia, którego nie uczy', async ({
     request,
   }) => {
-    const students = await request.get('/api/v1/users?role=STUDENT&limit=100', {
+    // Uczeń kontrolny powstaje w locie i NIE trafia do żadnej grupy ani zajęć.
+    // Wybieranie „obcego" z listy istniejących było zawodne: pierwsza wersja
+    // wskazała ucznia, który nie miał zajęć, ale należał do grupy nauczyciela —
+    // czyli kogoś, kogo `assertCanReadStudent` słusznie przepuszcza. Test padał
+    // na własnym błędzie doboru danych, nie na regresji w kodzie. Skip też nie
+    // wchodzi w grę: gdyby seed umieścił wszystkich uczniów w grupie nauczyciela,
+    // test po cichu przestałby cokolwiek sprawdzać.
+    const created = await request.post('/api/v1/users', {
       headers: auth(adminToken),
+      data: {
+        email: `acl-obcy-uczen-${Date.now()}@test.academy`,
+        password: 'Student1234!',
+        firstName: 'Obcy',
+        lastName: 'Uczen',
+        role: 'STUDENT',
+      },
     });
-    const all = (await students.json()).data as { id: string }[];
+    expect(
+      created.ok(),
+      `nie udało się utworzyć ucznia kontrolnego: ${created.status()} ${await created.text()}`,
+    ).toBeTruthy();
+    const foreignStudentId = (await created.json()).id as string;
 
-    // Uczeń bez żadnego powiązania z naszym nauczycielem: bierzemy takiego,
-    // którego nie ma na liście uczniów widocznych dla nauczyciela przez zajęcia.
-    const teacherClasses = await request.get('/api/v1/classes?limit=200', {
-      headers: auth(teacherToken),
-    });
-    const taught = new Set<string>();
-    for (const c of (await teacherClasses.json()).data as {
-      student: { id: string } | null;
-      group: { students?: { student: { id: string } }[] } | null;
-    }[]) {
-      if (c.student) taught.add(c.student.id);
-      for (const s of c.group?.students ?? []) taught.add(s.student.id);
+    try {
+      const res = await request.get(
+        `/api/v1/attendance/student/${foreignStudentId}`,
+        { headers: auth(teacherToken) },
+      );
+      expect(res.status()).toBe(403);
+
+      // Admin ma widzieć tego samego ucznia bez przeszkód — inaczej test
+      // potwierdzałby tylko, że endpoint jest zepsuty dla wszystkich.
+      const asAdmin = await request.get(
+        `/api/v1/attendance/student/${foreignStudentId}`,
+        { headers: auth(adminToken) },
+      );
+      expect(asAdmin.status()).toBe(200);
+    } finally {
+      await request.delete(`/api/v1/users/${foreignStudentId}`, {
+        headers: auth(adminToken),
+      });
     }
-
-    const foreign = all.find((s) => !taught.has(s.id));
-    test.skip(!foreign, 'brak ucznia spoza zajęć nauczyciela');
-
-    const res = await request.get(`/api/v1/attendance/student/${foreign!.id}`, {
-      headers: auth(teacherToken),
-    });
-    expect(res.status()).toBe(403);
   });
 
   test('uczeń pobiera własną frekwencję', async ({ request }) => {
