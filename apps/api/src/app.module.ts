@@ -4,11 +4,14 @@ import {
   NestModule,
   RequestMethod,
 } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { throttlerTiers } from './common/throttling/throttle.config';
 import { PrismaModule } from './prisma/prisma.module';
 import { AccessControlModule } from './common/access/access-control.module';
+import { ThrottlingModule } from './common/throttling/throttling.module';
 import { GoogleCalendarModule } from './modules/google/google-calendar.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -26,26 +29,14 @@ import { RequestLoggerMiddleware } from './common/middleware/request-logger.midd
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
-    // Limity dotyczą wyłącznie endpointów auth (patrz AuthController) — guard
-    // nie jest globalny, żeby nie dławić normalnego korzystania z aplikacji.
-    // `AUTH_THROTTLE_LIMIT` podnosimy w dev i CI, bo zestaw E2E loguje się
-    // kilkanaście razy w ciągu minuty; produkcja zostaje przy domyślnych 10.
-    ThrottlerModule.forRoot([
-      {
-        name: 'auth',
-        ttl: 60_000,
-        limit: Number(process.env.AUTH_THROTTLE_LIMIT ?? 10),
-      },
-      {
-        // Osobno i ostrzej dla akcji, które WYSYŁAJĄ MAILA — bez tego endpoint
-        // działa jak otwarty relay na cudze adresy przez nasze konto Resend.
-        name: 'mail',
-        ttl: 60_000,
-        limit: Number(process.env.MAIL_THROTTLE_LIMIT ?? 3),
-      },
-    ]),
+    // Limity obowiązują GLOBALNIE (patrz APP_GUARD niżej). Wcześniej guard był
+    // podpięty punktowo w AuthController, więc 167 ze 172 tras — w tym streaming
+    // plików, raporty XLSX i tworzenie sesji Stripe — nie miało żadnego limitu.
+    // Definicja warstw i uzasadnienie każdej wartości: throttle.config.ts.
+    ThrottlerModule.forRoot(throttlerTiers),
     PrismaModule,
     AccessControlModule,
+    ThrottlingModule,
     GoogleCalendarModule,
     MailModule,
     AuthModule,
@@ -57,6 +48,11 @@ import { RequestLoggerMiddleware } from './common/middleware/request-logger.midd
     PaymentsModule,
     ReportsModule,
     NotificationsModule,
+  ],
+  providers: [
+    // Globalnie, żeby nowa trasa była objęta limitem z automatu — poprzednio
+    // ochronę trzeba było pamiętać dodać ręcznie i przy 167 trasach zapomniano.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule implements NestModule {

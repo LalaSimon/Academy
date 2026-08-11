@@ -6,7 +6,7 @@ import { ClassCalendarService } from '../google/class-calendar.service';
 import { formatPlDateTime } from '../../common/utils/format-date';
 import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
-import { ClassQueryDto } from './dto/class-query.dto';
+import { ClassQueryDto, MAX_CLASSES_PAGE_SIZE } from './dto/class-query.dto';
 
 export interface UpdateBatchDto {
   title?: string;
@@ -68,8 +68,12 @@ export class ClassesService {
       from,
       to,
       page = 1,
-      limit = 50,
+      limit: requestedLimit = 50,
     } = query;
+    // Domknięcie po stronie serwisu, niezależne od `@Max` w DTO — metoda bywa
+    // wołana z obiektem złożonym w kontrolerze (`{ ...query, teacherId }`),
+    // który przez walidację DTO już nie przechodzi.
+    const limit = Math.min(requestedLimit, MAX_CLASSES_PAGE_SIZE);
     const skip = (page - 1) * limit;
 
     // Warunki zawężające trafiają do AND, żeby kolejne `OR` się nie nadpisywały.

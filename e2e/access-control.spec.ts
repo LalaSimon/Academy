@@ -318,4 +318,157 @@ test.describe('Kontrola dostępu — odczyt', () => {
     });
     expect([401, 403]).toContain(res.status());
   });
+
+  // ── Audyt 2026-08-11 ──────────────────────────────────────────────────────
+  // Pięć tras materiałów sprawdzało tylko ROLĘ, nie właściciela, a frekwencja
+  // ucznia nie sprawdzała nauczyciela w ogóle.
+
+  test('nauczyciel NIE skasuje cudzego materiału', async ({ request }) => {
+    // Materiał wgrany przez admina — nauczyciel nie jest jego autorem.
+    const created = await request.post('/api/v1/materials', {
+      headers: auth(adminToken),
+      data: {
+        title: `ACL cudzy materiał ${Date.now()}`,
+        type: 'LINK',
+        url: 'https://example.com/nie-moj',
+      },
+    });
+    expect(created.ok()).toBeTruthy();
+    const materialId = (await created.json()).id as string;
+
+    try {
+      const res = await request.delete(`/api/v1/materials/${materialId}`, {
+        headers: auth(teacherToken),
+      });
+      expect(res.status()).toBe(403);
+
+      // Materiał musi nadal istnieć — 403 bez skutku ubocznego.
+      const still = await request.get(`/api/v1/materials/${materialId}`, {
+        headers: auth(adminToken),
+      });
+      expect(still.status()).toBe(200);
+    } finally {
+      await request.delete(`/api/v1/materials/${materialId}`, {
+        headers: auth(adminToken),
+      });
+    }
+  });
+
+  test('nauczyciel NIE przypnie cudzego materiału do grupy', async ({
+    request,
+  }) => {
+    // Najgroźniejszy z pominiętych zapisów: pozwalał opublikować dowolny
+    // materiał uczniom dowolnej grupy w szkole.
+    const created = await request.post('/api/v1/materials', {
+      headers: auth(adminToken),
+      data: {
+        title: `ACL cudzy do przypięcia ${Date.now()}`,
+        type: 'LINK',
+        url: 'https://example.com/nie-moj-2',
+      },
+    });
+    const materialId = (await created.json()).id as string;
+
+    try {
+      const res = await request.post(
+        `/api/v1/materials/${materialId}/groups/${foreignGroupId}`,
+        { headers: auth(teacherToken) },
+      );
+      expect(res.status()).toBe(403);
+    } finally {
+      await request.delete(`/api/v1/materials/${materialId}`, {
+        headers: auth(adminToken),
+      });
+    }
+  });
+
+  test('nauczyciel zarządza materiałem, który sam wgrał', async ({
+    request,
+  }) => {
+    // Druga strona reguły: własny zasób ma dawać 200/201, inaczej naprawa
+    // zablokowałaby normalną pracę zamiast tylko nadużycia.
+    const created = await request.post('/api/v1/materials', {
+      headers: auth(teacherToken),
+      data: {
+        title: `ACL własny materiał ${Date.now()}`,
+        type: 'LINK',
+        url: 'https://example.com/moj',
+      },
+    });
+    expect(created.ok()).toBeTruthy();
+    const materialId = (await created.json()).id as string;
+
+    const removed = await request.delete(`/api/v1/materials/${materialId}`, {
+      headers: auth(teacherToken),
+    });
+    expect(removed.ok()).toBeTruthy();
+  });
+
+  test('nauczyciel NIE pobierze frekwencji ucznia, którego nie uczy', async ({
+    request,
+  }) => {
+    // Uczeń kontrolny powstaje w locie i NIE trafia do żadnej grupy ani zajęć.
+    // Wybieranie „obcego" z listy istniejących było zawodne: pierwsza wersja
+    // wskazała ucznia, który nie miał zajęć, ale należał do grupy nauczyciela —
+    // czyli kogoś, kogo `assertCanReadStudent` słusznie przepuszcza. Test padał
+    // na własnym błędzie doboru danych, nie na regresji w kodzie. Skip też nie
+    // wchodzi w grę: gdyby seed umieścił wszystkich uczniów w grupie nauczyciela,
+    // test po cichu przestałby cokolwiek sprawdzać.
+    const created = await request.post('/api/v1/users', {
+      headers: auth(adminToken),
+      data: {
+        email: `acl-obcy-uczen-${Date.now()}@test.academy`,
+        password: 'Student1234!',
+        firstName: 'Obcy',
+        lastName: 'Uczen',
+        role: 'STUDENT',
+      },
+    });
+    expect(
+      created.ok(),
+      `nie udało się utworzyć ucznia kontrolnego: ${created.status()} ${await created.text()}`,
+    ).toBeTruthy();
+    const foreignStudentId = (await created.json()).id as string;
+
+    try {
+      const res = await request.get(
+        `/api/v1/attendance/student/${foreignStudentId}`,
+        { headers: auth(teacherToken) },
+      );
+      expect(res.status()).toBe(403);
+
+      // Admin ma widzieć tego samego ucznia bez przeszkód — inaczej test
+      // potwierdzałby tylko, że endpoint jest zepsuty dla wszystkich.
+      const asAdmin = await request.get(
+        `/api/v1/attendance/student/${foreignStudentId}`,
+        { headers: auth(adminToken) },
+      );
+      expect(asAdmin.status()).toBe(200);
+    } finally {
+      await request.delete(`/api/v1/users/${foreignStudentId}`, {
+        headers: auth(adminToken),
+      });
+    }
+  });
+
+  test('uczeń pobiera własną frekwencję', async ({ request }) => {
+    const me = await (
+      await request.get('/api/v1/auth/me', { headers: auth(studentToken) })
+    ).json();
+    const res = await request.get(`/api/v1/attendance/student/${me.id}`, {
+      headers: auth(studentToken),
+    });
+    expect(res.status()).toBe(200);
+  });
+
+  test('limit paginacji jest domknięty — ?limit=1000000 daje 400', async ({
+    request,
+  }) => {
+    // Bez `@Max` w ClassQueryDto ta wartość szła prosto do `take` i zwracała
+    // całą tabelę zajęć razem z relacjami.
+    const res = await request.get('/api/v1/classes?limit=1000000', {
+      headers: auth(adminToken),
+    });
+    expect(res.status()).toBe(400);
+  });
 });

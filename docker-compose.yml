@@ -72,10 +72,17 @@ services:
       REDIS_URL: redis://redis:6379
       MINIO_ENDPOINT: minio
       FRONTEND_URL: http://localhost:5173
-      # Zestaw E2E loguje się kilkanaście razy w minutę z jednego IP.
-      # Produkcja nie ustawia tych zmiennych i zostaje przy 10/min i 3/min.
+      # Zestaw E2E wykonuje setki żądań z jednego IP w kilkadziesiąt sekund.
+      # Produkcja nie ustawia tych zmiennych i zostaje przy wartościach z kodu
+      # (apps/api/src/common/throttling/throttle.config.ts).
+      IP_THROTTLE_LIMIT: "100000"
+      GLOBAL_THROTTLE_LIMIT: "100000"
       AUTH_THROTTLE_LIMIT: "1000"
       MAIL_THROTTLE_LIMIT: "1000"
+      UPLOAD_THROTTLE_LIMIT: "1000"
+      DOWNLOAD_THROTTLE_LIMIT: "1000"
+      REPORT_THROTTLE_LIMIT: "1000"
+      CHECKOUT_THROTTLE_LIMIT: "1000"
     depends_on:
       postgres:
         condition: service_healthy

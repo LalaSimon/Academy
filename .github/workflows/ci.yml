@@ -46,10 +46,23 @@ jobs:
       STRIPE_WEBHOOK_SECRET: whsec_ci_dummy
       RESEND_API_KEY: re_ci_dummy
       MAIL_FROM: noreply@academy.pl
-      # Testy integracyjne logują się wielokrotnie z jednego IP — bez tego
-      # throttler auth (10/min) odrzuca je z 429.
+      # MinioService używa `getOrThrow` (fail-open na `minioadmin` usunięty
+      # w audycie 2026-08-11), więc AppModule nie wstanie bez tych zmiennych.
+      MINIO_ENDPOINT: localhost
+      MINIO_PORT: "9000"
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: academy-materials
+      # Zestaw testowy wykonuje setki żądań z jednego IP — limity są teraz
+      # GLOBALNE (każda trasa), więc podnosimy komplet, nie tylko auth.
+      IP_THROTTLE_LIMIT: "100000"
+      GLOBAL_THROTTLE_LIMIT: "100000"
       AUTH_THROTTLE_LIMIT: "1000"
       MAIL_THROTTLE_LIMIT: "1000"
+      UPLOAD_THROTTLE_LIMIT: "1000"
+      DOWNLOAD_THROTTLE_LIMIT: "1000"
+      REPORT_THROTTLE_LIMIT: "1000"
+      CHECKOUT_THROTTLE_LIMIT: "1000"
 
     steps:
       - uses: actions/checkout@v4
@@ -147,9 +160,16 @@ jobs:
       RESEND_API_KEY: re_ci_dummy
       MAIL_FROM: noreply@academy.pl
       ADMIN_EMAIL: admin@academy.pl
-      # Limity auth podniesione — zestaw E2E loguje się wielokrotnie z jednego IP
+      # Zestaw testowy wykonuje setki żądań z jednego IP — limity są teraz
+      # GLOBALNE (każda trasa), więc podnosimy komplet, nie tylko auth.
+      IP_THROTTLE_LIMIT: "100000"
+      GLOBAL_THROTTLE_LIMIT: "100000"
       AUTH_THROTTLE_LIMIT: "1000"
       MAIL_THROTTLE_LIMIT: "1000"
+      UPLOAD_THROTTLE_LIMIT: "1000"
+      DOWNLOAD_THROTTLE_LIMIT: "1000"
+      REPORT_THROTTLE_LIMIT: "1000"
+      CHECKOUT_THROTTLE_LIMIT: "1000"
 
     steps:
       - uses: actions/checkout@v4

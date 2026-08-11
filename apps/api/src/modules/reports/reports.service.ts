@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Workbook } from 'exceljs';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ReportPaymentsDto } from './dto/report-payments.dto';
@@ -29,6 +29,30 @@ const ROLE_LABEL: Record<string, string> = {
   STUDENT: 'Uczeń',
   PARENT: 'Rodzic',
 };
+
+/**
+ * Twardy limit wierszy raportu.
+ *
+ * `exceljs` buduje CAŁY skoroszyt w pamięci, a zapytania nie miały ani paginacji,
+ * ani wymaganego zakresu dat — `GET /reports/students` bez filtrów zaciągał
+ * wszystkich użytkowników naraz. Rola ADMIN jest zaufana, ale przejęta sesja
+ * albo pomyłka w skrypcie kładły proces. Lepiej zwrócić czytelny błąd
+ * z podpowiedzią, niż OOM-ować API w trakcie generowania.
+ */
+const MAX_REPORT_ROWS = 20_000;
+
+/**
+ * Pobieramy o jeden wiersz więcej niż limit: jeśli wrócił, wynik jest za duży.
+ * Sprawdzenie po `take` (a nie osobnym `count`) znaczy, że nadmiarowe dane
+ * nigdy nie trafiają do pamięci.
+ */
+function assertWithinLimit(rows: unknown[], what: string): void {
+  if (rows.length > MAX_REPORT_ROWS) {
+    throw new BadRequestException(
+      `Raport „${what}" przekracza ${MAX_REPORT_ROWS} wierszy — zaweź zakres dat lub filtry.`,
+    );
+  }
+}
 
 export interface GeneratedReport {
   workbook: Workbook;
@@ -66,7 +90,9 @@ export class ReportsService {
         },
       },
       orderBy: { dueDate: 'desc' },
+      take: MAX_REPORT_ROWS + 1,
     });
+    assertWithinLimit(payments, 'Płatności');
 
     const columns: ReportColumn[] = [
       { header: 'Uczeń', key: 'student', type: 'text' },
@@ -180,7 +206,9 @@ export class ReportsService {
         },
         class: { select: { group: { select: { name: true } } } },
       },
+      take: MAX_REPORT_ROWS + 1,
     });
+    assertWithinLimit(records, 'Frekwencja');
 
     type Entry = {
       firstName: string;
@@ -329,7 +357,9 @@ export class ReportsService {
         },
       },
       orderBy: { lastName: 'asc' },
+      take: MAX_REPORT_ROWS + 1,
     });
+    assertWithinLimit(users, 'Uczniowie');
 
     const columns: ReportColumn[] = [
       { header: 'Imię', key: 'firstName', type: 'text' },

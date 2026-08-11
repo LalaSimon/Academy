@@ -3,6 +3,7 @@ import type { Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { ThrottleReport } from '../../common/throttling/throttle.decorators';
 import { ReportsService, GeneratedReport } from './reports.service';
 import { ReportPaymentsDto } from './dto/report-payments.dto';
 import { ReportAttendanceDto } from './dto/report-attendance.dto';
@@ -11,8 +12,12 @@ import { ReportStudentsDto } from './dto/report-students.dto';
 const XLSX_MIME =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
+// Każdy raport buduje cały skoroszyt w pamięci. Rola ADMIN jest zaufana, ale
+// przejęta sesja albo pomyłka w pętli skryptu kładzie proces — limit na poziomie
+// kontrolera obejmuje wszystkie trzy trasy naraz.
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
+@ThrottleReport()
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}

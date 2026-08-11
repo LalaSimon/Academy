@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { MinioService } from './minio.service';
 import { CreateMaterialDto } from './dto/create-material.dto';
 import { MaterialQueryDto } from './dto/material-query.dto';
+import { isAllowedMime, safeExtension } from './upload.constraints';
 
 const MATERIAL_SELECT = {
   id: true,
@@ -100,7 +101,10 @@ export class MaterialsService {
     description: string | undefined,
     uploaderId: string,
   ) {
-    const ext = file.originalname.split('.').pop() ?? 'bin';
+    // Rozszerzenie z allowlisty, nie z `originalname` — nazwa pliku pochodzi od
+    // klienta i bywa `raport.pdf.html` albo `../../etc/passwd`, a poprzednie
+    // `split('.').pop()` przepuszczało jedno i drugie do klucza w MinIO.
+    const ext = safeExtension(file.mimetype, file.originalname);
     const key = `materials/${randomUUID()}.${ext}`;
     await this.minio.putObject(key, file.buffer, file.mimetype);
 
@@ -134,9 +138,16 @@ export class MaterialsService {
     const stat = await this.minio.statObject(m.fileKey);
     const stream = await this.minio.getObject(m.fileKey);
 
+    // Typ odsyłamy tylko wtedy, gdy jest na allowliście uploadu. Materiały
+    // wgrane PRZED jej wprowadzeniem mają w metadanych dowolny string podany
+    // przez wgrywającego — `text/html` z takiego pliku wykonałby się w
+    // przeglądarce, gdyby kiedyś zniknął `Content-Disposition: attachment`.
+    // `application/octet-stream` jest zawsze bezpieczny.
+    const declared = stat.metaData?.['content-type'] as string | undefined;
     const contentType =
-      (stat.metaData?.['content-type'] as string | undefined) ??
-      'application/octet-stream';
+      declared && isAllowedMime(declared)
+        ? declared
+        : 'application/octet-stream';
     const ext = m.fileKey.split('.').pop() ?? 'bin';
     const filename = encodeURIComponent(`${m.title}.${ext}`);
 

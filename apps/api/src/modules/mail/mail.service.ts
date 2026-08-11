@@ -18,7 +18,10 @@ export class MailService {
   private readonly logger = new Logger(MailService.name);
 
   constructor(private config: ConfigService) {
-    this.resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
+    // `getOrThrow` — brak klucza ma zatrzymać start, a nie dać aplikację,
+    // która wstaje i dopiero przy pierwszym mailu okazuje się niema. Ten sam
+    // wzorzec co JWT_SECRET i STRIPE_WEBHOOK_SECRET (reguła nr 4).
+    this.resend = new Resend(this.config.getOrThrow<string>('RESEND_API_KEY'));
     this.from = this.config.get<string>(
       'MAIL_FROM',
       'Academy <noreply@academy.pl>',
