@@ -10,9 +10,14 @@
 
 ## Endpointy
 
-> Lista odzwierciedla trasy zarejestrowane przez NestJS (stan 2026-08-02).
+> Lista odzwierciedla trasy zarejestrowane przez NestJS (stan 2026-08-11).
 > Role w nawiasach to `@Roles()`; **poza rolą** większość endpointów sprawdza
 > dodatkowo, **czyj jest zasób** — patrz „Kontrola dostępu" niżej.
+>
+> **Limity żądań obowiązują na KAŻDEJ trasie** (globalny `ThrottlerGuard` od 5.11),
+> nie tylko tam, gdzie podano wartość. Domyślnie 120/min na tożsamość i trasę oraz
+> 600/min na adres IP dla całego serwisu. Wartości podane niżej to zaostrzenia.
+> Konfiguracja: `apps/api/src/common/throttling/throttle.config.ts`.
 
 ### Auth
 ```
@@ -75,7 +80,7 @@ aktualizują wydarzenie w kalendarzu — patrz [GOOGLE_MEET.md](../GOOGLE_MEET.m
 ```
 GET    /api/v1/attendance?classId=        → lista obecności zajęć   [ADMIN, TEACHER — własne zajęcia]
 PATCH  /api/v1/attendance/bulk            → zapis całej listy       [ADMIN, TEACHER — własne zajęcia]
-GET    /api/v1/attendance/student/:studentId?from=&to=  → statystyki ucznia
+GET    /api/v1/attendance/student/:studentId?from=&to=  → statystyki ucznia [self / dziecko / uczeń nauczyciela]
                                             [ADMIN, TEACHER, STUDENT, PARENT — self/dziecko]
 ```
 
@@ -86,11 +91,11 @@ GET    /api/v1/materials                  → biblioteka (type, search, classId)
 GET    /api/v1/materials/by-classes?classIds=a,b,c  → materiały wielu lekcji JEDNYM zapytaniem
                                             [wszyscy — lista przecinana z dostępnymi zajęciami]
 GET    /api/v1/materials/:id              → metadane            [ADMIN, TEACHER, STUDENT]
-GET    /api/v1/materials/:id/file         → pobranie pliku (stream przez API)
+GET    /api/v1/materials/:id/file         → pobranie pliku (stream przez API) [limit 60/min]
 GET    /api/v1/materials/class/:classId   → materiały zajęć     [ADMIN, TEACHER, STUDENT]
 GET    /api/v1/materials/group/:groupId   → materiały grupy     [ADMIN, TEACHER, STUDENT, PARENT]
 POST   /api/v1/materials                  → dodanie linku       [ADMIN, TEACHER]
-POST   /api/v1/materials/upload           → upload pliku (multipart, max 50 MB) [ADMIN, TEACHER]
+POST   /api/v1/materials/upload           → upload pliku (multipart, max 50 MB, allowlista MIME) [ADMIN, TEACHER, limit 10/min]
 POST   /api/v1/materials/:id/classes/:classId    → przypięcie do zajęć  [ADMIN, TEACHER]
 DELETE /api/v1/materials/:id/classes/:classId    → odpięcie             [ADMIN, TEACHER]
 POST   /api/v1/materials/:id/groups/:groupId     → przypięcie do grupy  [ADMIN, TEACHER]
@@ -111,7 +116,7 @@ GET    /api/v1/payments/:id               → szczegóły    [ADMIN, STUDENT, PA
 PATCH  /api/v1/payments/:id               → aktualizacja [ADMIN]
 PATCH  /api/v1/payments/:id/status        → ręczna zmiana statusu  [ADMIN]
 DELETE /api/v1/payments/:id               → usunięcie    [ADMIN]
-POST   /api/v1/payments/:id/checkout      → sesja Stripe Checkout  [ADMIN, STUDENT, PARENT]
+POST   /api/v1/payments/:id/checkout      → sesja Stripe Checkout  [ADMIN, STUDENT, PARENT, limit 5/min]
 POST   /api/v1/payments/webhook/stripe    → webhook (publiczny, weryfikowany podpisem)
 ```
 
@@ -128,9 +133,9 @@ PATCH  /api/v1/notifications/read-all     → oznacz wszystkie
 
 ### Reports
 ```
-GET    /api/v1/reports/payments?status=&groupId=&from=&to=   → XLSX  [ADMIN]
-GET    /api/v1/reports/attendance?groupId=&from=&to=         → XLSX  [ADMIN]
-GET    /api/v1/reports/students?role=&isMinor=&search=       → XLSX  [ADMIN]
+GET    /api/v1/reports/payments?status=&groupId=&from=&to=   → XLSX  [ADMIN, limit 5/min, max 20k wierszy]
+GET    /api/v1/reports/attendance?groupId=&from=&to=         → XLSX  [ADMIN, limit 5/min, max 20k wierszy]
+GET    /api/v1/reports/students?role=&isMinor=&search=       → XLSX  [ADMIN, limit 5/min, max 20k wierszy]
 ```
 
 ## Kontrola dostępu
@@ -142,6 +147,11 @@ rodzic dane swoich dzieci, nauczyciel prowadzone przez siebie zajęcia i grupy.
 Parametry filtrowania przysłane przez klienta (np. `teacherId`) są **nadpisywane**
 wartością z tokenu — nie da się ich użyć do podejrzenia cudzych danych.
 
+Odczyt i zapis mają **osobne** progi tam, gdzie różnią się konsekwencjami:
+`assertCanReadMaterial` przepuszcza każdego ucznia grupy, do której materiał jest
+przypięty, ale zmienić (skasować, przypiąć, odpiąć) może go wyłącznie autor wgrania
+albo admin — `assertCanModifyMaterial`.
+
 Szczegóły: [ARCHITECTURE.md](../ARCHITECTURE.md#kontrola-dostępu--accesscontrolservice).
 
 ## Kody błędów
@@ -150,7 +160,9 @@ Szczegóły: [ARCHITECTURE.md](../ARCHITECTURE.md#kontrola-dostępu--accesscontr
 |-----|-----------|
 | 400 | Błędne dane wejściowe |
 | 401 | Brak lub nieprawidłowy token |
-| 403 | Brak uprawnień (rola) |
+| 403 | Brak uprawnień (rola **albo cudzy zasób**) |
+| 413 / 422 | Plik za duży albo typ spoza allowlisty (upload) |
+| 429 | Przekroczony limit żądań |
 | 404 | Zasób nie istnieje |
 | 409 | Konflikt (np. uczeń już w grupie) |
 | 422 | Błąd walidacji biznesowej |

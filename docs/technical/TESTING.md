@@ -4,11 +4,11 @@
 
 | Poziom | Narzędzie | Liczba | Komenda | We flow | W CI |
 |--------|-----------|--------|---------|---------|------|
-| Backend (unit) | Jest | 207 | `cd apps/api && npm test` | ✅ | ✅ |
+| Backend (unit) | Jest | 247 | `cd apps/api && npm test` | ✅ | ✅ |
 | Backend (integracyjne) | Jest + Postgres | 45 | `cd apps/api && npm run test:e2e` | ❌ (Docker) | ✅ |
 | Frontend (unit) | Vitest + Testing Library | 86 | `cd apps/web && npm test` | ✅ | ✅ |
-| E2E | Playwright | 42 | `npx playwright test` | ❌ (Docker) | ✅ |
-| **Razem** | | **380** | | | ✅ |
+| E2E | Playwright | 48 | `npx playwright test` | ❌ (Docker) | ✅ |
+| **Razem** | | **426** | | | ✅ |
 
 **Testy integracyjne** mają osobny config (`test/jest-e2e.json`) i nie wchodzą
 w skład `npm test`. Wymagają `docker compose -f docker-compose.test.yml up -d`
@@ -33,7 +33,7 @@ Produkcja tych zmiennych nie ustawia.
 
 ```
         /\
-       /e2e\          ← 42 testy, Playwright, krytyczne ścieżki
+       /e2e\          ← 48 testów, Playwright, krytyczne ścieżki
       /──────\
      / integr.\       ← 45 testów, Jest + realny Postgres
     /──────────\
