@@ -2,6 +2,11 @@
 
 Monorepo aplikacji webowej do zarządzania prywatną szkołą językową online. Obejmuje panel administracyjny, portal nauczyciela, portal ucznia, portal rodzica oraz publiczny landing page.
 
+> **Status: funkcjonalnie gotowa, nieopublikowana.** Fazy 1–5 zamknięte (36 stron,
+> 70 tras API, 426 testów). Do uruchomienia produkcyjnego brakuje obrazów Docker,
+> stron prawnych i infrastruktury — pełna lista w [ROADMAP, Faza 6](docs/ROADMAP.md#faza-6--publikacja),
+> analiza hostingu w [DEPLOYMENT.md](docs/technical/DEPLOYMENT.md).
+
 ## Stack
 
 | Warstwa | Technologia |
@@ -53,7 +58,7 @@ Academy/
 │   ├── ROADMAP.md    # Plan faz + status ukończenia
 │   ├── ARCHITECTURE.md
 │   ├── features/     # Specyfikacja per-feature
-│   └── technical/    # API, DATABASE, DOCKER, TESTING
+│   └── technical/    # API, DATABASE, DOCKER, TESTING, DEPLOYMENT, audyty
 └── docker-compose.yml
 ```
 
@@ -65,6 +70,8 @@ Academy/
 - **[API Reference](docs/technical/API.md)** — wszystkie endpointy REST
 - **[Schemat bazy](docs/technical/DATABASE.md)** — modele Prisma, relacje
 - **[Docker](docs/technical/DOCKER.md)** — konfiguracja środowisk
+- **[Wdrożenie](docs/technical/DEPLOYMENT.md)** — analiza hostingu, dostawcy, koszty, backupy
+- **[Audyt bezpieczeństwa 2026-08-11](docs/technical/SECURITY-AUDIT-2026-08-11.md)** — limity żądań, koszty nadużyć, kontrola dostępu
 - **[Testowanie](docs/technical/TESTING.md)** — strategia, konfiguracja, pokrycie
 - **[Backend README](apps/api/README.md)** — moduły NestJS, uruchamianie
 - **[Frontend README](apps/web/README.md)** — komponenty, hooki, routing

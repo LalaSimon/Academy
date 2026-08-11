@@ -534,6 +534,74 @@ Dwie pozycje odnotowane przy porządkowaniu dokumentacji, obie rozstrzygnięte d
 
 **Dlaczego to nie był tylko porządek:** martwy kod aktywnie wprowadzał w błąd. Przy integracji Meet (5.7) pokryłem ścieżkę `bulk` — martwą — a **pominąłem generowanie z harmonogramu**, czyli tę faktycznie używaną. Usunięcie zmniejsza liczbę miejsc tworzących zajęcia z czterech do trzech.
 
+### 5.11 — Audyt: limity żądań, koszty nadużyć, kontrola dostępu ✅
+
+Pełny raport: `docs/technical/SECURITY-AUDIT-2026-08-11.md` (16 ustaleń).
+
+Audyt pytał nie „czy da się to zrobić", tylko **„co się stanie, jeśli ktoś zrobi to
+10 000 razy na minutę"** — bo rejestracja jest otwarta, więc konto STUDENT dzieli od
+anonima jeden formularz. Punkt wyjścia: 5.5 zamknęła rate limiting na auth, ale
+**tylko na auth**.
+
+**Limity żądań (P0–P1):**
+- [x] `ThrottlerGuard` **globalnie** — limit miał 5 tras ze 172, więc streaming plików,
+      raporty XLSX i tworzenie sesji Stripe przyjmowały nieograniczoną liczbę żądań
+- [x] Dwie warstwy: sufit per IP na cały serwis + warstwa robocza per **tożsamość** i
+      trasa. Kubełkowanie po skrócie tokenu, nie po IP — szkoła siedzi za jednym NAT-em,
+      więc limit per IP dawałby jednemu uczniowi możliwość odcięcia całej klasy
+- [x] **Naprawiony cichy błąd konfiguracji z 5.5:** `@Throttle({ auth: {} })` nadpisywał
+      tylko warstwę `auth`, a `mail` (3/min) obowiązywała wszystkie trasy — logowanie było
+      realnie ścinane do 3/min zamiast deklarowanych 10. Niewidoczne w dev, bo compose
+      podnosi oba limity do 1000. Dlatego zaostrzenia nadpisują teraz **jedną** warstwę
+- [x] Osobne limity: upload, download (egress!), raport, checkout Stripe
+- [x] `TRUST_PROXY_HOPS` — liczba warstw proxy, nigdy `true` (`true` pozwala klientowi
+      podmienić `X-Forwarded-For` i obejść limity jednym nagłówkiem)
+- [x] Limit wysyłki **per adres odbiorcy** obok limitu per IP — ten drugi nie hamuje
+      zalewania jednej skrzynki z puli adresów
+
+**Wyczerpanie zasobów (P0–P1):**
+- [x] **Multer dostał `limits.fileSize`** — `MaxFileSizeValidator` sprawdzał rozmiar
+      *po* zbuforowaniu całego ciała w RAM, więc deklarowane 50 MB nie chroniło przed
+      żądaniem 5 GB. Najgroźniejsze pojedyncze ustalenie audytu
+- [x] Allowlista MIME + rozszerzenie klucza w MinIO z allowlisty, nie z `originalname`
+      (`raport.pdf.html`, `../../etc/passwd`). `Content-Type` przy pobieraniu też przez
+      allowlistę. `image/svg+xml` celowo poza nią
+- [x] `@Max` na `ClassQueryDto.limit` — brakowało, więc `?limit=1000000` szło prosto do
+      `take`. Sufit **200**, nie 100 jak w pozostałych listach: kalendarz pobiera miesiąc
+      naraz i przy setce gubił połowę siatki (wyszło dopiero w E2E)
+- [x] Twardy limit wierszy raportów XLSX zamiast OOM; jawne limity body parsera
+- [x] Cron kasujący wygasłe refresh tokeny — tabela rosła w nieskończoność
+
+**Kontrola dostępu (P2)** — ten sam wzorzec, który wypleniały 5.2–5.3, pominięty w sześciu miejscach:
+- [x] Pięć tras materiałów sprawdzało tylko rolę: nauczyciel mógł **skasować cudzy
+      materiał** i **przypiąć dowolny materiał do dowolnej grupy w szkole**, czyli
+      opublikować go uczniom, których nie uczy. Nowa metoda `assertCanModifyMaterial`
+- [x] `GET /attendance/student/:id` **nie sprawdzał roli TEACHER w ogóle** — dowolny
+      nauczyciel czytał frekwencję dowolnego ucznia. Nowa metoda `assertCanReadStudent`
+
+**Hardening auth (P3):**
+- [x] Wyrównanie czasu logowania haszem-atrapą — brak konta odpowiadał natychmiast,
+      istniejące po ~50–100 ms argon2; różnica zdradzała, które adresy są prawdziwe
+- [x] Blokada konta po serii nieudanych prób (10, blokada rosnąca 1/5/15/60 min) —
+      limit per IP nie hamuje zgadywania rozłożonego po wielu adresach
+- [x] **Refresh tokeny i tokeny resetu haszowane** (SHA-256). Wyciek bazy przestaje
+      oddawać gotowe sesje na 7 dni i możliwość zmiany cudzego hasła.
+      ⚠ Migracja `add_login_lockout_and_token_hashing` **kasuje istniejące tokeny** —
+      przy wdrożeniu wszyscy muszą zalogować się ponownie
+
+**Konfiguracja (P4):**
+- [x] `getOrThrow` dla sekretów MinIO i Resend — `config.get('MINIO_ACCESS_KEY',
+      'minioadmin')` to ten sam fail-open co `?? ''` z reguły nr 4 w `CLAUDE.md`:
+      wdrożenie bez zmiennych **wstawało** i po cichu łączyło się znanym hasłem
+
+- [x] +34 testy jednostkowe, +6 E2E; zweryfikowane realnymi żądaniami (403/200, brak
+      surowych tokenów w bazie, blokada konta, odrzucenie `text/html` i `image/svg+xml`)
+
+**Co audyt sprawdził i nie zgłosił:** frontend nie trzyma tokenu w `localStorage`
+(`partialize` zapisuje tylko `user`), zero `dangerouslySetInnerHTML`, webhook Stripe
+weryfikuje podpis poprawnie, brak surowego SQL (zero wektora SQLi), logi używają `id`
+zamiast e-maila.
+
 ### Pozostałe rozszerzenia (przyszłość)
 
 - [ ] Zadania domowe (upload, ocenianie)
@@ -547,18 +615,30 @@ Dwie pozycje odnotowane przy porządkowaniu dokumentacji, obie rozstrzygnięte d
 
 ## ▶ Co robimy teraz?
 
-**Fazy 1–5 zamknięte** (stan 2026-08-02). Wszystkie trzy role produktowe mają pełne UI, kontrola dostępu przeszła systematyczny audyt, aplikacja jest utwardzona pod produkcję, a zajęcia dostają automatyczne linki Google Meet z pełnym cyklem życia wydarzeń.
+**Fazy 1–5 zamknięte** (stan 2026-08-11). Wszystkie cztery role mają pełne UI (36 stron,
+70 tras API), kontrola dostępu przeszła trzy audyty, limity żądań są globalne, a zajęcia
+dostają automatyczne linki Google Meet z pełnym cyklem życia wydarzeń.
 
-**Publikacja NIE jest jeszcze planowana** — przed nami kolejny etap developmentu. Przygotowania wdrożeniowe robimy zawczasu, żeby sam deploy był formalnością (patrz „Przygotowanie do produkcji" niżej).
+**Aplikacja jest funkcjonalnie gotowa. Do publikacji nie jest.** Różnica leży poza
+kodem funkcji: brakuje obrazów produkcyjnych, stron prawnych i infrastruktury —
+patrz **Faza 6** niżej. Pełna analiza hostingu: `docs/technical/DEPLOYMENT.md`.
 
-**Zamknięte w Fazie 5:** portal nauczyciela (5.1, 5.6), kontrola dostępu i audyt bezpieczeństwa (5.2–5.5), Google Meet z pełnym cyklem życia (5.7–5.8), widok „Dzisiaj" na dashboardach (5.9).
+**Zamknięte w Fazie 5:** portal nauczyciela (5.1, 5.6), kontrola dostępu i audyty bezpieczeństwa (5.2–5.5, 5.11), Google Meet z pełnym cyklem życia (5.7–5.8), widok „Dzisiaj" na dashboardach (5.9), usunięcie martwego kodu (5.10).
 
-**Następne do wyboru — produkt:**
-1. **Zadania domowe** (upload + ocenianie) — pierwszy naprawdę nowy obszar produktowy; naturalne rozwinięcie materiałów i portalu nauczyciela
-2. **Tracking postępów ucznia**
-3. **Czat wewnętrzny** (nauczyciel ↔ uczeń)
+**Rekomendowana kolejność:**
 
-**Następne do wyboru — jakość:**
+1. **Faza 6.1 + 6.2** — blokery prawne i techniczne. Bez nich nie da się opublikować,
+   a 6.1 blokuje dodatkowo włączenie trybu live w Stripe
+2. **Faza 6.3** — backupy. Jedyna pozycja, której zaniedbanie kończy działalność
+3. **Faza 6.5** — braki widoczne dla pierwszego użytkownika (zmiana hasła, 404, rodzeństwo)
+4. Reszta Fazy 6 równolegle
+
+**Odłożone do czasu publikacji — produkt:** zadania domowe (upload + ocenianie),
+tracking postępów ucznia, czat wewnętrzny. Wszystkie trzy są rozsądnym kierunkiem,
+ale dokładanie funkcji do aplikacji, której nikt nie używa, nie przybliża jej do
+użytkowników.
+
+**Odłożone — jakość:**
 - Testy jednostkowe paneli bez pokrycia: grupy, materiały, użytkownicy, dashboardy admina (dziś 86 testów w 8 plikach — `pages/auth`, `PaymentsPage`, `TeacherClassesPage`, `TeacherGroupDetailPage`, `TodaySchedule`, `ParentSetupPage`)
 - Migracja `react-router` v7 → v8 — zamknęłaby 2 z 3 pozostałych alertów Dependabota. **Nadal odradzana**: major z realną pracą na routingu, a podatność dotyczy trybu RSC, którego to SPA nie używa
 
@@ -567,52 +647,180 @@ Dwie pozycje odnotowane przy porządkowaniu dokumentacji, obie rozstrzygnięte d
 
 ---
 
-## Przygotowanie do produkcji
+## Faza 6 — Publikacja
 
-Stan na 2026-08-02. Publikacja nieplanowana — lista istnieje po to, żeby wdrożenie było mechaniczne, gdy przyjdzie moment.
+> Stan na 2026-08-11. **To jest lista rzeczy dzielących działającą aplikację od
+> działającej usługi.** Nie ma tu nowych funkcji produktowych — wszystko poniżej to
+> warunek tego, żeby ktokolwiek z zewnątrz mógł z tego korzystać legalnie i bezpiecznie.
+>
+> Analiza hostingu z uzasadnieniem wyborów: `docs/technical/DEPLOYMENT.md`.
 
-### Zrobione
+**Kolejność ma znaczenie.** 6.1 to blokery prawne — bez nich publikacja jest
+niedopuszczalna, a Stripe i tak nie włączy trybu live. 6.2 to blokery techniczne —
+bez nich nie ma czego wdrożyć. Reszta może iść równolegle.
 
-- [x] Rate limiting na endpointach auth (5.5)
-- [x] Brak domyślnych haseł w `docker-compose.yml` — compose odmawia startu bez konfiguracji (5.5)
-- [x] Nagłówki bezpieczeństwa (helmet), e-maile poza logami (5.5)
-- [x] Sekrety przez `getOrThrow` — aplikacja nie wstanie z pustym kluczem (5.4)
-- [x] Kontrola dostępu na wszystkich endpointach nie-admin, z regresją w E2E (5.2–5.3)
-- [x] Ochrona `main` + secret scanning + Dependabot (Faza 0)
+### 6.1 — Blokery prawne 🔴
 
-### Do zrobienia przed pierwszym wdrożeniem
+Aplikacja przetwarza dane osobowe **małoletnich** i przyjmuje płatności. To nie jest
+obszar, w którym „później się doda" jest opcją.
 
-- [ ] **Usunąć Redis** — stoi w `docker-compose.yml` i `.env`, ale w kodzie API **nie ma ani jednego odwołania**. Martwa zależność: zbędny RAM, kolejny kontener do aktualizowania
-- [ ] **`docker-compose.prod.yml`** — bez mapowania `5432`/`9000`/`9001` na hosta (baza i storage nie mogą być publiczne), `restart: always`, bez volume mountów na `src/`
-- [ ] **Reverse proxy z TLS** (Caddy — automatyczny Let's Encrypt) przed API i web
-- [ ] **Webhook Stripe na produkcji** — dziś w compose działa `stripe listen --skip-verify` (tryb dev). Potrzebny endpoint zarejestrowany w dashboardzie Stripe i `STRIPE_WEBHOOK_SECRET` stamtąd
-- [ ] **Backup bazy + przetestowany restore** — `pg_dump` w cronie **systemowym** (nie w API) z wysyłką poza serwer. Backup, którego nie odtworzono, nie jest backupem. To największe ryzyko operacyjne całego wdrożenia
-- [ ] `FRONTEND_URL` i CORS na prawdziwą domenę
+- [ ] **Polityka prywatności** (RODO) — administrator danych, podstawa prawna, zakres,
+      okres retencji, prawa osoby, odbiorcy (Stripe, Resend, Google, hosting)
+- [ ] **Regulamin świadczenia usług** — ustawa o świadczeniu usług drogą elektroniczną
+      + prawa konsumenta (odstąpienie, reklamacje, zasady płatności i odwoływania zajęć)
+- [ ] **Strony `/polityka-prywatnosci` i `/regulamin`** — dziś stopka landing page ma
+      **martwe linki `href="#"`**. Stripe wymaga obu pod publicznym adresem przed
+      włączeniem trybu live
+- [ ] **Zgoda rodzica dla dzieci poniżej 16 lat** (RODO art. 8) — model ma `isMinor` i
+      powiązanie z rodzicem, ale nigdzie nie zbiera ani nie odnotowuje samej zgody
+- [ ] **Umowy powierzenia przetwarzania (DPA)** — Stripe, Resend, Google, dostawca
+      hostingu. Wszystkie udostępniają je standardowo; trzeba je zaakceptować i zarchiwizować
+- [ ] **Rejestr czynności przetwarzania** (RODO art. 30)
+- [ ] **Prawo do usunięcia danych** — dziś konto usuwa wyłącznie admin przez panel;
+      brak ścieżki dla użytkownika i brak eksportu własnych danych (art. 15 i 17)
+- [ ] **Dane identyfikacyjne firmy w stopce** — nazwa, adres, NIP, kontakt (obowiązek
+      informacyjny). Dziś `kontakt@academy.pl` i `+48 123 456 789` to **placeholdery**
+- [ ] **Usunąć nieprawdziwe dane z landing page** — „500+ uczniów", „4 lata",
+      „97% poleca" oraz trzy zmyślone opinie z awatarami. Dla szkoły, która nie
+      zaczęła działać, to wprowadzanie w błąd (UOKiK), a nie copywriting
+- [ ] **Cookie/consent** — dziś aplikacja używa wyłącznie `localStorage` na motyw i
+      dane usera oraz cookie `httpOnly` na sesję, czyli technicznie niezbędnych (bez
+      banera). Jeśli dojdzie analityka — baner staje się obowiązkowy
+
+### 6.2 — Blokery techniczne 🔴
+
+Zweryfikowane w kodzie 2026-08-11 — **żadna z tych rzeczy nie istnieje w repo**.
+
+- [ ] **`apps/api/Dockerfile` produkcyjny** — dziś jest tylko `Dockerfile.dev`
+      (`npm install` + tryb watch). Potrzebny wieloetapowy: build → `node:24-alpine`
+      z `dist` i zależnościami produkcyjnymi, `npx prisma migrate deploy` przy starcie
+- [ ] **`apps/web/Dockerfile` produkcyjny** — build Vite → statyczne pliki serwowane
+      przez Caddy (nie przez `vite dev`, jak dziś)
+- [ ] **`.dockerignore`** — bez niego `node_modules` i `.env` lądują w kontekście builda
+- [ ] **`docker-compose.prod.yml`** — bez mapowania `5432`/`9000`/`9001` na hosta
+      (dziś baza i storage byłyby **publicznie dostępne**), `restart: always`, bez
+      volume mountów na `src/`
+- [ ] **`Caddyfile` + reverse proxy z TLS** — automatyczny Let's Encrypt, jedyny
+      kontener z portami 80/443
+- [ ] **Health check** (`GET /health`) — nie istnieje; potrzebny dla `restart` policy,
+      monitoringu i deploy-gate
+- [ ] **Skrypt tworzący pierwszego admina** — dziś **nie ma żadnej ścieżki** założenia
+      konta admina na świeżej bazie (`e2e/helpers/seed.js` to fixture testowy).
+      Rejestracja publiczna tworzy wyłącznie STUDENT/PARENT
+- [ ] **Usunąć Redis** — stoi w `docker-compose.yml` i `.env`, w kodzie **zero odwołań**
+- [ ] **Sekrety produkcyjne** — wygenerować `JWT_SECRET`/`JWT_REFRESH_SECRET` (długie,
+      losowe, **inne niż dev**), hasła bazy i storage; zdecydować gdzie mieszkają
+- [ ] **Domena + DNS** — rekord A na VPS, `FRONTEND_URL` i CORS na prawdziwą domenę
+- [ ] **`TRUST_PROXY_HOPS`** — ustawić na liczbę warstw proxy. Bez tego (dodane w 5.11)
+      limity liczą się po adresie proxy, czyli pierwszy user wyczerpujący limit
+      zablokuje wszystkich
+
+### 6.3 — Backup i odtwarzanie 🔴
+
+> Backup, którego nie odtworzono, nie jest backupem. To największe ryzyko operacyjne
+> całego wdrożenia — większe niż jakakolwiek podatność z audytów.
+
+- [ ] `pg_dump` w cronie **systemowym** (nie w API), codziennie, z kompresją
+- [ ] Wysyłka **poza serwer** (B2/R2), szyfrowana, retencja 7 dziennych + 4 tygodniowe
+- [ ] **Backup bucketu z plikami** — sama baza nie wystarcza; materiały to osobny zasób
+- [ ] **Przećwiczone odtworzenie na czystej bazie** — i wpisany w kalendarz test
+      comiesięczny
+- [ ] Procedura odtworzenia spisana krok po kroku (do wykonania pod presją, nie z pamięci)
+
+### 6.4 — Usługi zewnętrzne w trybie produkcyjnym 🟡
+
+- [ ] **Stripe live** — weryfikacja konta firmowego (KYC), numer konta, klucze live.
+      Wymaga ukończonego 6.1 (regulamin + polityka pod publicznym adresem)
+- [ ] **Webhook Stripe na produkcji** — endpoint zarejestrowany w dashboardzie i
+      `STRIPE_WEBHOOK_SECRET` stamtąd. Dzisiejszy `stripe listen --skip-verify`
+      w compose to tryb dev i **nie może** trafić na produkcję
+- [ ] **Faktury / paragony** — polski przedsiębiorca ma obowiązek udokumentować
+      sprzedaż. Do rozstrzygnięcia: Stripe Invoicing, integracja z systemem księgowym,
+      czy wystawianie ręczne. **Dziś aplikacja nie generuje żadnego dokumentu sprzedaży**
+- [ ] **Resend** — własna domena zweryfikowana + **SPF, DKIM, DMARC** w DNS. Bez tego
+      maile o resecie hasła i danych logowania dziecka trafią do spamu, czyli
+      użytkownik nie wejdzie do aplikacji
+- [ ] **Google Calendar** — credentials produkcyjne, ekran zgody OAuth zweryfikowany
+      przez Google (dziś działa na testowych)
+- [ ] **Migracja plików z MinIO na S3** (B2/R2) — jednowęzłowe MinIO dzieli domenę
+      awarii z całą resztą: pada VPS, znikają materiały. `MinioService` jest
+      S3-kompatybilny, więc to zmiana zmiennych — ⚠ wymaga weryfikacji na żywo
+
+### 6.5 — Braki aplikacji blokujące realne użycie 🟡
+
+Wyszły przy audycie 2026-08-11 — funkcje, których brak zauważy pierwszy prawdziwy użytkownik.
+
+- [ ] **Zmiana hasła przez zalogowanego użytkownika** — **nie istnieje**. Jedyna droga
+      to „zapomniałem hasła" i mail. Dla dziecka z loginem `@academy.pl` (nie skrzynka)
+      oznacza to, że hasło zmienia wyłącznie rodzic przez reset
+- [ ] **Edycja własnego profilu** (imię, nazwisko, telefon) — brak; wszystko przez admina
+- [ ] **Strona 404** — dziś `path="*"` przerzuca na `/login`, więc zalogowany użytkownik
+      po literówce w URL-u zostaje wyrzucony z aplikacji
+- [ ] **ErrorBoundary** — brak; wyjątek w renderze daje białą stronę bez komunikatu
+- [ ] **Rodzeństwo** — `setup-child` dopuszcza **jedno dziecko na rodzica**
+      (`CHILD_ALREADY_SET`). Rodzic dwójki dzieci nie założy drugiego konta
+- [ ] `AnimatePresence` bez `mode="wait"` w `AdminLayout`, `StudentLayout`,
+      `ParentLayout` — przez moment renderują się dwie kopie strony. Naprawione tylko
+      w `TeacherLayout` (5.1), reszta odnotowana i nietknięta
+
+### 6.6 — Obserwowalność 🟡
+
+Dziś jedyne źródło wiedzy o produkcji to `docker logs`. Przy awarii w nocy to za mało.
+
+- [ ] **Error tracking** (Sentry albo odpowiednik) — dziś zero bibliotek do tego
+- [ ] **Monitoring dostępności** — zewnętrzny ping na `/health` z alertem
+- [ ] **Alert o niepowodzeniu backupu** — cichy backup, który przestał działać, jest
+      gorszy niż jego brak, bo daje fałszywe poczucie bezpieczeństwa
+- [ ] **Rotacja i retencja logów** — inaczej dysk VPS-a zapełni się access-logiem
+- [ ] Rozważyć structured logging (pino) zamiast domyślnego loggera Nesta
+
+### 6.7 — Proces wdrożeniowy 🟢
+
+- [ ] **Pipeline deploy** — dziś jest tylko `ci.yml` (lint/test/build). Brak czegokolwiek,
+      co wypycha kod na serwer
 - [ ] Sekrety w GitHub Actions (jeśli deploy ma iść z CI)
+- [ ] **Środowisko staging** — albo świadoma decyzja, że wdrażamy prosto na produkcję
+      (przy jednoosobowej szkole to obronne, ale ma być decyzją, nie przeoczeniem)
+- [ ] Procedura rollbacku — jak cofnąć nieudane wdrożenie **wraz z migracją bazy**
+- [ ] **Smoke test po wdrożeniu** — logowanie każdą rolą, utworzenie zajęć, płatność
+      testowa, wysyłka maila
 
-### ⚠ Ograniczenie architektoniczne: crony blokują skalowanie poziome
+### 6.8 — Do rozstrzygnięcia przed startem 🟢
 
-Cztery `@Cron` działają **wewnątrz procesu API** (`payments.service`: `markOverdue`, cykl miesięczny; `notifications.service`: przypomnienia o zajęciach co 5 min i o płatnościach dziennie).
+Pytania, na które trzeba odpowiedzieć świadomie — nie mają jednej poprawnej odpowiedzi:
 
-**API musi działać w dokładnie jednej instancji.** Druga instancja = uczniowie dostają maile i powiadomienia po dwa razy. Awaria trudna do zdiagnozowania, bo objawia się u użytkowników, nie w logach.
+- [ ] **Postgres w kontenerze czy managed?** Kontener jest darmowy, managed zdejmuje
+      największe ryzyko solo-deploymentu (~€30–70/mies.). Analiza w `DEPLOYMENT.md`
+- [ ] **Kto odpowiada za dane, gdy właściciel jest na urlopie?** Jednoosobowa
+      administracja to pojedynczy punkt awarii również organizacyjny
+- [ ] **Co się dzieje z danymi ucznia po zakończeniu nauki?** Retencja musi być
+      zapisana w polityce prywatności, a najlepiej wymuszona w kodzie
+- [ ] **Skalowanie** — cztery `@Cron` działają wewnątrz procesu API, więc **API musi
+      działać w dokładnie jednej instancji**. Druga = podwójne maile i powiadomienia.
+      Wyjście: wydzielić crony do workera albo blokada rozproszona (wtedy Redis, dziś
+      nieużywany, nabrałby sensu)
 
-Jeśli kiedyś potrzebne będzie skalowanie: wydzielić crony do osobnego procesu (worker) albo wprowadzić blokadę rozproszoną — **wtedy** Redis, dziś nieużywany, nabrałby sensu.
+---
 
-### Rekomendowany kierunek wdrożenia
+### Zrobione wcześniej (nie wymaga powtórki)
 
-**VPS + Docker Compose** (Hetzner CX22 lub odpowiednik, ~5 EUR/mies.), Caddy z automatycznym TLS.
+- [x] Rate limiting — globalny, warstwowy, z osobnymi limitami dla operacji drogich (5.11)
+- [x] Odporność na wyczerpanie RAM przy uploadzie i zrzut tabel przez `limit` (5.11)
+- [x] Kontrola dostępu na wszystkich endpointach nie-admin, z regresją w E2E (5.2, 5.3, 5.11)
+- [x] Tokeny sesji i resetu haszowane w bazie (5.11)
+- [x] Sekrety przez `getOrThrow` — aplikacja nie wstanie z pustym kluczem (5.4, 5.11)
+- [x] Brak domyślnych haseł w `docker-compose.yml` (5.5)
+- [x] Nagłówki bezpieczeństwa (helmet), e-maile poza logami (5.5)
+- [x] Ochrona `main` + secret scanning + Dependabot (Faza 0)
+---
 
-Uzasadnienie: obecny compose działa 1:1 bez przepisywania, jedna instancja jest stanem naturalnym (patrz crony wyżej), MinIO zostaje bez zmian w `MinioService`, koszt przewidywalny. PaaS (Railway/Render) wymagałby wymiany MinIO na S3/R2 i twardego pilnowania liczby instancji.
-
-Rozważyć **managed Postgres** (Neon, Supabase) zamiast kontenera — zdejmuje backupy, czyli największe ryzyko solo-deploymentu.
-
-## Stan testów (2026-08-02)
+## Stan testów (2026-08-11)
 
 | Zestaw | Liczba | Komenda | We flow | W CI |
 |---|---|---|---|---|
-| API — jednostkowe (15 suite'ów) | 207 | `cd apps/api && npm test` | ✅ | ✅ |
+| API — jednostkowe (18 suite'ów) | 247 | `cd apps/api && npm test` | ✅ | ✅ |
 | API — integracyjne (5 spec) | 45 | `cd apps/api && npm run test:e2e` | ❌ (Docker) | ✅ |
 | Web — jednostkowe (8 plików, Vitest) | 86 | `cd apps/web && npm test` | ✅ | ✅ |
-| E2E — Playwright (6 spec) | 42 | `npx playwright test` | ❌ (Docker) | ✅ |
+| E2E — Playwright (6 spec) | 48 | `npx playwright test` | ❌ (Docker) | ✅ |
 
-**Razem 380 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
+**Razem 426 testów, wszystkie w CI.** Testy integracyjne (`test/*.e2e-spec.ts`) mają osobny config i nie wchodzą w skład `npm test` — wymagają `docker compose -f docker-compose.test.yml up -d` (postgres na 5433, tmpfs) i migracji. Poza flow lokalnym trzymają je wyłącznie wymagania Dockera; w CI biegną przy każdym pushu.
