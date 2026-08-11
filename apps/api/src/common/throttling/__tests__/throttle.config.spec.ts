@@ -1,5 +1,9 @@
 import type { ExecutionContext } from '@nestjs/common';
-import { THROTTLE_LIMITS, throttlerTiers } from '../throttle.config';
+import {
+  THROTTLE_DEFAULTS,
+  THROTTLE_LIMITS,
+  throttlerTiers,
+} from '../throttle.config';
 
 /**
  * Warstwy limitów są konfiguracją, ale konfiguracją, której pomyłka jest cicha:
@@ -89,18 +93,43 @@ describe('throttle.config', () => {
     });
   });
 
-  describe('limity', () => {
+  // Asercje o RELACJACH między limitami muszą sięgać po `THROTTLE_DEFAULTS`,
+  // a nie `THROTTLE_LIMITS`: te drugie bywają nadpisane przez env i w CI wszystkie
+  // są podniesione do tej samej liczby, więc porównania straciłyby sens.
+  describe('wartości produkcyjne', () => {
     it('operacje drogie są ostrzejsze niż warstwa domyślna', () => {
-      expect(THROTTLE_LIMITS.mail).toBeLessThan(THROTTLE_LIMITS.default);
-      expect(THROTTLE_LIMITS.auth).toBeLessThan(THROTTLE_LIMITS.default);
-      expect(THROTTLE_LIMITS.upload).toBeLessThan(THROTTLE_LIMITS.default);
-      expect(THROTTLE_LIMITS.report).toBeLessThan(THROTTLE_LIMITS.default);
-      expect(THROTTLE_LIMITS.checkout).toBeLessThan(THROTTLE_LIMITS.default);
+      expect(THROTTLE_DEFAULTS.mail).toBeLessThan(THROTTLE_DEFAULTS.default);
+      expect(THROTTLE_DEFAULTS.auth).toBeLessThan(THROTTLE_DEFAULTS.default);
+      expect(THROTTLE_DEFAULTS.upload).toBeLessThan(THROTTLE_DEFAULTS.default);
+      expect(THROTTLE_DEFAULTS.report).toBeLessThan(THROTTLE_DEFAULTS.default);
+      expect(THROTTLE_DEFAULTS.checkout).toBeLessThan(
+        THROTTLE_DEFAULTS.default,
+      );
     });
 
     it('sufit IP jest luźniejszy niż warstwa per tożsamość', () => {
       // Inaczej sufit zadziałałby pierwszy i warstwa robocza nie miałaby znaczenia.
-      expect(THROTTLE_LIMITS.ip).toBeGreaterThan(THROTTLE_LIMITS.default);
+      expect(THROTTLE_DEFAULTS.ip).toBeGreaterThan(THROTTLE_DEFAULTS.default);
+    });
+
+    it('każdy limit ma dodatnią wartość', () => {
+      // Zero cicho zablokowałoby endpoint zamiast go chronić.
+      for (const value of Object.values(THROTTLE_DEFAULTS)) {
+        expect(value).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe('nadpisanie przez env', () => {
+    it('każdy limit ma odpowiadającą zmienną środowiskową', () => {
+      // Bez tego nowa warstwa dodana w przyszłości nie dałaby się podnieść
+      // w CI i cicho dławiłaby zestaw E2E.
+      for (const name of Object.keys(THROTTLE_DEFAULTS)) {
+        expect(THROTTLE_LIMITS).toHaveProperty(name);
+        expect(
+          typeof THROTTLE_LIMITS[name as keyof typeof THROTTLE_LIMITS],
+        ).toBe('number');
+      }
     });
   });
 });

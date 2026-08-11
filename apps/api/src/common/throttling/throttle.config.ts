@@ -45,27 +45,56 @@ function envLimit(name: string, fallback: number): number {
 }
 
 /**
- * Limity na minutę. Podniesione w dev i CI przez env, bo zestaw E2E wykonuje
- * setki żądań z jednego adresu w ciągu kilkudziesięciu sekund.
+ * Wartości PRODUKCYJNE, liczone na minutę.
+ *
+ * Trzymane osobno od `THROTTLE_LIMITS`, bo to one opisują faktyczną politykę
+ * bezpieczeństwa — `THROTTLE_LIMITS` bywa podmienione przez env w dev i CI, więc
+ * asercje o wzajemnych relacjach limitów muszą sięgać tutaj, a nie tam. (Test
+ * porównujący wartości po nadpisaniu przechodził lokalnie i wywracał się w CI,
+ * gdzie oba limity są podniesione do tej samej liczby.)
  */
-export const THROTTLE_LIMITS = {
+export const THROTTLE_DEFAULTS = {
   /** Sufit per IP, wspólny dla wszystkich tras. */
-  ip: envLimit('IP_THROTTLE_LIMIT', 600),
+  ip: 600,
   /** Warstwa robocza per tożsamość i trasa — wejście na dashboard to kilkanaście żądań. */
-  default: envLimit('GLOBAL_THROTTLE_LIMIT', 120),
+  default: 120,
   /** Logowanie, reset hasła — hamuje zgadywanie haseł i tokenów. */
-  auth: envLimit('AUTH_THROTTLE_LIMIT', 10),
+  auth: 10,
   /** Wszystko, co WYSYŁA MAILA — bez tego endpoint działa jak otwarty relay. */
-  mail: envLimit('MAIL_THROTTLE_LIMIT', 3),
+  mail: 3,
   /** Upload — zapełnienie bucketu to rachunek za storage rosnący w tempie łącza. */
-  upload: envLimit('UPLOAD_THROTTLE_LIMIT', 10),
+  upload: 10,
   /** Pobieranie plików — egress jest najdroższą pozycją rachunku. */
-  download: envLimit('DOWNLOAD_THROTTLE_LIMIT', 60),
+  download: 60,
   /** Raport XLSX budowany w całości w pamięci. Człowiek nie kliknie 5 razy na minutę. */
-  report: envLimit('REPORT_THROTTLE_LIMIT', 5),
+  report: 5,
   /** Każde wywołanie to request do API Stripe — pętla wyczerpuje ICH rate limit. */
-  checkout: envLimit('CHECKOUT_THROTTLE_LIMIT', 5),
+  checkout: 5,
 } as const;
+
+/** Zmienna środowiskowa nadpisująca każdy z limitów. */
+const THROTTLE_ENV_VAR: Record<keyof typeof THROTTLE_DEFAULTS, string> = {
+  ip: 'IP_THROTTLE_LIMIT',
+  default: 'GLOBAL_THROTTLE_LIMIT',
+  auth: 'AUTH_THROTTLE_LIMIT',
+  mail: 'MAIL_THROTTLE_LIMIT',
+  upload: 'UPLOAD_THROTTLE_LIMIT',
+  download: 'DOWNLOAD_THROTTLE_LIMIT',
+  report: 'REPORT_THROTTLE_LIMIT',
+  checkout: 'CHECKOUT_THROTTLE_LIMIT',
+};
+
+/**
+ * Limity faktycznie obowiązujące w tym procesie: produkcyjne, chyba że env mówi
+ * inaczej. Podnoszone w dev i CI, bo zestaw E2E wykonuje setki żądań z jednego
+ * adresu w ciągu kilkudziesięciu sekund.
+ */
+export const THROTTLE_LIMITS = Object.fromEntries(
+  Object.entries(THROTTLE_DEFAULTS).map(([key, fallback]) => [
+    key,
+    envLimit(THROTTLE_ENV_VAR[key as keyof typeof THROTTLE_DEFAULTS], fallback),
+  ]),
+) as Record<keyof typeof THROTTLE_DEFAULTS, number>;
 
 export const THROTTLE_TTL = MINUTE;
 
